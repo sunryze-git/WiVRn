@@ -62,6 +62,8 @@ struct configuration
 	bool hid_forwarding = false;
 	bool tcp_only = false;
 	bool quad_views = true;
+	bool discord_rich_presence = true;
+	std::string discord_application_id;
 	float video_pacing = 1.25f; // send-rate multiplier; zero disables pacing
 	int port = wyrm::default_port;
 	std::string hostname = wyrm::hostname();

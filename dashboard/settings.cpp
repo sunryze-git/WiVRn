@@ -125,6 +125,8 @@ void Settings::emitAllChanged()
 	lhMaxExtrapolationChanged();
 	lhStickDeadzoneChanged();
 	hidForwardingChanged();
+	discordRichPresenceChanged();
+	discordApplicationIdChanged();
 	portChanged();
 	hostnameChanged();
 }
@@ -384,6 +386,35 @@ void Settings::set_hidForwarding(const bool & value)
 	m_jsonSettings["hid-forwarding"] = value;
 	if (old != value)
 		hidForwardingChanged();
+}
+
+bool Settings::discordRichPresence() const
+{
+	auto it = m_jsonSettings.find("discord-rich-presence");
+	return it == m_jsonSettings.end() or not it->is_boolean() or it->get<bool>();
+}
+
+void Settings::set_discordRichPresence(const bool & value)
+{
+	auto old = discordRichPresence();
+	m_jsonSettings["discord-rich-presence"] = value;
+	if (old != value)
+		discordRichPresenceChanged();
+}
+
+QString Settings::discordApplicationId() const
+{
+	auto it = m_jsonSettings.find("discord-application-id");
+	return it != m_jsonSettings.end() and it->is_string() ? QString::fromStdString(it->get<std::string>()) : QString{};
+}
+
+void Settings::set_discordApplicationId(const QString & value)
+{
+	const auto id = value.trimmed();
+	auto old = discordApplicationId();
+	m_jsonSettings["discord-application-id"] = id.toStdString();
+	if (old != id)
+		discordApplicationIdChanged();
 }
 
 bool Settings::debugGui() const

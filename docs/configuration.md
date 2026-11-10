@@ -68,6 +68,37 @@ These changes address Wyrm's stale mode and pacing paths. They do not establish
 that all jitter reported in [#1173](https://github.com/WiVRn/WiVRn/issues/1173)
 is fixed; that still requires measurement on a Frame and its runtime.
 
+## Discord Rich Presence
+
+The PC server can show the connected headset, active OpenXR application, and
+elapsed VR session time on Discord. Presence is cleared on headset disconnect,
+server exit, or when disabled. Game changes are coalesced to at most one update
+every 15 seconds; the session timer continues across game changes and Discord
+restarts. No headset client update is required.
+
+Create an application named **Wyrm** at <https://discord.com/developers/applications>
+and copy its **Application ID** into the dashboard's Discord settings. A bot,
+client secret, and Discord account token are not needed. Discord uses that
+application's name and icon; Wyrm does not ship somebody else's application ID.
+Discord must be running on the same PC, and its activity sharing must be enabled.
+
+For a command-line server, set these fields in `config.json`:
+
+```json
+{
+  "discord-rich-presence": true,
+  "discord-application-id": "YOUR_APPLICATION_ID"
+}
+```
+
+`discord-rich-presence` defaults to `true`, but presence stays inactive until a
+valid application ID is supplied. Set it to `false` to opt out. The dashboard
+applies changes immediately; manually editing the file requires a server restart.
+`WYRM_DISCORD_APPLICATION_ID` overrides the configured ID. `WYRM_DISCORD_IPC_PATH`
+can select a specific Discord-compatible IPC socket. Native Discord and the
+Discord/Vesktop Flatpak socket locations are searched automatically. Discord
+being absent or restarting never prevents Wyrm from streaming.
+
 ## `video-pacing`
 
 Default value: `1.25`. Set to `0` to disable; otherwise use a value from `1` to `4`.

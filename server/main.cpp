@@ -31,6 +31,7 @@
 
 #include "active_runtime.h"
 #include "avahi_publisher.h"
+#include "discord_presence.h"
 #include "driver/configuration.h"
 #include "driver/wyrm_connection.h"
 #include "exit_codes.h"
@@ -240,6 +241,19 @@ std::optional<active_runtime> runtime_setter;
 std::optional<avahi_publisher> publisher;
 std::optional<sleep_inhibitor> inhibitor;
 
+std::optional<discord_presence> discord;
+guint discord_watch = 0;
+
+void configure_discord()
+{
+	if (not discord)
+		return;
+	auto config = wyrm::configuration();
+	if (const char * id = std::getenv("WYRM_DISCORD_APPLICATION_ID"))
+		config.discord_application_id = id;
+	discord->configure(config.discord_rich_presence, std::move(config.discord_application_id));
+}
+
 gboolean headset_connected(gint fd, GIOCondition condition, gpointer user_data);
 void stop_listening();
 void on_headset_info_packet(const wyrm::from_headset::headset_info_packet & info);
@@ -262,6 +276,8 @@ void start_server(configuration config)
 	}
 	else if (server_pid == 0)
 	{
+		if (do_fork and discord)
+			discord->after_fork_child();
 		if (do_fork)
 			setsid();
 
@@ -417,6 +433,8 @@ void update_fsm()
 
 		if (not server_running)
 		{
+			if (discord)
+				discord->set_connected(false);
 			runtime_setter.reset();
 
 			g_timeout_add(delay_next_try.count(), [](void *) {
@@ -531,6 +549,11 @@ gboolean control_received(gint fd, GIOCondition condition, gpointer user_data)
 	{
 		std::visit(utils::overloaded{
 		                   [&](const wyrm::from_headset::headset_info_packet & info) {
+			                   if (discord)
+			                   {
+				                   discord->set_connected(true);
+				                   discord->set_headset(info.system_name);
+			                   }
 			                   on_headset_info_packet(info);
 			                   inhibitor.emplace();
 			                   wyrm_server_set_headset_connected(dbus_server, true);
@@ -557,8 +580,12 @@ gboolean control_received(gint fd, GIOCondition condition, gpointer user_data)
 			                   stop_publishing();
 			                   inhibitor.emplace();
 			                   wyrm_server_set_headset_connected(dbus_server, true);
+			                   if (discord)
+				                   discord->set_connected(true);
 		                   },
 		                   [&](const from_monado::headset_disconnected &) {
+			                   if (discord)
+				                   discord->set_connected(false);
 			                   start_publishing();
 			                   inhibitor.reset();
 			                   wyrm_server_set_headset_connected(dbus_server, false);
@@ -569,6 +596,10 @@ gboolean control_received(gint fd, GIOCondition condition, gpointer user_data)
 		                   },
 		                   [&](const from_monado::server_error & e) {
 			                   wyrm_server_emit_server_error(dbus_server, e.where.c_str(), e.message.c_str());
+		                   },
+		                   [&](const from_monado::active_application & app) {
+			                   if (discord)
+				                   discord->set_application(app.name);
 		                   },
 		           },
 		           *packet);
@@ -771,6 +802,8 @@ void on_json_configuration(WyrmServer * server, const GParamSpec * pspec, gpoint
 
 	if (ec)
 		std::cerr << "Failed to save configuration: " << ec.message() << std::endl;
+	else
+		configure_discord();
 
 	wyrm_server_set_steam_command(dbus_server, steam_command().c_str());
 }
@@ -1012,9 +1045,17 @@ int inner_main(int argc, char * argv[], bool show_instructions)
 	notify_init("Wyrm");
 
 	// Main loop
+	discord.emplace();
+	configure_discord();
+	discord_watch = g_timeout_add(200, [](void *) -> gboolean {
+		discord->poll();
+		return G_SOURCE_CONTINUE; }, nullptr);
 	g_main_loop_run(main_loop);
 
 	// Cleanup
+	g_source_remove(discord_watch);
+	discord_watch = 0;
+	discord.reset();
 	notify_uninit();
 	runtime_setter.reset();
 	stop_publishing();

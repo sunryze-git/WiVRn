@@ -154,6 +154,10 @@ configuration::configuration()
 	try
 	{
 		auto json = read_configuration();
+		if (auto it = json.find("discord-rich-presence"); it != json.end())
+			discord_rich_presence = it->get<bool>();
+		if (auto it = json.find("discord-application-id"); it != json.end())
+			discord_application_id = it->get<std::string>();
 		if (auto it = json.find("quad-views"); it != json.end())
 			quad_views = it->get<bool>();
 		if (auto it = json.find("video-pacing"); it != json.end())

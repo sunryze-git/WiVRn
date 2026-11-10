@@ -303,10 +303,10 @@ wyrm_session::~wyrm_session()
 }
 
 xrt_result_t wyrm::wyrm_session::create_session(std::unique_ptr<wyrm_connection> connection,
-                                                  b_system & system,
-                                                  xrt_system_devices ** out_xsysd,
-                                                  xrt_space_overseer ** out_xspovrs,
-                                                  xrt_system_compositor ** out_xsysc)
+                                                b_system & system,
+                                                xrt_system_devices ** out_xsysd,
+                                                xrt_space_overseer ** out_xspovrs,
+                                                xrt_system_compositor ** out_xsysc)
 {
 	std::unique_ptr<wyrm_session> self;
 	try
@@ -1138,6 +1138,7 @@ void wyrm_session::run_net(std::stop_token stop)
 void wyrm_session::run_worker(std::stop_token stop)
 {
 	refresh_rate_adjuster refresh(get_info(), settings, app_pacers);
+	std::string last_active_application;
 	while (not stop.stop_requested())
 	{
 		try
@@ -1165,7 +1166,33 @@ void wyrm_session::run_worker(std::stop_token stop)
 						refresh.adjust(*connection);
 				}
 				if (do_control)
+				{
 					control.resolve(compositor.get_frame_duration(), tracking_latency);
+					std::string active_application;
+					{
+						scoped_lock lock(mnd_ipc_server->global_state.lock);
+						for (const auto & thread: mnd_ipc_server->threads)
+						{
+							if (thread.ics.server_thread_index < 0 or thread.ics.xc == nullptr or thread.ics.client_state.session_overlay or
+							    thread.ics.server_thread_index != mnd_ipc_server->global_state.active_client_index)
+								continue;
+							// The shared IPC application name is volatile and may fill its buffer.
+							for (size_t i = 0; i < sizeof(thread.ics.client_state.info.application_name); ++i)
+							{
+								char c = thread.ics.client_state.info.application_name[i];
+								if (c == '\0')
+									break;
+								active_application.push_back(c);
+							}
+							break;
+						}
+					}
+					if (active_application != last_active_application)
+					{
+						send_to_main(from_monado::active_application{active_application});
+						last_active_application = std::move(active_application);
+					}
+				}
 			}
 			compositor.check_stream_timeout();
 			poll_session_loss();

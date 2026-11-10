@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Wyrm-dashboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-10 12:03-0500\n"
+"POT-Creation-Date: 2026-11-10 16:24-0500\n"
 "PO-Revision-Date: 2026-02-03 23:56+0200\n"
 "Last-Translator: 8osm3rka <admin@osm8.live>\n"
 "Language-Team: Russian\n"
@@ -537,22 +537,50 @@ msgstr "Приложение для автозапуска:"
 msgid "Auto connect from USB"
 msgstr ""
 
+#: dashboard/qml/SettingsPage.qml:99
+#, kde-format
+msgid "Share VR activity on Discord"
+msgstr ""
+
 #: dashboard/qml/SettingsPage.qml:102
+#, kde-format
+msgid "Discord application ID:"
+msgstr ""
+
+#: dashboard/qml/SettingsPage.qml:107
+#, kde-format
+msgid "Application ID from the Discord Developer Portal"
+msgstr ""
+
+#: dashboard/qml/SettingsPage.qml:111
+#, kde-format
+msgid ""
+"Create a Discord application named Wyrm and copy its Application ID here. "
+"Shows your headset, active VR application and elapsed session time while "
+"connected. Discord must be running on this PC."
+msgstr ""
+
+#: dashboard/qml/SettingsPage.qml:114
+#, kde-format
+msgid "Developer Portal"
+msgstr ""
+
+#: dashboard/qml/SettingsPage.qml:124
 #, kde-format
 msgid "Advanced options"
 msgstr "Расширенные настройки"
 
-#: dashboard/qml/SettingsPage.qml:108
+#: dashboard/qml/SettingsPage.qml:130
 #, kde-format
 msgid "Check system configuration on start"
 msgstr "Проверить конфигурацию системы при запуске"
 
-#: dashboard/qml/SettingsPage.qml:114
+#: dashboard/qml/SettingsPage.qml:136
 #, kde-format
 msgid "Expose forwarded input devices via uinput"
 msgstr ""
 
-#: dashboard/qml/SettingsPage.qml:117
+#: dashboard/qml/SettingsPage.qml:139
 #, kde-format
 msgid ""
 "Replicate mouse, keyboard and gamepad connected to the headset as virtual "
@@ -563,17 +591,17 @@ msgid ""
 "OpenXR."
 msgstr ""
 
-#: dashboard/qml/SettingsPage.qml:122
+#: dashboard/qml/SettingsPage.qml:144
 #, kde-format
 msgid "Enable debug window"
 msgstr "Включить окно отладки"
 
-#: dashboard/qml/SettingsPage.qml:129
+#: dashboard/qml/SettingsPage.qml:151
 #, kde-format
 msgid "Enable SteamVR tracked devices support"
 msgstr "Включить поддержку устройств со SteamVR отслеживанием"
 
-#: dashboard/qml/SettingsPage.qml:132
+#: dashboard/qml/SettingsPage.qml:154
 #, kde-format
 msgid ""
 "Allows the use of lighthouse-based controllers and trackers.\n"
@@ -586,17 +614,17 @@ msgstr ""
 "Устройства должны быть включены перед подключенем к Wyrm.\n"
 "Внешняя утилита, такая как motoc, необходима для калибрации."
 
-#: dashboard/qml/SettingsPage.qml:138
+#: dashboard/qml/SettingsPage.qml:160
 #, kde-format
 msgid "Clamp extrapolation for SteamVR tracked devices"
 msgstr ""
 
-#: dashboard/qml/SettingsPage.qml:142
+#: dashboard/qml/SettingsPage.qml:164
 #, kde-format
 msgid "SteamVR max pose extrapolation"
 msgstr ""
 
-#: dashboard/qml/SettingsPage.qml:152
+#: dashboard/qml/SettingsPage.qml:174
 #, kde-format
 msgctxt "value display for SteamVR max pose extrapolation"
 msgid "%1ms"
@@ -605,7 +633,7 @@ msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
 
-#: dashboard/qml/SettingsPage.qml:157
+#: dashboard/qml/SettingsPage.qml:179
 #, kde-format
 msgid ""
 "Maximum time in milliseconds that poses may be extrapolated ahead for "
@@ -613,12 +641,12 @@ msgid ""
 "tracking."
 msgstr ""
 
-#: dashboard/qml/SettingsPage.qml:162
+#: dashboard/qml/SettingsPage.qml:184
 #, kde-format
 msgid "SteamVR joystick deadzone"
 msgstr ""
 
-#: dashboard/qml/SettingsPage.qml:177
+#: dashboard/qml/SettingsPage.qml:199
 #, kde-format
 msgid ""
 "Deadzone to apply to joysticks on lighthouse-tracked controllers, such as "
@@ -627,49 +655,49 @@ msgid ""
 "system settings."
 msgstr ""
 
-#: dashboard/qml/SettingsPage.qml:185
+#: dashboard/qml/SettingsPage.qml:207
 #, kde-format
 msgid "Custom adb location"
 msgstr "Пользовательское расположение adb"
 
-#: dashboard/qml/SettingsPage.qml:196
+#: dashboard/qml/SettingsPage.qml:218
 #, kde-format
 msgid "Adb location:"
 msgstr "Расположение adb:"
 
-#: dashboard/qml/SettingsPage.qml:205
+#: dashboard/qml/SettingsPage.qml:227
 #, kde-format
 msgctxt "browse a file to choose the adb binary"
 msgid "Browse"
 msgstr "Обзор"
 
-#: dashboard/qml/SettingsPage.qml:215
+#: dashboard/qml/SettingsPage.qml:237
 #, kde-format
 msgid "Default"
 msgstr "По умолчанию"
 
-#: dashboard/qml/SettingsPage.qml:229
+#: dashboard/qml/SettingsPage.qml:251
 #, kde-format
 msgctxt "set a custom OpenVR compatibility library"
 msgid "Custom"
 msgstr "Пользовательская"
 
-#: dashboard/qml/SettingsPage.qml:234
+#: dashboard/qml/SettingsPage.qml:256
 #, kde-format
 msgid "Disabled"
 msgstr "Выключена"
 
-#: dashboard/qml/SettingsPage.qml:250
+#: dashboard/qml/SettingsPage.qml:272
 #, kde-format
 msgid "OpenVR compatibility library:"
 msgstr "Библиотека для совместимости с OpenVR"
 
-#: dashboard/qml/SettingsPage.qml:280
+#: dashboard/qml/SettingsPage.qml:302
 #, kde-format
 msgid "Library path, excluding bin/linux64/vrclient.so"
 msgstr "Путь библиотеки, исключая bin/linux64/vrclient.so"
 
-#: dashboard/qml/SettingsPage.qml:285
+#: dashboard/qml/SettingsPage.qml:307
 #, kde-format
 msgctxt "browse to choose the OpenVR compatibility to use"
 msgid "Browse"

@@ -99,6 +99,7 @@ if (WYRM_BUILD_SERVER)
 			accept_connection.cpp
 			active_runtime.cpp
 			avahi_publisher.cpp
+			discord_presence.cpp
 			hostname.cpp
 			main.cpp
 			sleep_inhibitor.cpp
@@ -270,6 +271,9 @@ if (WYRM_BUILD_SERVER)
 		)
 
 	if(WYRM_BUILD_TEST)
+		add_executable(test-discord-presence test_discord_presence.cpp discord_presence.cpp)
+		target_link_libraries(test-discord-presence PRIVATE nlohmann_json::nlohmann_json)
+		add_test(NAME discord-presence COMMAND test-discord-presence)
 		add_executable(test-pose-prediction driver/test_pose_prediction.cpp driver/pose_list.cpp driver/clock_offset.cpp)
 		target_include_directories(test-pose-prediction PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 		target_link_libraries(test-pose-prediction PRIVATE wyrm-common aux_util Eigen3::Eigen)

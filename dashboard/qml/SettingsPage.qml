@@ -94,6 +94,28 @@ Kirigami.ScrollablePage {
                 text: i18n("Auto connect from USB")
             }
 
+            Controls.CheckBox {
+                id: discord_presence
+                text: i18n("Share VR activity on Discord")
+            }
+            RowLayout {
+                Kirigami.FormData.label: i18n("Discord application ID:")
+                enabled: discord_presence.checked
+                Controls.TextField {
+                    id: discord_application_id
+                    Layout.fillWidth: true
+                    placeholderText: i18n("Application ID from the Discord Developer Portal")
+                    validator: RegularExpressionValidator { regularExpression: /[0-9]{0,20}/ }
+                }
+                Kirigami.ContextualHelpButton {
+                    toolTipText: i18n("Create a Discord application named Wyrm and copy its Application ID here. Shows your headset, active VR application and elapsed session time while connected. Discord must be running on this PC.")
+                }
+                Controls.Button {
+                    text: i18n("Developer Portal")
+                    onClicked: Qt.openUrlExternally("https://discord.com/developers/applications")
+                }
+            }
+
             Kirigami.Separator {
                 Kirigami.FormData.isSection: true
             }
@@ -341,6 +363,8 @@ Kirigami.ScrollablePage {
         }
         Settings.lhStickDeadzone = lh_stick_deadzone.value;
         Settings.hidForwarding = hid_forwarding.checked;
+        Settings.discordRichPresence = discord_presence.checked;
+        Settings.discordApplicationId = discord_application_id.text;
 
         DashboardSettings.auto_connect_usb = auto_connect_usb.checked;
     }
@@ -353,6 +377,8 @@ Kirigami.ScrollablePage {
         lh_max_extrapolation.value = Settings.lhMaxExtrapolation;
         lh_stick_deadzone.value = Settings.lhStickDeadzone;
         hid_forwarding.checked = Settings.hidForwarding;
+        discord_presence.checked = Settings.discordRichPresence;
+        discord_application_id.text = Settings.discordApplicationId;
 
         auto_connect_usb.checked = DashboardSettings.auto_connect_usb;
 

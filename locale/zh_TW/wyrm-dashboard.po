@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Wyrm-dashboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-10 12:03-0500\n"
+"POT-Creation-Date: 2026-11-10 16:24-0500\n"
 "PO-Revision-Date: 2026-10-01 12:00+0800\n"
 "Last-Translator: Jayden Ha <jayden@jaydenha.uk>\n"
 "Language-Team: Chinese (Taiwan)\n"
@@ -523,22 +523,50 @@ msgstr "自動啟動應用程式："
 msgid "Auto connect from USB"
 msgstr "透過 USB 自動連線"
 
+#: dashboard/qml/SettingsPage.qml:99
+#, kde-format
+msgid "Share VR activity on Discord"
+msgstr ""
+
 #: dashboard/qml/SettingsPage.qml:102
+#, kde-format
+msgid "Discord application ID:"
+msgstr ""
+
+#: dashboard/qml/SettingsPage.qml:107
+#, kde-format
+msgid "Application ID from the Discord Developer Portal"
+msgstr ""
+
+#: dashboard/qml/SettingsPage.qml:111
+#, kde-format
+msgid ""
+"Create a Discord application named Wyrm and copy its Application ID here. "
+"Shows your headset, active VR application and elapsed session time while "
+"connected. Discord must be running on this PC."
+msgstr ""
+
+#: dashboard/qml/SettingsPage.qml:114
+#, kde-format
+msgid "Developer Portal"
+msgstr ""
+
+#: dashboard/qml/SettingsPage.qml:124
 #, kde-format
 msgid "Advanced options"
 msgstr "進階選項"
 
-#: dashboard/qml/SettingsPage.qml:108
+#: dashboard/qml/SettingsPage.qml:130
 #, kde-format
 msgid "Check system configuration on start"
 msgstr "在啟動時檢查系統配置"
 
-#: dashboard/qml/SettingsPage.qml:114
+#: dashboard/qml/SettingsPage.qml:136
 #, kde-format
 msgid "Expose forwarded input devices via uinput"
 msgstr "透過 uinput 提供轉送的輸入裝置"
 
-#: dashboard/qml/SettingsPage.qml:117
+#: dashboard/qml/SettingsPage.qml:139
 #, kde-format
 msgid ""
 "Replicate mouse, keyboard and gamepad connected to the headset as virtual "
@@ -553,17 +581,17 @@ msgstr ""
 "使用。對於透過 OpenXR 存取遊戲控制器的應用程式，即使不建立虛擬裝置也能使用遊"
 "戲控制器。"
 
-#: dashboard/qml/SettingsPage.qml:122
+#: dashboard/qml/SettingsPage.qml:144
 #, kde-format
 msgid "Enable debug window"
 msgstr "啟用偵錯視窗"
 
-#: dashboard/qml/SettingsPage.qml:129
+#: dashboard/qml/SettingsPage.qml:151
 #, kde-format
 msgid "Enable SteamVR tracked devices support"
 msgstr "啟用 SteamVR 追蹤裝置支援"
 
-#: dashboard/qml/SettingsPage.qml:132
+#: dashboard/qml/SettingsPage.qml:154
 #, kde-format
 msgid ""
 "Allows the use of lighthouse-based controllers and trackers.\n"
@@ -576,24 +604,24 @@ msgstr ""
 "裝置必須在連線到 Wyrm 之前開啟電源。\n"
 "校準需要額外工具，例如 motoc。"
 
-#: dashboard/qml/SettingsPage.qml:138
+#: dashboard/qml/SettingsPage.qml:160
 #, kde-format
 msgid "Clamp extrapolation for SteamVR tracked devices"
 msgstr "限制 SteamVR 追蹤裝置的外推"
 
-#: dashboard/qml/SettingsPage.qml:142
+#: dashboard/qml/SettingsPage.qml:164
 #, kde-format
 msgid "SteamVR max pose extrapolation"
 msgstr "SteamVR 最大姿態外推"
 
-#: dashboard/qml/SettingsPage.qml:152
+#: dashboard/qml/SettingsPage.qml:174
 #, kde-format
 msgctxt "value display for SteamVR max pose extrapolation"
 msgid "%1ms"
 msgid_plural "%1ms"
 msgstr[0] "%1 毫秒"
 
-#: dashboard/qml/SettingsPage.qml:157
+#: dashboard/qml/SettingsPage.qml:179
 #, kde-format
 msgid ""
 "Maximum time in milliseconds that poses may be extrapolated ahead for "
@@ -603,12 +631,12 @@ msgstr ""
 "SteamVR 追蹤裝置的姿態可向前外推的最長時間（毫秒）。如果追蹤出現抖動或晃動，"
 "請調整此數值。"
 
-#: dashboard/qml/SettingsPage.qml:162
+#: dashboard/qml/SettingsPage.qml:184
 #, kde-format
 msgid "SteamVR joystick deadzone"
 msgstr "SteamVR 搖桿死區"
 
-#: dashboard/qml/SettingsPage.qml:177
+#: dashboard/qml/SettingsPage.qml:199
 #, kde-format
 msgid ""
 "Deadzone to apply to joysticks on lighthouse-tracked controllers, such as "
@@ -619,49 +647,49 @@ msgstr ""
 "套用於 Lighthouse 基地台追蹤控制器（例如 Index 控制器）搖桿的死區。\n"
 "若為一體機控制器，可在頭戴式裝置的系統設定中調整死區。"
 
-#: dashboard/qml/SettingsPage.qml:185
+#: dashboard/qml/SettingsPage.qml:207
 #, kde-format
 msgid "Custom adb location"
 msgstr "自訂 adb 位置"
 
-#: dashboard/qml/SettingsPage.qml:196
+#: dashboard/qml/SettingsPage.qml:218
 #, kde-format
 msgid "Adb location:"
 msgstr "adb 位置："
 
-#: dashboard/qml/SettingsPage.qml:205
+#: dashboard/qml/SettingsPage.qml:227
 #, kde-format
 msgctxt "browse a file to choose the adb binary"
 msgid "Browse"
 msgstr "瀏覽"
 
-#: dashboard/qml/SettingsPage.qml:215
+#: dashboard/qml/SettingsPage.qml:237
 #, kde-format
 msgid "Default"
 msgstr "預設"
 
-#: dashboard/qml/SettingsPage.qml:229
+#: dashboard/qml/SettingsPage.qml:251
 #, kde-format
 msgctxt "set a custom OpenVR compatibility library"
 msgid "Custom"
 msgstr "自訂"
 
-#: dashboard/qml/SettingsPage.qml:234
+#: dashboard/qml/SettingsPage.qml:256
 #, kde-format
 msgid "Disabled"
 msgstr "已停用"
 
-#: dashboard/qml/SettingsPage.qml:250
+#: dashboard/qml/SettingsPage.qml:272
 #, kde-format
 msgid "OpenVR compatibility library:"
 msgstr "OpenVR 相容性函式庫："
 
-#: dashboard/qml/SettingsPage.qml:280
+#: dashboard/qml/SettingsPage.qml:302
 #, kde-format
 msgid "Library path, excluding bin/linux64/vrclient.so"
 msgstr "函式庫路徑，不包含 bin/linux64/vrclient.so"
 
-#: dashboard/qml/SettingsPage.qml:285
+#: dashboard/qml/SettingsPage.qml:307
 #, kde-format
 msgctxt "browse to choose the OpenVR compatibility to use"
 msgid "Browse"

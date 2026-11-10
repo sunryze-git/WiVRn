@@ -48,6 +48,11 @@ struct server_error
 	std::string message;
 };
 
+struct active_application
+{
+	std::string name;
+};
+
 using packets = std::variant<
         wyrm::from_headset::headset_info_packet,
         wyrm::from_headset::settings_changed,
@@ -55,6 +60,7 @@ using packets = std::variant<
         wyrm::from_headset::stream_tab_changed,
         headset_connected,
         headset_disconnected,
+        active_application,
         server_error>;
 } // namespace from_monado
 
