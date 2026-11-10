@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -32,11 +32,11 @@
 #include "util/u_time.h"
 #include "vk/vk_helpers.h"
 
-#include "driver/wivrn_session.h"
+#include "driver/wyrm_session.h"
 #include "encoder/video_encoder.h"
 #include "inplace_vector.hpp"
 #include "utils/method.h"
-#include "utils/wivrn_trace.h"
+#include "utils/wyrm_trace.h"
 
 #include "xrt/xrt_config_build.h" // IWYU pragma: keep
 #ifdef XRT_FEATURE_RENDERDOC
@@ -68,13 +68,13 @@ DEBUG_GET_ONCE_LOG_OPTION(log, "XRT_COMPOSITOR_LOG", U_LOGGING_INFO)
 namespace details
 {
 template <auto Method, typename Result, typename... Args>
-struct method_trait<Method, Result (wivrn::compositor::*)(Args...)>
+struct method_trait<Method, Result (wyrm::compositor::*)(Args...)>
 {
 	static Result magic(xrt_compositor * arg, Args... args)
 	{
 		return std::invoke(
 		        Method,
-		        static_cast<wivrn::compositor *>(reinterpret_cast<struct comp_base *>(arg)),
+		        static_cast<wyrm::compositor *>(reinterpret_cast<struct comp_base *>(arg)),
 		        args...);
 	}
 };
@@ -108,7 +108,7 @@ std::array<vk::Format, 3> image_formats(int bit_depth)
 	throw std::runtime_error(std::format("Unsupported bit depth {}", bit_depth));
 }
 
-std::array<wivrn::compositor::image, 2> make_images(wivrn::vk_bundle & vk, vk::CommandPool command_pool, std::span<wivrn::encoder_settings> encoders)
+std::array<wyrm::compositor::image, 2> make_images(wyrm::vk_bundle & vk, vk::CommandPool command_pool, std::span<wyrm::encoder_settings> encoders)
 {
 	auto formats = image_formats(encoders[0].bit_depth);
 
@@ -132,13 +132,13 @@ std::array<wivrn::compositor::image, 2> make_images(wivrn::vk_bundle & vk, vk::C
 	                .pViewFormats = formats.data(),
 	        },
 	};
-#if WIVRN_USE_VULKAN_ENCODE
+#if WYRM_USE_VULKAN_ENCODE
 	if (
 	        std::get<vk::PhysicalDeviceVideoMaintenance1FeaturesKHR>(vk.feat).videoMaintenance1 and
 	        std::ranges::contains(
 	                encoders,
-	                wivrn::encoder_vulkan,
-	                &wivrn::encoder_settings::encoder_name))
+	                wyrm::encoder_vulkan,
+	                &wyrm::encoder_settings::encoder_name))
 	{
 		image_info.get().flags |= vk::ImageCreateFlagBits::eVideoProfileIndependentKHR;
 		image_info.get().usage |= vk::ImageUsageFlagBits::eVideoEncodeSrcKHR;
@@ -156,7 +156,7 @@ std::array<wivrn::compositor::image, 2> make_images(wivrn::vk_bundle & vk, vk::C
 		        std::format("compositor YCbCr image {}", i),
 		};
 		vk::Image vk_image{image};
-		return wivrn::compositor::image{
+		return wyrm::compositor::image{
 		        .image{std::move(image)},
 		        .view_y{
 		                vk.device,
@@ -191,7 +191,7 @@ std::array<wivrn::compositor::image, 2> make_images(wivrn::vk_bundle & vk, vk::C
 	return {make_image(0), make_image(1)};
 }
 
-vk::raii::Semaphore make_semaphore(wivrn::vk_bundle & vk)
+vk::raii::Semaphore make_semaphore(wyrm::vk_bundle & vk)
 {
 	vk::raii::Semaphore res{
 	        vk.device,
@@ -207,7 +207,7 @@ vk::raii::Semaphore make_semaphore(wivrn::vk_bundle & vk)
 	return res;
 }
 
-vk::Extent3D render_extent(const wivrn::from_headset::headset_info_packet & info)
+vk::Extent3D render_extent(const wyrm::from_headset::headset_info_packet & info)
 {
 	return {
 	        .width = info.render_eye_width,
@@ -218,7 +218,7 @@ vk::Extent3D render_extent(const wivrn::from_headset::headset_info_packet & info
 
 } // namespace
 
-namespace wivrn
+namespace wyrm
 {
 
 struct compositor::stream_resources
@@ -226,7 +226,7 @@ struct compositor::stream_resources
 	std::array<encoder_settings, 3> settings;
 	std::array<image, 2> images;
 	layer_squasher squasher;
-	wivrn::foveation foveation;
+	wyrm::foveation foveation;
 	std::array<std::unique_ptr<video_encoder>, 3> encoders;
 	vk::Extent3D render_extent;
 
@@ -641,7 +641,7 @@ void compositor::encoder_work(std::stop_token tok)
 		{
 			video_lock.unlock();
 			encode_request.wait(req);
-			wivrn::trace::cpu_instant(wivrn::trace::cpu_track::compositor, "encoder_work wake", 0, 0);
+			wyrm::trace::cpu_instant(wyrm::trace::cpu_track::compositor, "encoder_work wake", 0, 0);
 			continue;
 		}
 
@@ -654,7 +654,7 @@ void compositor::encode_image(int req)
 	assert(req < video->images.size());
 	auto & image = video->images[req];
 
-	wivrn::trace::scope trace_iter(wivrn::trace::cpu_track::compositor, 0, image.frame_index, "encoder_work iter");
+	wyrm::trace::scope trace_iter(wyrm::trace::cpu_track::compositor, 0, image.frame_index, "encoder_work iter");
 
 	try
 	{
@@ -686,7 +686,7 @@ void compositor::send_video_stream_description()
 	session.send_control(std::move(desc));
 }
 
-compositor::compositor(wivrn_session & session) :
+compositor::compositor(wyrm_session & session) :
         comp_base{
                 .base = {
                         .base = {
@@ -747,7 +747,7 @@ compositor::compositor(wivrn_session & session) :
 #endif
 
 	// Share monado's vk_bundle so gpu_timestamp_pool reuses its calibration cache.
-	wivrn::trace::set_calibration_source(&c_base->vk);
+	wyrm::trace::set_calibration_source(&c_base->vk);
 
 	// vk_init_from_given assumes a graphics queue was provided
 	c_base->vk.graphics_queue = nullptr;
@@ -1107,4 +1107,4 @@ void compositor::describe_stream()
 	send_video_stream_description();
 }
 
-} // namespace wivrn
+} // namespace wyrm

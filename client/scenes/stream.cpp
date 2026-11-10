@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -38,7 +38,7 @@
 #include "spdlog/spdlog.h"
 #include "utils/named_thread.h"
 #include "utils/ranges.h"
-#include "wivrn_packets.h"
+#include "wyrm_packets.h"
 #include <algorithm>
 #include <cmath>
 #include <mutex>
@@ -46,12 +46,12 @@
 #include <thread>
 #include <vulkan/vulkan_raii.hpp>
 
-#include "wivrn_config.h"
-#if WIVRN_FEATURE_RENDERDOC
+#include "wyrm_config.h"
+#if WYRM_FEATURE_RENDERDOC
 #include "vk/renderdoc.h"
 #endif
 
-using namespace wivrn;
+using namespace wyrm;
 using namespace beman::inplace_vector;
 
 // clang-format off
@@ -380,7 +380,7 @@ from_headset::headset_info_packet scenes::stream::headset_info(float guessed_fps
 	return info;
 }
 
-std::shared_ptr<scenes::stream> scenes::stream::create(std::unique_ptr<wivrn_session> network_session, float guessed_fps, std::string server_name, scene & parent_scene)
+std::shared_ptr<scenes::stream> scenes::stream::create(std::unique_ptr<wyrm_session> network_session, float guessed_fps, std::string server_name, scene & parent_scene)
 {
 	std::shared_ptr<stream> self{new stream{std::move(server_name), parent_scene}};
 	self->network_session = std::move(network_session);
@@ -575,13 +575,13 @@ void scenes::stream::on_focused()
 		switch (tm->tm_mon)
 		{
 			case 5:
-				wivrn_logo = imgui_ctx->load_texture("assets://wivrn-pride.ktx2");
+				wyrm_logo = imgui_ctx->load_texture("assets://wyrm-pride.ktx2");
 				break;
 			case 11:
-				wivrn_logo = imgui_ctx->load_texture("assets://wivrn-christmas.ktx2");
+				wyrm_logo = imgui_ctx->load_texture("assets://wyrm-christmas.ktx2");
 				break;
 			default:
-				wivrn_logo = imgui_ctx->load_texture("assets://wivrn.ktx2");
+				wyrm_logo = imgui_ctx->load_texture("assets://wyrm.ktx2");
 				break;
 		}
 	}
@@ -975,7 +975,7 @@ void scenes::stream::render(const XrFrameState & frame_state)
 	std::array<XrPosef, view_count> pose;
 	std::array<XrFovf, view_count> fov{};
 	std::array<bool, view_count> valid_fov{};
-	std::array<wivrn::to_headset::foveation_parameter, view_count> foveation;
+	std::array<wyrm::to_headset::foveation_parameter, view_count> foveation;
 	std::array<XrExtent2Di, view_count> extents;
 	int32_t max_width = 0;
 	int32_t max_height = 0;
@@ -998,7 +998,7 @@ void scenes::stream::render(const XrFrameState & frame_state)
 
 	session.begin_frame();
 
-#if WIVRN_FEATURE_RENDERDOC
+#if WYRM_FEATURE_RENDERDOC
 	renderdoc_begin(*vk_instance);
 #endif
 	command_buffer.reset();
@@ -1033,7 +1033,7 @@ void scenes::stream::render(const XrFrameState & frame_state)
 
 		use_alpha = blit_handle->view_info.alpha;
 
-#if WIVRN_USE_V4L2
+#if WYRM_USE_V4L2
 		if (blit_handle->foreign_queue_family != vk::QueueFamilyIgnored)
 		{
 			// decoder completed its write before handing us this image
@@ -1169,7 +1169,7 @@ void scenes::stream::render(const XrFrameState & frame_state)
 		                      {bias, bias, bias, 0.},
 		                      image_index);
 
-#if WIVRN_USE_V4L2
+#if WYRM_USE_V4L2
 		// the blit handles keep CAPTURE buffers alive until this cmd buffer's fence has completed
 		inplace_vector<vk::ImageMemoryBarrier, decoder_count> foreign_release_barriers;
 		for (const auto & handle: current_blit_handles)
@@ -1233,7 +1233,7 @@ void scenes::stream::render(const XrFrameState & frame_state)
 
 		device.resetFences(*fence);
 		queue.lock()->submit(submit_info, *fence);
-#if WIVRN_FEATURE_RENDERDOC
+#if WYRM_FEATURE_RENDERDOC
 		renderdoc_end(*vk_instance);
 #endif
 		swapchain.release();
@@ -1310,13 +1310,13 @@ void scenes::stream::render(const XrFrameState & frame_state)
 			if (handle)
 			{
 				auto & packet = packets.emplace_back();
-				wivrn_session::control_socket_t::serialize(packet, feedbacks.emplace_back(handle->feedback));
+				wyrm_session::control_socket_t::serialize(packet, feedbacks.emplace_back(handle->feedback));
 			}
 		}
 		if (auto foveation_packet = foveation_center.take_packet())
 		{
 			auto & packet = packets.emplace_back();
-			wivrn_session::control_socket_t::serialize(packet, *foveation_packet);
+			wyrm_session::control_socket_t::serialize(packet, *foveation_packet);
 		}
 		if (not packets.empty())
 		{

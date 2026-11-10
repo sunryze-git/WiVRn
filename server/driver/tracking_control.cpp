@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,12 +18,12 @@
 
 #include "tracking_control.h"
 
-#include "driver/wivrn_connection.h"
-#include "wivrn_config.h"
+#include "driver/wyrm_connection.h"
+#include "wyrm_config.h"
 #include <magic_enum_containers.hpp>
 #include <ranges>
 
-bool wivrn::tracking_control::advance(std::chrono::steady_clock::time_point now)
+bool wyrm::tracking_control::advance(std::chrono::steady_clock::time_point now)
 {
 	if (next > now)
 		return false;
@@ -31,7 +31,7 @@ bool wivrn::tracking_control::advance(std::chrono::steady_clock::time_point now)
 	return true;
 }
 
-void wivrn::tracking_control::add_request(device_id device, XrTime now, XrTime at_ns, XrTime produced_ns)
+void wyrm::tracking_control::add_request(device_id device, XrTime now, XrTime at_ns, XrTime produced_ns)
 {
 	std::lock_guard lock(mutex);
 	XrDuration prediction = at_ns - now;
@@ -55,7 +55,7 @@ void wivrn::tracking_control::add_request(device_id device, XrTime now, XrTime a
 	}
 }
 
-void wivrn::tracking_control::resolve(XrDuration frame_time, XrDuration latency)
+void wyrm::tracking_control::resolve(XrDuration frame_time, XrDuration latency)
 {
 	decltype(this->reqs) reqs;
 	{
@@ -63,7 +63,7 @@ void wivrn::tracking_control::resolve(XrDuration frame_time, XrDuration latency)
 		std::swap(reqs, this->reqs);
 	}
 
-	wivrn::to_headset::tracking_control res{};
+	wyrm::to_headset::tracking_control res{};
 
 	for (auto [device, req]: std::ranges::enumerate_view(reqs))
 	{

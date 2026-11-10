@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -23,16 +23,16 @@
 #include <vulkan/vulkan_structs.hpp>
 
 #include "utils/gpu_timestamp_pool.h"
-#include "utils/wivrn_vk_bundle.h"
+#include "utils/wyrm_vk_bundle.h"
 #include "video_encoder.h"
 #include "vk/allocation.h"
 
-namespace wivrn
+namespace wyrm
 {
 class video_encoder_vulkan : public video_encoder
 {
-	wivrn::vk_bundle & vk;
-	wivrn::vk_bundle::queue_data & encode_queue;
+	wyrm::vk_bundle & vk;
+	wyrm::vk_bundle::queue_data & encode_queue;
 	const vk::VideoEncodeCapabilitiesKHR encode_caps;
 #ifdef VK_KHR_video_encode_intra_refresh
 	vk::VideoEncodeIntraRefreshInfoKHR intra_info{};
@@ -87,7 +87,7 @@ protected:
 	vk::VideoEncodeRateControlLayerInfoKHR rate_control_layer;
 	std::optional<vk::VideoEncodeRateControlInfoKHR> rate_control;
 
-	video_encoder_vulkan(wivrn::vk_bundle & vk,
+	video_encoder_vulkan(wyrm::vk_bundle & vk,
 	                     const vk::VideoCapabilitiesKHR & video_caps,
 	                     const vk::VideoEncodeCapabilitiesKHR & encode_caps,
 	                     uint8_t stream_idx,
@@ -115,4 +115,4 @@ public:
 	void present_image(vk::Image y_cbcr, vk::SemaphoreSubmitInfo, uint8_t slot, uint64_t frame_index) override;
 	std::optional<data> encode(uint8_t slot, uint64_t frame_index) override;
 };
-} // namespace wivrn
+} // namespace wyrm

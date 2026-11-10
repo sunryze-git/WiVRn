@@ -1,4 +1,4 @@
-package org.meumeu.wivrn;
+package org.wyrmvr.wyrm;
 
 public class BroadcastReceiver extends android.content.BroadcastReceiver
 {

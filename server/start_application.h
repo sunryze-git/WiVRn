@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -25,7 +25,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace wivrn
+namespace wyrm
 {
 
 class children_manager
@@ -65,4 +65,4 @@ public:
 };
 
 void display_child_status(int wstatus, const std::string & name);
-} // namespace wivrn
+} // namespace wyrm

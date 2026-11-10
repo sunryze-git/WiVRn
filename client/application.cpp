@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022-2023  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2023  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -29,7 +29,7 @@
 #include "utils/i18n.h"
 #include "vk/check.h"
 #include "wifi_lock.h"
-#include "wivrn_config.h"
+#include "wyrm_config.h"
 #include "xr/actionset.h"
 #include "xr/check.h"
 #include "xr/htc_exts.h"
@@ -902,7 +902,7 @@ void application::initialize_vulkan()
 	optional_device_extensions.emplace(VK_EXT_FRAGMENT_DENSITY_MAP_2_EXTENSION_NAME);
 	optional_device_extensions.emplace(VK_QCOM_FRAGMENT_DENSITY_MAP_OFFSET_EXTENSION_NAME);
 
-#if WIVRN_USE_V4L2
+#if WYRM_USE_V4L2
 	// V4L2 decoders expose their output through DMA-buf
 	optional_device_extensions.emplace(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME);
 	optional_device_extensions.emplace(VK_EXT_EXTERNAL_MEMORY_DMA_BUF_EXTENSION_NAME);
@@ -1536,7 +1536,7 @@ void application::initialize()
 
 void application::load_locale()
 {
-	gen.add_messages_domain("wivrn");
+	gen.add_messages_domain("wyrm");
 	std::locale loc = gen("");
 
 	messages_info.encoding = "UTF-8";
@@ -1570,7 +1570,7 @@ void application::load_locale()
 
 	messages_info.paths.push_back("locale");
 
-	messages_info.domains.push_back(boost::locale::gnu_gettext::messages_info::domain("wivrn"));
+	messages_info.domains.push_back(boost::locale::gnu_gettext::messages_info::domain("wyrm"));
 	messages_info.callback = open_locale_file;
 	loc = std::locale(loc, boost::locale::gnu_gettext::create_messages_facet<char>(messages_info));
 
@@ -1589,7 +1589,7 @@ std::pair<XrAction, XrActionType> application::get_action(std::string_view reque
 }
 
 #ifdef __ANDROID__
-extern "C" void Java_org_meumeu_wivrn_MainActivity_onNewIntent(JNIEnv * env, jobject instance, jobject intent_obj)
+extern "C" void Java_org_wyrmvr_wyrm_MainActivity_onNewIntent(JNIEnv * env, jobject instance, jobject intent_obj)
 {
 	jni::jni_thread::setup_thread(env);
 	jni::object<"android/content/Intent"> intent{intent_obj};
@@ -1604,9 +1604,9 @@ extern "C" void Java_org_meumeu_wivrn_MainActivity_onNewIntent(JNIEnv * env, job
 
 static bool is_tcp_scheme(boost::core::string_view scheme)
 {
-	if (scheme.empty() or scheme == "wivrn")
+	if (scheme.empty() or scheme == "wyrm")
 		return false;
-	if (scheme == "wivrn+tcp")
+	if (scheme == "wyrm+tcp")
 		return true;
 	throw std::runtime_error("invalid URI scheme " + std::string(scheme));
 }
@@ -1622,10 +1622,10 @@ void application::set_server_uri(std::string uri)
 	{
 		std::unique_lock _{server_intent_mutex};
 		server_intent =
-		        wivrn_discover::service{
+		        wyrm_discover::service{
 		                .name = "",
 		                .hostname = parse_result->host(),
-		                .port = parse_result->has_port() ? parse_result->port_number() : wivrn::default_port,
+		                .port = parse_result->has_port() ? parse_result->port_number() : wyrm::default_port,
 		                .tcp_only = is_tcp_scheme(parse_result->scheme()),
 		                .pin = parse_result->password(),
 		        };
@@ -1645,7 +1645,7 @@ application::application(application_info info) :
 		auto app = act.call<jni::object<"android/app/Application">>("getApplication");
 		auto ctx = app.call<jni::object<"android/content/Context">>("getApplicationContext");
 
-		// Get the intent, to handle wivrn://uri
+		// Get the intent, to handle wyrm://uri
 		auto intent = act.call<jni::object<"android/content/Intent">>("getIntent");
 		if (auto data_string = intent.call<jni::string>("getDataString"))
 		{
@@ -1734,8 +1734,8 @@ application::application(application_info info) :
 
 #else
 	wifi = std::make_shared<wifi_lock>();
-	config_path = xdg_config_home() / "wivrn";
-	cache_path = xdg_cache_home() / "wivrn";
+	config_path = xdg_config_home() / "wyrm";
+	cache_path = xdg_cache_home() / "wyrm";
 #endif
 
 	std::filesystem::create_directories(config_path);
@@ -1951,7 +1951,7 @@ void application::set_usb_networking(bool enabled)
 			                   .call<jni::object<"android/net/NetworkRequest$Builder">>("addTransportType", jni::Int(8) /*TRANSPORT_USB*/)
 			                   .call<jni::object<"android/net/NetworkRequest">>("build");
 
-			// system_service.call<void>("requestNetwork", req, jni::new_object<"org/meumeu/wivrn/NetworkInfoCallback">());
+			// system_service.call<void>("requestNetwork", req, jni::new_object<"org/wyrmvr/wyrm/NetworkInfoCallback">());
 			system_service.call<void>("requestNetwork", req, cb);
 		}
 		else

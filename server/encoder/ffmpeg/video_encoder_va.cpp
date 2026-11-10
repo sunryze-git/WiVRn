@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -25,8 +25,8 @@
 
 #include "os/os_time.h"
 #include "util/u_logging.h"
-#include "utils/wivrn_trace.h"
-#include "utils/wivrn_vk_bundle.h"
+#include "utils/wyrm_trace.h"
+#include "utils/wyrm_vk_bundle.h"
 
 #include <cmath>
 #include <drm_fourcc.h>
@@ -54,7 +54,7 @@ extern "C"
 #define AV_PROFILE_AV1_MAIN FF_PROFILE_AV1_MAIN
 #endif
 
-namespace wivrn
+namespace wyrm
 {
 
 namespace
@@ -157,7 +157,7 @@ vk::Format drm_to_vulkan_fmt(uint32_t drm_fourcc, int bit_depth)
 		return vulkan_drm_format_map.at(drm_fourcc);
 }
 
-vk::raii::CommandPool make_cmd_pool(wivrn::vk_bundle & vk, uint8_t stream_idx)
+vk::raii::CommandPool make_cmd_pool(wyrm::vk_bundle & vk, uint8_t stream_idx)
 {
 	auto res = vk.device.createCommandPool(vk::CommandPoolCreateInfo{
 
@@ -170,8 +170,8 @@ vk::raii::CommandPool make_cmd_pool(wivrn::vk_bundle & vk, uint8_t stream_idx)
 
 } // namespace
 
-video_encoder_va::video_encoder_va(wivrn::vk_bundle & vk,
-                                   const wivrn::encoder_settings & settings,
+video_encoder_va::video_encoder_va(wyrm::vk_bundle & vk,
+                                   const wyrm::encoder_settings & settings,
                                    uint8_t stream_idx) :
         video_encoder_ffmpeg(vk, stream_idx, settings),
         vk{vk},
@@ -565,7 +565,7 @@ void video_encoder_va::push_frame(bool idr, uint8_t slot)
 
 	if (auto s = ts_pool.collect(slot))
 	{
-		wivrn::trace::gpu_slice(wivrn::trace::gpu_track::va_copy,
+		wyrm::trace::gpu_slice(wyrm::trace::gpu_track::va_copy,
 		                        "vk_copy_luma_chroma",
 		                        s->begin_ns,
 		                        s->end_ns,
@@ -581,4 +581,4 @@ void video_encoder_va::push_frame(bool idr, uint8_t slot)
 		throw std::system_error(err, av_error_category(), "avcodec_send_frame failed");
 	}
 }
-} // namespace wivrn
+} // namespace wyrm

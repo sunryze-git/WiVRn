@@ -1,6 +1,6 @@
-# Debugging WiVRn
+# Debugging Wyrm
 
-This guide covers debugging techniques for WiVRn, including log collection, crash analysis, performance profiling, and common troubleshooting scenarios.
+This guide covers debugging techniques for Wyrm, including log collection, crash analysis, performance profiling, and common troubleshooting scenarios.
 
 ## Table of Contents
 
@@ -37,11 +37,11 @@ When debugging, ensure the HMD client matches the server version. Perform a clea
 
 ```bash
 # Find and uninstall existing installation
-WIVRN_PKG=$(adb shell pm list packages | grep wivrn | cut -d: -f2)
-adb uninstall ${WIVRN_PKG}
+WYRM_PKG=$(adb shell pm list packages | grep wyrm | cut -d: -f2)
+adb uninstall ${WYRM_PKG}
 
 # Install the debug APK
-adb install /path/to/wivrn-standard-debug.apk
+adb install /path/to/wyrm-standard-debug.apk
 ```
 
 ---
@@ -64,22 +64,22 @@ Record ERROR and above:
 adb logcat '*:E' | tee -a errors-$(date "+%Y-%m-%d-%H").log
 ```
 
-WiVRn-only logs (verbose):
+Wyrm-only logs (verbose):
 
 ```bash
-adb logcat '*:S' WiVRn:V
+adb logcat '*:S' Wyrm:V
 ```
 
-Watch WiVRn client logs:
+Watch Wyrm client logs:
 
 ```bash
-adb logcat | grep WiVRn
+adb logcat | grep Wyrm
 ```
 
-Watch Android system logs related to WiVRn:
+Watch Android system logs related to Wyrm:
 
 ```bash
-adb logcat | grep wivrn
+adb logcat | grep wyrm
 ```
 
 ### Server Logs
@@ -87,13 +87,13 @@ adb logcat | grep wivrn
 Start the server with debug logging enabled:
 
 ```bash
-XRT_LOG=debug XRT_COMPOSITOR_LOG=debug wivrn-server
+XRT_LOG=debug XRT_COMPOSITOR_LOG=debug wyrm-server
 ```
 
 To also dump video frames for analysis:
 
 ```bash
-XRT_LOG=debug XRT_COMPOSITOR_LOG=debug WIVRN_DUMP_VIDEO=/tmp/video-dump wivrn-server
+XRT_LOG=debug XRT_COMPOSITOR_LOG=debug WYRM_DUMP_VIDEO=/tmp/video-dump wyrm-server
 ```
 
 The video dump can be played back with `mpv` or other media players to verify what video was being sent to the HMD.
@@ -107,23 +107,23 @@ There will be multiple files in the directory, one for each video stream per cod
 ### HMD Client
 
 The package name varies by build variant:
-- `org.meumeu.wivrn` - for app store builds
-- `org.meumeu.wivrn.github` - for GitHub release builds
-- `org.meumeu.wivrn.local` - for locally built APK
-- `org.meumeu.wivrn.github.testing` - for CI runs
-- `org.meumeu.wivrn.github.nightly` - for APK repo
+- `org.wyrmvr.wyrm` - for app store builds
+- `org.wyrmvr.wyrm.github` - for GitHub release builds
+- `org.wyrmvr.wyrm.local` - for locally built APK
+- `org.wyrmvr.wyrm.github.testing` - for CI runs
+- `org.wyrmvr.wyrm.github.nightly` - for APK repo
 
 Find your installed package with:
 
 ```bash
-adb shell pm list packages | grep wivrn
+adb shell pm list packages | grep wyrm
 ```
 
 Start via ADB:
 
 ```bash
-WIVRN_PKG=$(adb shell pm list packages | grep wivrn | cut -d: -f2)
-adb shell am start ${WIVRN_PKG}/org.meumeu.wivrn.MainActivity
+WYRM_PKG=$(adb shell pm list packages | grep wyrm | cut -d: -f2)
+adb shell am start ${WYRM_PKG}/org.wyrmvr.wyrm.MainActivity
 ```
 
 Connect to a specific server:
@@ -131,16 +131,16 @@ Connect to a specific server:
 Replace `ADDRESS=localhost` with the address of the server you want to connect to.
 
 ```bash
-WIVRN_PKG=$(adb shell pm list packages | grep wivrn | cut -d: -f2)
+WYRM_PKG=$(adb shell pm list packages | grep wyrm | cut -d: -f2)
 ADDRESS=localhost
-adb shell am start -a android.intent.action.VIEW -d "wivrn://${ADDRESS}" ${WIVRN_PKG}
+adb shell am start -a android.intent.action.VIEW -d "wyrm://${ADDRESS}" ${WYRM_PKG}
 ```
 
 Stop the client:
 
 ```bash
-WIVRN_PKG=$(adb shell pm list packages | grep wivrn | cut -d: -f2)
-adb shell am force-stop ${WIVRN_PKG}
+WYRM_PKG=$(adb shell pm list packages | grep wyrm | cut -d: -f2)
+adb shell am force-stop ${WYRM_PKG}
 ```
 
 ### Server
@@ -148,7 +148,7 @@ adb shell am force-stop ${WIVRN_PKG}
 Start the server with debug logging:
 
 ```bash
-XRT_LOG=debug XRT_COMPOSITOR_LOG=debug wivrn-server
+XRT_LOG=debug XRT_COMPOSITOR_LOG=debug wyrm-server
 ```
 
 The server will publish itself on the network via mDNS/Zeroconf for discovery by the HMD client.
@@ -223,7 +223,7 @@ This writes cores to `/tmp/` with the format `core.<executable>.<pid>.<timestamp
 Analyze a core dump with GDB:
 
 ```bash
-gdb /usr/bin/wivrn-server /tmp/core.wivrn-server.12345.1706234567
+gdb /usr/bin/wyrm-server /tmp/core.wyrm-server.12345.1706234567
 ```
 
 Inside GDB:
@@ -247,14 +247,14 @@ thread apply all bt
 Copy the traceback from the HMD logs using logcat:
 
 ```bash
-adb logcat '*:F' | grep -A 50 wivrn
+adb logcat '*:F' | grep -A 50 wyrm
 ```
 
 ---
 
 ## Performance Profiling
 
-WiVRn supports timing analysis and detailed system-wide profiling with Perfetto.
+Wyrm supports timing analysis and detailed system-wide profiling with Perfetto.
 See [docs/profiling.md](profiling.md) for capturing
 timing data, profiling the HMD client and server, and comparing the Vulkan,
 NVENC, and VAAPI encoder paths.
@@ -263,14 +263,14 @@ NVENC, and VAAPI encoder paths.
 
 ## USB Tunneling
 
-For debugging network issues or testing with a wired connection, you can tunnel WiVRn over USB.
+For debugging network issues or testing with a wired connection, you can tunnel Wyrm over USB.
 
 Set up the tunnel and connect:
 
 ```bash
-WIVRN_PKG=$(adb shell pm list packages | grep wivrn | cut -d: -f2)
+WYRM_PKG=$(adb shell pm list packages | grep wyrm | cut -d: -f2)
 adb reverse tcp:9757 tcp:9757
-adb shell am start -a android.intent.action.VIEW -d "wivrn+tcp://localhost:9757" ${WIVRN_PKG}
+adb shell am start -a android.intent.action.VIEW -d "wyrm+tcp://localhost:9757" ${WYRM_PKG}
 ```
 
 You are also able to make this connection through the dashboard.
@@ -326,10 +326,10 @@ The log is located at `$XDG_STATE_HOME/xrizer/xrizer.txt`, or `$HOME/.local/stat
 
 | Variable | Description |
 |----------|-------------|
-| `WIVRN_DUMP_VIDEO` | Path to dump video frames (e.g., `/tmp/video-dump`) |
-| `WIVRN_LOGLEVEL` | Log level for the native client |
-| `WIVRN_AUTOCONNECT` | Auto-connect to the first discovered server |
-| `WIVRN_TRACING` | Enable WiVRn Perfetto tracing: `system` / `inprocess`. Requires `WIVRN_USE_PERFETTO=ON` at build time. See [docs/profiling.md](profiling.md). |
+| `WYRM_DUMP_VIDEO` | Path to dump video frames (e.g., `/tmp/video-dump`) |
+| `WYRM_LOGLEVEL` | Log level for the native client |
+| `WYRM_AUTOCONNECT` | Auto-connect to the first discovered server |
+| `WYRM_TRACING` | Enable Wyrm Perfetto tracing: `system` / `inprocess`. Requires `WYRM_USE_PERFETTO=ON` at build time. See [docs/profiling.md](profiling.md). |
 
 ### Vulkan
 
@@ -357,12 +357,12 @@ Active runtime symlink:
 ls -la $HOME/.config/openxr/1/active_runtime.json
 ```
 
-Should point to `/usr/share/openxr/1/openxr_wivrn.json` or similar.
+Should point to `/usr/share/openxr/1/openxr_wyrm.json` or similar.
 
 Check runtime configuration:
 
 ```bash
-cat /usr/share/openxr/1/openxr_wivrn.json
+cat /usr/share/openxr/1/openxr_wyrm.json
 ```
 
 Example output:
@@ -372,8 +372,8 @@ Example output:
     "file_format_version": "1.0.0",
     "runtime": {
         "name": "Monado",
-        "library_path": "../../../lib64/wivrn/libopenxr_wivrn.so",
-        "MND_libmonado_path": "../../../lib64/wivrn/libmonado_wivrn.so"
+        "library_path": "../../../lib64/wyrm/libopenxr_wyrm.so",
+        "MND_libmonado_path": "../../../lib64/wyrm/libmonado_wyrm.so"
     }
 }
 ```
@@ -382,11 +382,11 @@ Verify library dependencies:
 
 ```bash
 pushd /usr/share/openxr/1/
-ldd ../../../lib64/wivrn/libopenxr_wivrn.so
+ldd ../../../lib64/wyrm/libopenxr_wyrm.so
 popd
 ```
 
-### WiVRn Server Configuration
+### Wyrm Server Configuration
 
 See [docs/configuration.md](configuration.md).
 
@@ -432,8 +432,8 @@ This section covers attaching a native debugger to the HMD client remotely. This
 Start the client with debugging enabled:
 
 ```bash
-WIVRN_PKG=$(adb shell pm list packages | grep wivrn | cut -d: -f2)
-adb shell am start -D ${WIVRN_PKG}/org.meumeu.wivrn.MainActivity
+WYRM_PKG=$(adb shell pm list packages | grep wyrm | cut -d: -f2)
+adb shell am start -D ${WYRM_PKG}/org.wyrmvr.wyrm.MainActivity
 ```
 
 Set up LLDB debugging:
@@ -468,7 +468,7 @@ Set up LLDB debugging:
 Resume the app (required for `-D` flag):
 
 ```bash
-adb forward tcp:12345 jdwp:$(adb shell pidof ${WIVRN_PKG})
+adb forward tcp:12345 jdwp:$(adb shell pidof ${WYRM_PKG})
 jdb -attach localhost:12345
 ```
 

@@ -1,4 +1,5 @@
 #include "version.h"
+#include "wyrm_config.h"
 #include <KAboutData>
 #include <KIconTheme>
 #include <KLocalizedQmlContext>
@@ -18,23 +19,28 @@ int main(int argc, char * argv[])
 {
 	KIconTheme::initTheme();
 	QApplication app(argc, argv);
-	KLocalizedString::setApplicationDomain("wivrn-dashboard");
-	app.setOrganizationName(QStringLiteral("wivrn"));
+	KLocalizedString::setApplicationDomain("wyrm-dashboard");
+	app.setOrganizationName(QStringLiteral("wyrm"));
 
 	KAboutData aboutData(
-	        QStringLiteral("wivrn-dashboard"),
-	        i18nc("@title", "WiVRn"),
-	        wivrn::display_version(),
-	        i18n("WiVRn server"),
+	        QStringLiteral("wyrm-dashboard"),
+	        i18nc("@title", "Wyrm"),
+	        wyrm::display_version(),
+	        i18n("Wyrm server"),
 	        KAboutLicense::GPL_V3,
 	        i18n("(c) 2022-2026 WiVRn development team"));
 
-	aboutData.setDesktopFileName(QStringLiteral("io.github.wivrn.wivrn"));
-	aboutData.setOrganizationDomain("wivrn.github.io");
+	aboutData.setDesktopFileName(QStringLiteral("org.wyrmvr.wyrm"));
+	aboutData.setOrganizationDomain("wyrmvr.org");
 
-	aboutData.setHomepage("https://github.com/WiVRn/WiVRn");
-	aboutData.setBugAddress("https://github.com/WiVRn/WiVRn/issues");
-	aboutData.setProgramLogo(QIcon(":/qml/wivrn.svg"));
+	const QString repository = QStringLiteral(WYRM_GITHUB_REPOSITORY);
+	if (not repository.isEmpty())
+	{
+		const QString homepage = QStringLiteral("https://github.com/") + repository;
+		aboutData.setHomepage(homepage);
+		aboutData.setBugAddress((homepage + "/issues").toUtf8());
+	}
+	aboutData.setProgramLogo(QIcon(":/qml/wyrm.svg"));
 
 	aboutData.addComponent(
 	        i18n("Monado"),
@@ -60,7 +66,7 @@ int main(int argc, char * argv[])
 	QQmlApplicationEngine engine;
 
 	KLocalization::setupLocalizedContext(&engine);
-	engine.loadFromModule("io.github.wivrn.wivrn", "Main");
+	engine.loadFromModule("org.wyrmvr.wyrm", "Main");
 
 	if (engine.rootObjects().isEmpty())
 	{

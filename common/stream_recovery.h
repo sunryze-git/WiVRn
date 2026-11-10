@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 #include <chrono>
-namespace wivrn
+namespace wyrm
 {
 using recovery_clock = std::chrono::steady_clock;
 inline bool keyframe_retry_due(recovery_clock::time_point now, recovery_clock::time_point sent)
@@ -24,4 +24,4 @@ public:
 		return attempts++ < 3;
 	}
 };
-} // namespace wivrn
+} // namespace wyrm

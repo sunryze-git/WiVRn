@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -93,14 +93,14 @@ void request_permission(const char * permission, std::function<void(bool)> callb
 	}
 }
 
-extern "C" void Java_org_meumeu_wivrn_MainActivity_onRequestPermissionsResult(
+extern "C" void Java_org_wyrmvr_wyrm_MainActivity_onRequestPermissionsResult(
         JNIEnv * env,
         jobject instance,
         int requestCode,
         jobjectArray permissions,
         jintArray grantResults);
 
-void Java_org_meumeu_wivrn_MainActivity_onRequestPermissionsResult(
+void Java_org_wyrmvr_wyrm_MainActivity_onRequestPermissionsResult(
         JNIEnv * env,
         jobject instance,
         int request_code,

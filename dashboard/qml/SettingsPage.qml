@@ -7,7 +7,7 @@ import QtQuick.Controls as Controls
 import QtQuick.Dialogs as Dialogs
 import org.kde.kirigami as Kirigami
 
-import io.github.wivrn.wivrn
+import org.wyrmvr.wyrm
 
 Kirigami.ScrollablePage {
     id: settings
@@ -129,7 +129,7 @@ Kirigami.ScrollablePage {
                     text: i18n("Enable SteamVR tracked devices support")
                 }
                 Kirigami.ContextualHelpButton {
-                    toolTipText: i18n("Allows the use of lighthouse-based controllers and trackers.\nRequires SteamVR to be installed.\nDevices must be be powered on before connecting to WiVRn.\nAn external tool such as motoc is needed for calibration.")
+                    toolTipText: i18n("Allows the use of lighthouse-based controllers and trackers.\nRequires SteamVR to be installed.\nDevices must be be powered on before connecting to Wyrm.\nAn external tool such as motoc is needed for calibration.")
                 }
             }
             Controls.CheckBox {
@@ -188,7 +188,7 @@ Kirigami.ScrollablePage {
             Dialogs.FileDialog {
                 id: adb_browse
                 onAccepted: {
-                    adb_location.text = WivrnServer.host_path(new URL(selectedFile).pathname);
+                    adb_location.text = WyrmServer.host_path(new URL(selectedFile).pathname);
                 }
             }
 
@@ -216,7 +216,7 @@ Kirigami.ScrollablePage {
                         "value": "",
                         "is_custom": false
                     });
-                    var libs = WivrnServer.openVRCompat;
+                    var libs = WyrmServer.openVRCompat;
                     for (var i = 0; i < libs.length; i++) {
                         openvr_libs.append({
                             "name": libs[i].name,
@@ -242,7 +242,7 @@ Kirigami.ScrollablePage {
                 id: openvr_browse
                 onAccepted: {
                     currentFolder = selectedFolder
-                    openvr_text.text = WivrnServer.host_path(new URL(selectedFolder).pathname);
+                    openvr_text.text = WyrmServer.host_path(new URL(selectedFolder).pathname);
                     openvr_text.text = openvr_text.text.replace(/\/linux64$/, "").replace(/\/bin$/, "")
                 }
             }
@@ -301,7 +301,7 @@ Kirigami.ScrollablePage {
 
         onAccepted: {
             settings.save();
-            Settings.save(WivrnServer);
+            Settings.save(WyrmServer);
 
             applicationWindow().pageStack.pop();
         }
@@ -314,7 +314,7 @@ Kirigami.ScrollablePage {
 
     Component.onCompleted: {
         openvr_libs.init()
-        Settings.load(WivrnServer);
+        Settings.load(WyrmServer);
         settings.allowUpdates = true;
         settings.load();
     }

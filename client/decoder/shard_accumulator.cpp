@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022-2023  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2023  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -22,10 +22,10 @@
 #include "spdlog/spdlog.h"
 #include "xr/instance.h"
 
-namespace wivrn
+namespace wyrm
 {
 
-using namespace wivrn::to_headset;
+using namespace wyrm::to_headset;
 using shard_set = shard_accumulator::shard_set;
 using data_shard = shard_accumulator::data_shard;
 
@@ -214,7 +214,7 @@ void shard_accumulator::try_submit_frame(uint16_t shard_idx)
 	advance();
 }
 
-void shard_accumulator::send_feedback(wivrn::from_headset::feedback & feedback)
+void shard_accumulator::send_feedback(wyrm::from_headset::feedback & feedback)
 {
 	if (not feedback.received_last_packet)
 		feedback.received_first_packet = instance.now();
@@ -222,4 +222,4 @@ void shard_accumulator::send_feedback(wivrn::from_headset::feedback & feedback)
 	if (scene)
 		scene->send_feedback(feedback);
 }
-} // namespace wivrn
+} // namespace wyrm

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "video_stream_state.h"
-#include "wivrn_packets.h"
-#include "wivrn_serialization.h"
+#include "wyrm_packets.h"
+#include "wyrm_serialization.h"
 
 #include <cstdlib>
 #include <iostream>
 
-using namespace wivrn;
+using namespace wyrm;
 
 static void check(bool condition)
 {

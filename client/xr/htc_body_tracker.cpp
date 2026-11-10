@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Awzri <awzri@awzricat.com>
  * Copyright (C) 2025  Sapphire <imsapphire0@gmail.com>
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
@@ -19,7 +19,7 @@
  */
 
 #include "htc_body_tracker.h"
-#include "wivrn_packets.h"
+#include "wyrm_packets.h"
 #include "xr/details/enumerate.h"
 #include "xr/session.h"
 #include "xr/to_string.h"
@@ -59,7 +59,7 @@ XrSpace xr::vive_xr_tracker::get_space() const
 	return space;
 }
 
-static wivrn::from_headset::htc_body::pose locate_space(XrSpace space, XrSpace reference, XrTime time)
+static wyrm::from_headset::htc_body::pose locate_space(XrSpace space, XrSpace reference, XrTime time)
 {
 	XrSpaceVelocity velocity{
 	        .type = XR_TYPE_SPACE_VELOCITY,
@@ -76,11 +76,11 @@ static wivrn::from_headset::htc_body::pose locate_space(XrSpace space, XrSpace r
 		return {};
 	}
 
-	wivrn::from_headset::htc_body::pose res{
+	wyrm::from_headset::htc_body::pose res{
 	        .pose = location.pose,
 	        .linear_velocity = velocity.linearVelocity,
 	        .angular_velocity = velocity.angularVelocity,
-	        .flags = wivrn::from_headset::to_pose_flags(location.locationFlags, velocity.velocityFlags),
+	        .flags = wyrm::from_headset::to_pose_flags(location.locationFlags, velocity.velocityFlags),
 	};
 
 	return res;
@@ -107,7 +107,7 @@ xr::htc_body_tracker::packet_type xr::htc_body_tracker::locate_spaces(XrTime tim
 	for (size_t i = 0; i < trackers.size(); i++)
 	{
 		auto & tracker = trackers[i];
-		wivrn::from_headset::htc_body::pose pose{};
+		wyrm::from_headset::htc_body::pose pose{};
 		if (tracker.get_active())
 			pose = locate_space(tracker.get_space(), reference, time);
 

@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "wivrn_packets.h"
+#include "wyrm_packets.h"
 
 #include <condition_variable>
 #include <cstdint>
@@ -30,7 +30,7 @@
 #include "main/comp_target.h"
 #include "util/u_var.h"
 
-namespace wivrn
+namespace wyrm
 {
 
 struct clock_offset;
@@ -94,7 +94,7 @@ public:
 	        int64_t & out_present_slop_ns,
 	        int64_t & out_predicted_display_time_ns);
 
-	void on_feedback(const wivrn::from_headset::feedback &, const clock_offset &);
+	void on_feedback(const wyrm::from_headset::feedback &, const clock_offset &);
 
 	void mark_timing_point(
 	        comp_target_timing_point point,
@@ -105,4 +105,4 @@ public:
 
 	void reset();
 };
-} // namespace wivrn
+} // namespace wyrm

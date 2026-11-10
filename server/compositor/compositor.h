@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -29,7 +29,7 @@
 #include "layer_squasher.h"
 #include "pacer.h"
 #include "stream_recovery.h"
-#include "utils/wivrn_vk_bundle.h"
+#include "utils/wyrm_vk_bundle.h"
 #include "video_stream_state.h"
 
 #include "main/comp_compositor.h"
@@ -40,10 +40,10 @@
 #include <shared_mutex>
 #include <thread>
 
-namespace wivrn
+namespace wyrm
 {
 
-class wivrn_session;
+class wyrm_session;
 class video_encoder;
 
 class compositor : public comp_base
@@ -81,7 +81,7 @@ private:
 	const u_logging_level log_level;
 	timings squasher_times;
 	timings foveation_times;
-	wivrn_session & session;
+	wyrm_session & session;
 	vk_bundle vk;
 	vk::raii::CommandPool cmd_pool;
 	vk::raii::QueryPool query_pool;
@@ -100,7 +100,7 @@ private:
 
 	std::atomic<float> requested_refresh_rate;
 	std::atomic<float> frame_rate;
-	wivrn::pacer pacer;
+	wyrm::pacer pacer;
 
 	std::array<XrVector2f, 2> foveation_angles{};
 
@@ -160,7 +160,7 @@ public:
 private:
 	void destroy()
 	{
-		// do nothing, actually owned by wivrn_session object
+		// do nothing, actually owned by wyrm_session object
 	}
 
 	int acquire_image();
@@ -179,7 +179,7 @@ private:
 
 public:
 	using base_t = xrt_compositor;
-	compositor(wivrn_session &);
+	compositor(wyrm_session &);
 	~compositor();
 
 	xrt_system_compositor_info sys_info() const;
@@ -212,4 +212,4 @@ public:
 	std::optional<from_headset::headset_info_packet> on_feedback(const from_headset::feedback &, const clock_offset &);
 };
 
-} // namespace wivrn
+} // namespace wyrm

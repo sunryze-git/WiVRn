@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,8 +21,8 @@
 #include "escape_string.h"
 #include "gui_config.h"
 #include "utils/flatpak.h"
-#include "wivrn_config.h"
-#include "wivrn_server.h"
+#include "wyrm_config.h"
+#include "wyrm_server.h"
 #include <QList>
 #include <QObject>
 #include <cassert>
@@ -129,7 +129,7 @@ void Settings::emitAllChanged()
 	hostnameChanged();
 }
 
-void Settings::load(const wivrn_server * server)
+void Settings::load(const wyrm_server * server)
 {
 	// Encoders configuration
 	try
@@ -489,7 +489,7 @@ int Settings::port() const
 	auto it = m_jsonSettings.find("port");
 	if (it != m_jsonSettings.end() and it->is_number_integer())
 		return *it;
-	return wivrn::default_port;
+	return wyrm::default_port;
 }
 
 void Settings::set_port(const int & value)
@@ -577,7 +577,7 @@ bool Settings::can10bit() const
 	return ::can10bit(codec());
 }
 
-void Settings::save(wivrn_server * server)
+void Settings::save(wyrm_server * server)
 {
 	server->setJsonConfiguration(QString::fromStdString(m_jsonSettings.dump(2)));
 	if (m_jsonSettings != m_originalSettings)
@@ -601,17 +601,17 @@ void Settings::restore_defaults()
 
 bool Settings::flatpak() const
 {
-	return wivrn::is_flatpak();
+	return wyrm::is_flatpak();
 }
 
 int Settings::default_port() const
 {
-	return wivrn::default_port;
+	return wyrm::default_port;
 }
 
 bool Settings::debug_gui() const
 {
-#if WIVRN_FEATURE_DEBUG_GUI
+#if WYRM_FEATURE_DEBUG_GUI
 	return true;
 #else
 	return false;
@@ -619,7 +619,7 @@ bool Settings::debug_gui() const
 }
 bool Settings::steamvr_lh() const
 {
-#if WIVRN_FEATURE_STEAMVR_LIGHTHOUSE
+#if WYRM_FEATURE_STEAMVR_LIGHTHOUSE
 	return true;
 #else
 	return false;

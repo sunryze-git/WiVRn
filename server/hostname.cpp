@@ -68,7 +68,7 @@ static std::string _hostname()
 	return "no-hostname";
 }
 
-std::string wivrn::hostname()
+std::string wyrm::hostname()
 {
 	// Accessing hostname in child process fails with glib
 	static std::string result = _hostname();

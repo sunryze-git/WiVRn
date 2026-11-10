@@ -1,4 +1,4 @@
-package org.meumeu.wivrn;
+package org.wyrmvr.wyrm;
 
 public class NetworkInfoCallback extends android.net.ConnectivityManager.NetworkCallback
 {

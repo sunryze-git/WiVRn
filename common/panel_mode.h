@@ -4,7 +4,7 @@
 #include <cmath>
 #include <optional>
 #include <string_view>
-namespace wivrn
+namespace wyrm
 {
 struct panel_mode
 {
@@ -30,4 +30,4 @@ inline std::optional<panel_mode> parse_panel_mode(std::string_view mode)
 		return {};
 	return result;
 }
-} // namespace wivrn
+} // namespace wyrm

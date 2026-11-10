@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@
 #include <filesystem>
 #include <vector>
 
-namespace wivrn
+namespace wyrm
 {
 struct icon
 {
@@ -32,4 +32,4 @@ struct icon
 };
 
 const std::vector<icon> & load_icon(const std::filesystem::path & filename);
-} // namespace wivrn
+} // namespace wyrm

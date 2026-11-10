@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -33,7 +33,7 @@ public:                                           \
 Q_SIGNALS:                                        \
 	void prop_name##Changed();
 
-class wivrn_server;
+class wyrm_server;
 
 class Settings : public QObject
 {
@@ -110,8 +110,8 @@ public:
 	Settings(QObject * parent = nullptr) :
 	        QObject(parent) {}
 
-	Q_INVOKABLE void load(const wivrn_server * server);
-	Q_INVOKABLE void save(wivrn_server * server);
+	Q_INVOKABLE void load(const wyrm_server * server);
+	Q_INVOKABLE void save(wyrm_server * server);
 	Q_INVOKABLE void restore_defaults();
 
 	QList<video_codec> allowedCodecs() const;

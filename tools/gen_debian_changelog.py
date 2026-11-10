@@ -9,7 +9,7 @@ import sys
 import typing
 import xml.etree.ElementTree as ET
 
-HEADER = """wivrn ({version}-1) {distribution}; urgency=medium
+HEADER = """wyrm ({version}-1) {distribution}; urgency=medium
 
 """
 
@@ -49,12 +49,13 @@ def main():
         tree = ET.parse(args.metainfo)
     else:
         default_metainfo = os.path.join(
-            os.path.dirname(__file__), "../dashboard/io.github.wivrn.wivrn.metainfo.xml"
+            os.path.dirname(__file__), "../dashboard/org.wyrmvr.wyrm.metainfo.xml"
         )
         with open(default_metainfo) as metainfo:
             tree = ET.parse(metainfo)
 
-    if args.nightly:
+    releases = tree.findall("releases/release")
+    if args.nightly or not releases:
         version = (
             subprocess.check_output(["git", "describe", "--tags", "--always"]).decode().strip()
         )
@@ -65,13 +66,13 @@ def main():
         write_entry(
             out=args.out,
             version=version,
-            data=["Nightly build"],
+            data=["Nightly build" if args.nightly else "Initial Wyrm fork build"],
             author=args.author,
             distribution=args.distribution,
             date=datetime.datetime.now().astimezone(),
         )
 
-    for release in tree.find("releases").findall("release"):
+    for release in releases:
         write_entry(
             out=args.out,
             version=release.get("version"),

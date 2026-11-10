@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -28,7 +28,7 @@
 #include <chrono>
 #include <format>
 
-namespace wivrn
+namespace wyrm
 {
 
 void systemd_units_manager::deleter::operator()(systemdManager * obj)
@@ -235,13 +235,13 @@ void systemd_units_manager::start_application(const std::vector<std::string> & a
 		std::cerr << " " << std::quoted(i);
 	std::cerr << std::endl;
 
-	std::string service_name = std::format("wivrn-application-{}.service", std::chrono::steady_clock::now().time_since_epoch().count());
+	std::string service_name = std::format("wyrm-application-{}.service", std::chrono::steady_clock::now().time_since_epoch().count());
 
 	variant_builder b(G_VARIANT_TYPE("a(sv)"));
 	g_variant_builder_add(&b,
 	                      "(sv)",
 	                      "Description",
-	                      g_variant_new("s", "Application spawned by WiVRn"));
+	                      g_variant_new("s", "Application spawned by Wyrm"));
 
 	variant_builder argv(G_VARIANT_TYPE("as"));
 	for (const auto & arg: args)
@@ -308,4 +308,4 @@ void systemd_units_manager::start_application(const std::vector<std::string> & a
 		throw e;
 	}
 }
-} // namespace wivrn
+} // namespace wyrm

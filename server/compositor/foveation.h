@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  galister <galister@librevr.org>
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -20,7 +20,7 @@
 #pragma once
 
 #include "vk/allocation.h"
-#include "wivrn_packets.h"
+#include "wyrm_packets.h"
 #include "xrt/xrt_defines.h"
 
 #include <mutex>
@@ -28,7 +28,7 @@
 
 struct render_resources;
 
-namespace wivrn
+namespace wyrm
 {
 
 struct clock_offset;
@@ -71,7 +71,7 @@ class foveation
 	        std::array<xrt_fov, 2> src_fov);
 
 public:
-	foveation(wivrn::vk_bundle &, vk::Extent3D foveated_size);
+	foveation(wyrm::vk_bundle &, vk::Extent3D foveated_size);
 
 	void update_foveation(const from_headset::foveation &);
 
@@ -86,4 +86,4 @@ public:
 	        std::array<xrt_fov, 2> src_fov,
 	        bool alpha);
 };
-} // namespace wivrn
+} // namespace wyrm

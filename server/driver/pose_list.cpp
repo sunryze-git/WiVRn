@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -33,7 +33,7 @@
 
 using namespace xrt::auxiliary::math;
 
-namespace wivrn
+namespace wyrm
 {
 
 xrt_space_relation pose_list::interpolate(const xrt_space_relation & a, const xrt_space_relation & b, float t)
@@ -91,11 +91,11 @@ xrt_space_relation pose_list::extrapolate(const xrt_space_relation & a, const xr
 	return res;
 }
 
-pose_list::pose_list(wivrn::device_id id) : device(id)
+pose_list::pose_list(wyrm::device_id id) : device(id)
 {
-	if (auto dump = std::getenv("WIVRN_DUMP"); dump and dump == std::string_view("list"))
-		std::cerr << "WIVRN_DUMP_" << magic_enum::enum_name(id) << std::endl;
-	if (auto dump = std::getenv(std::format("WIVRN_DUMP_{}", magic_enum::enum_name(id)).c_str()))
+	if (auto dump = std::getenv("WYRM_DUMP"); dump and dump == std::string_view("list"))
+		std::cerr << "WYRM_DUMP_" << magic_enum::enum_name(id) << std::endl;
+	if (auto dump = std::getenv(std::format("WYRM_DUMP_{}", magic_enum::enum_name(id)).c_str()))
 		dumper.emplace(dump);
 }
 
@@ -143,7 +143,15 @@ std::tuple<XrTime, xrt_space_relation, device_id> pose_list::get_pose_at(XrTime 
 	if (auto source = this->source.load())
 	{
 		auto res = source->get_pose_at(at_timestamp_ns);
-		math_pose_transform(&std::get<1>(res).pose, &offset, &std::get<1>(res).pose);
+		// Transform velocities too: rotating the source moves an offset origin.
+		const auto relation_flags = std::get<1>(res).relation_flags;
+		xrt_relation_chain chain{};
+		m_relation_chain_push_pose(&chain, &offset);
+		m_relation_chain_push_relation(&chain, &std::get<1>(res));
+		m_relation_chain_resolve(&chain, &std::get<1>(res));
+		// The chain helper can promote orientation-only tracking to 3DoF poses.
+		// A fixed controller offset must preserve the source's validity instead.
+		std::get<1>(res).relation_flags = relation_flags;
 		return res;
 	}
 
@@ -199,7 +207,9 @@ void pose_list::add_sample(XrTime production_timestamp, XrTime timestamp, const 
 			        pose.angular_velocity.y,
 			        pose.angular_velocity.z};
 
-			orientation.dy.emplace(0.5 * (ω * q).coeffs());
+			// Eigen's coeffs() uses (x, y, z, w), while the fit uses (w, x, y, z).
+			Eigen::Quaternionf dq = ω * q;
+			orientation.dy.emplace(0.5f * dq.w(), 0.5f * dq.x(), 0.5f * dq.y(), 0.5f * dq.z());
 		}
 	}
 
@@ -259,39 +269,43 @@ std::pair<XrTime, xrt_space_relation> pose_list::get_at(XrTime at_timestamp_ns)
 
 	if (orientation.y)
 	{
-		if (auto norm2 = orientation.y->squaredNorm(); norm2 > 0.1)
+		if (auto norm2 = orientation.y->squaredNorm(); std::isfinite(norm2) and norm2 > 0.1)
 		{
 			flags(XRT_SPACE_RELATION_ORIENTATION_VALID_BIT | XRT_SPACE_RELATION_ORIENTATION_TRACKED_BIT);
 
-			orientation.y->normalize();
+			float norm = std::sqrt(norm2);
+			*orientation.y /= norm;
+			// The derivative of q / |q| also has a radial term, but that term
+			// contributes only to the scalar part of dq * conjugate(q).
+			if (orientation.dy)
+				*orientation.dy /= norm;
 
 			ret.pose.orientation = {
 			        .x = (*orientation.y)[1],
 			        .y = (*orientation.y)[2],
 			        .z = (*orientation.y)[3],
 			        .w = (*orientation.y)[0]};
-		}
+			if (orientation.dy)
+			{
+				Eigen::Quaternionf q{
+				        (*orientation.y)[0],
+				        (*orientation.y)[1],
+				        (*orientation.y)[2],
+				        (*orientation.y)[3]};
+				Eigen::Quaternionf dq{
+				        (*orientation.dy)[0],
+				        (*orientation.dy)[1],
+				        (*orientation.dy)[2],
+				        (*orientation.dy)[3]};
+				Eigen::Quaternionf half_ω = dq * q.conjugate();
 
-		if (orientation.dy)
-		{
-			Eigen::Quaternionf q{
-			        (*orientation.y)[0],
-			        (*orientation.y)[1],
-			        (*orientation.y)[2],
-			        (*orientation.y)[3]};
-			Eigen::Quaternionf dq{
-			        (*orientation.dy)[0],
-			        (*orientation.dy)[1],
-			        (*orientation.dy)[2],
-			        (*orientation.dy)[3]};
-			Eigen::Quaternionf half_ω = dq * q.conjugate();
-
-			flags(XRT_SPACE_RELATION_ANGULAR_VELOCITY_VALID_BIT);
-			ret.angular_velocity = {
-			        2 * half_ω.x(),
-			        2 * half_ω.y(),
-			        2 * half_ω.z(),
-			};
+				flags(XRT_SPACE_RELATION_ANGULAR_VELOCITY_VALID_BIT);
+				ret.angular_velocity = {
+				        2 * half_ω.x(),
+				        2 * half_ω.y(),
+				        2 * half_ω.z(),
+				};
+			}
 		}
 	}
 
@@ -314,7 +328,8 @@ std::pair<XrTime, xrt_space_relation> pose_list::get_at(XrTime at_timestamp_ns)
 		dumper->write(item);
 	}
 
-	return {position.production_timestamp, ret};
+	// Tracking requests use zero to mean that no sample has been received yet.
+	return {position.production_timestamp == std::numeric_limits<XrTime>::lowest() ? 0 : position.production_timestamp, ret};
 }
 
-} // namespace wivrn
+} // namespace wyrm

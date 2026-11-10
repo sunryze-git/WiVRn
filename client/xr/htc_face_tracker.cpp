@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  galister <galister@librevr.org>
  * Copyright (C) 2025  Sapphire <imsapphire0@gmail.com>
  *

@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -27,8 +27,8 @@
 #include "scenes/lobby_keyboard.h"
 #include "utils/mapped_file.h"
 #include "utils/thread_safe.h"
-#include "wivrn_config.h"
-#include "wivrn_discover.h"
+#include "wyrm_config.h"
+#include "wyrm_discover.h"
 #include "xr/face_tracker.h"
 #include <vulkan/vulkan_raii.hpp>
 #include <openxr/openxr.h>
@@ -41,7 +41,7 @@
 #include "input_profile.h"
 #include "utils/async.h"
 
-class wivrn_session;
+class wyrm_session;
 
 namespace scenes
 {
@@ -49,16 +49,16 @@ class stream;
 
 class lobby : public scene_impl<lobby>
 {
-	std::optional<wivrn_discover> discover;
+	std::optional<wyrm_discover> discover;
 
 	std::string add_server_window_prettyname;
 	std::string add_server_window_hostname;
-	int add_server_window_port = wivrn::default_port;
+	int add_server_window_port = wyrm::default_port;
 	bool add_server_tcp_only = false;
 	std::string add_server_cookie;
 	std::string delete_server_cookie; // server pending a delete confirmation
 
-	utils::future<std::unique_ptr<wivrn_session>, std::string> async_session;
+	utils::future<std::unique_ptr<wyrm_session>, std::string> async_session;
 	std::optional<std::string> async_error;
 	std::shared_ptr<stream> next_scene;
 	std::string server_name;
@@ -97,7 +97,7 @@ class lobby : public scene_impl<lobby>
 	uint32_t height;
 	XrViewConfigurationView stream_view;
 
-#if WIVRN_CLIENT_DEBUG_MENU
+#if WYRM_CLIENT_DEBUG_MENU
 	// GUI debug
 	entt::entity xyz_axes_left_controller;
 	entt::entity xyz_axes_right_controller;
@@ -133,7 +133,7 @@ class lobby : public scene_impl<lobby>
 		system,
 		customize,
 		theme,
-#if WIVRN_CLIENT_DEBUG_MENU
+#if WYRM_CLIENT_DEBUG_MENU
 		debug,
 #endif
 		about,
@@ -225,7 +225,7 @@ class lobby : public scene_impl<lobby>
 	void download_environment_list();
 	libcurl::curl_handle * parse_environment_list();
 
-#if WIVRN_CLIENT_DEBUG_MENU
+#if WYRM_CLIENT_DEBUG_MENU
 	std::pair<entt::entity, int> debug_primitive_to_highlight = {entt::null, 0};
 #endif
 
@@ -255,7 +255,7 @@ class lobby : public scene_impl<lobby>
 	void setup_passthrough();
 
 	void connect(const configuration::server_data & data);
-	std::unique_ptr<wivrn_session> connect_to_session(wivrn_discover::service service, bool manual_connection);
+	std::unique_ptr<wyrm_session> connect_to_session(wyrm_discover::service service, bool manual_connection);
 
 	std::optional<glm::vec3> check_recenter_gesture(xr::spaces space, const xr::hand_tracker::joint_array & joints, const std::pair<glm::vec3, glm::quat> & head_pose);
 	std::optional<glm::vec3> check_recenter_action(XrTime predicted_display_time, glm::vec3 head_position);

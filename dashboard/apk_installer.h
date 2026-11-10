@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -51,6 +51,8 @@ public:
 	Q_PROPERTY(QString currentVersion READ currentVersion CONSTANT)
 	Q_PROPERTY(QString latestVersion READ latestVersion NOTIFY latestVersionChanged)
 	bool isTagged() const;
+	Q_PROPERTY(QString repositoryUrl READ repositoryUrl CONSTANT)
+	QString repositoryUrl() const;
 	QString currentVersion() const;
 	QString latestVersion() const
 	{

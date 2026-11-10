@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -23,7 +23,7 @@
 
 QString find_executable(const QString & name)
 {
-	if (wivrn::is_flatpak())
+	if (wyrm::is_flatpak())
 		return QStandardPaths::findExecutable(
 		        name,
 		        QStringList({"/run/host/usr/sbin", "/run/host/usr/bin", "/run/host/sbin", "/run/host/bin"}));

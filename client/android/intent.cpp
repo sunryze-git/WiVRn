@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -59,7 +59,7 @@ jni::object<"android/net/Uri"> intent::get_uri()
 	return obj.call<jni::object<"android/net/Uri">>("getData");
 }
 
-extern "C" void Java_org_meumeu_wivrn_MainActivity_onActivityResult(JNIEnv * env, jobject instance, int request_code, int result_code, jobject data_obj)
+extern "C" void Java_org_wyrmvr_wyrm_MainActivity_onActivityResult(JNIEnv * env, jobject instance, int request_code, int result_code, jobject data_obj)
 {
 	auto it = callbacks.find(request_code);
 	if (it == callbacks.end())

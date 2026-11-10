@@ -11,7 +11,7 @@ from urllib.request import urlopen
 import flatpakcargogenerator
 import toml
 
-TEMPLATE = "flatpak/io.github.wivrn.wivrn.yml.in"
+TEMPLATE = "flatpak/org.wyrmvr.wyrm.yml.in"
 
 
 class CMakeFile:
@@ -81,28 +81,28 @@ if __name__ == "__main__":
     git_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root).decode().strip()
 
     if args.git or args.gitlocal:
-        template = template.replace("WIVRN_SRC1", "type: git")
+        template = template.replace("WYRM_SRC1", "type: git")
         if args.git:
-            template = template.replace("WIVRN_SRC2", f"url: {args.git}")
+            template = template.replace("WYRM_SRC2", f"url: {args.git}")
         else:
-            template = template.replace("WIVRN_SRC2", f"url: {root}")
-        template = template.replace("WIVRN_SRC3", f"commit: {git_commit}")
+            template = template.replace("WYRM_SRC2", f"url: {root}")
+        template = template.replace("WYRM_SRC3", f"commit: {git_commit}")
     else:
-        template = template.replace("WIVRN_SRC1", "type: dir")
-        template = template.replace("WIVRN_SRC2", f"path: {root}")
-        template = template.replace("WIVRN_SRC3", "")
+        template = template.replace("WYRM_SRC1", "type: dir")
+        template = template.replace("WYRM_SRC2", f"path: {root}")
+        template = template.replace("WYRM_SRC3", "")
 
-    template = template.replace("WIVRN_GIT_TAG", git_tag)
+    template = template.replace("WYRM_GIT_TAG", git_tag)
     if git_tag != "":
-        template = template.replace("WIVRN_GIT_DESC", "")
-        template = template.replace("WIVRN_GIT_COMMIT", "")
+        template = template.replace("WYRM_GIT_DESC", "")
+        template = template.replace("WYRM_GIT_COMMIT", "")
     else:
-        template = template.replace("WIVRN_GIT_DESC", git_desc)
-        template = template.replace("WIVRN_GIT_COMMIT", git_commit)
+        template = template.replace("WYRM_GIT_DESC", git_desc)
+        template = template.replace("WYRM_GIT_COMMIT", git_commit)
 
     template = template.replace("BOOST_URL", boost_url)
     template = template.replace("BOOST_SHA256", boost_sha256)
     template = template.replace("MONADO_COMMIT", monado_commit)
 
-    with open(os.path.join(args.out, "io.github.wivrn.wivrn.yml"), "w") as f:
+    with open(os.path.join(args.out, "org.wyrmvr.wyrm.yml"), "w") as f:
         f.write(template)

@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@
 
 #include <atomic>
 
-namespace wivrn
+namespace wyrm
 {
 class raw_decoder : public decoder
 {
@@ -65,7 +65,7 @@ public:
 	raw_decoder(vk::raii::Device & device,
 	            vk::raii::PhysicalDevice & physical_device,
 	            uint32_t vk_queue_family_index,
-	            const wivrn::to_headset::video_stream_description & description,
+	            const wyrm::to_headset::video_stream_description & description,
 	            uint8_t stream_index,
 	            std::weak_ptr<scenes::stream> scene,
 	            shard_accumulator * accumulator);
@@ -73,18 +73,18 @@ public:
 	void push_data(std::span<std::span<const uint8_t>> data, uint64_t frame_index, bool partial) override;
 
 	void frame_completed(
-	        const wivrn::from_headset::feedback & feedback,
-	        const wivrn::to_headset::video_stream_data_shard::view_info_t & view_info) override;
+	        const wyrm::from_headset::feedback & feedback,
+	        const wyrm::to_headset::video_stream_data_shard::view_info_t & view_info) override;
 
 	vk::Sampler sampler() override
 	{
 		return *sampler_;
 	}
 
-	static std::vector<wivrn::video_codec> supported_codecs();
+	static std::vector<wyrm::video_codec> supported_codecs();
 
 private:
 	image * get_free();
 };
 
-} // namespace wivrn
+} // namespace wyrm

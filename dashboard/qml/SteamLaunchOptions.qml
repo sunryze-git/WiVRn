@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
-import io.github.wivrn.wivrn
+import org.wyrmvr.wyrm
 
 ColumnLayout {
     Controls.Label {
@@ -12,7 +12,7 @@ ColumnLayout {
 
     RowLayout {
         Controls.TextField {
-            text: WivrnServer.steamCommand
+            text: WyrmServer.steamCommand
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
             readOnly: true
@@ -26,7 +26,7 @@ ColumnLayout {
             text: i18nc("copy text to the clipboard", "Copy")
             icon.name: "edit-copy-symbolic"
             onClicked: {
-                WivrnServer.copy_steam_command();
+                WyrmServer.copy_steam_command();
                 showPassiveNotification(i18n("Copied Steam launch command"), 2000);
             }
         }

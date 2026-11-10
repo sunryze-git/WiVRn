@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -150,20 +150,20 @@ std::optional<uint32_t> guess_steam_userid(const std::filesystem::path & root)
 
 	try
 	{
-		wivrn::vdf::root loginusers(localconfig);
+		wyrm::vdf::root loginusers(localconfig);
 		if (loginusers.key != "users")
 			return {};
 
 		std::optional<uint32_t> res;
-		for (const auto & [userid, entries]: std::get<std::vector<wivrn::vdf::keyvalue>>(loginusers.value))
+		for (const auto & [userid, entries]: std::get<std::vector<wyrm::vdf::keyvalue>>(loginusers.value))
 		{
 			uint64_t v;
 			if (std::from_chars(userid.data.begin(), userid.data.end(), v).ec != std::errc{})
 				continue;
 			res = v; // truncate to 32 bits
-			for (const auto & [key, value]: std::get<std::vector<wivrn::vdf::keyvalue>>(entries))
+			for (const auto & [key, value]: std::get<std::vector<wyrm::vdf::keyvalue>>(entries))
 			{
-				if (key == "MostRecent" and std::get<wivrn::vdf::string>(value) == "1")
+				if (key == "MostRecent" and std::get<wyrm::vdf::string>(value) == "1")
 					return res;
 			}
 		}
@@ -180,8 +180,8 @@ std::unordered_set<uint64_t> installed_appids(std::filesystem::path root)
 	std::unordered_set<uint64_t> res;
 	try
 	{
-		wivrn::vdf::root vdf(root / "config/libraryfolders.vdf");
-		using values_t = std::vector<wivrn::vdf::keyvalue>;
+		wyrm::vdf::root vdf(root / "config/libraryfolders.vdf");
+		using values_t = std::vector<wyrm::vdf::keyvalue>;
 		if (vdf.key != "libraryfolders")
 			return {};
 
@@ -202,8 +202,8 @@ std::unordered_set<uint64_t> installed_appids(std::filesystem::path root)
 
 std::unordered_set<uint64_t> owned_appids(std::filesystem::path localconfig)
 {
-	wivrn::vdf::root localconfig_vdf(localconfig);
-	using values_t = std::vector<wivrn::vdf::keyvalue>;
+	wyrm::vdf::root localconfig_vdf(localconfig);
+	using values_t = std::vector<wyrm::vdf::keyvalue>;
 	if (localconfig_vdf.key != "UserLocalConfigStore")
 		return {};
 
@@ -217,7 +217,7 @@ std::unordered_set<uint64_t> owned_appids(std::filesystem::path localconfig)
 	return res;
 }
 
-std::vector<wivrn::steam::application> read_appinfo(std::filesystem::path root, std::unordered_set<uint64_t> const & appids)
+std::vector<wyrm::steam::application> read_appinfo(std::filesystem::path root, std::unordered_set<uint64_t> const & appids)
 {
 	binary_reader in{std::ifstream{root / "appcache/appinfo.vdf"}};
 
@@ -236,7 +236,7 @@ std::vector<wivrn::steam::application> read_appinfo(std::filesystem::path root, 
 		string_table = in.string_table();
 		string_table_ptr = &string_table;
 	}
-	std::vector<wivrn::steam::application> res;
+	std::vector<wyrm::steam::application> res;
 
 	enum section
 	{
@@ -246,7 +246,7 @@ std::vector<wivrn::steam::application> read_appinfo(std::filesystem::path root, 
 	struct V
 	{
 		std::vector<enum section> section;
-		wivrn::steam::application current{};
+		wyrm::steam::application current{};
 		std::string clienticon;
 		std::string linuxclienticon;
 		bool VR = false;
@@ -356,7 +356,7 @@ std::vector<wivrn::steam::application> read_appinfo(std::filesystem::path root, 
 
 void read_steam_shortcuts(
         const std::filesystem::path & path,
-        std::vector<wivrn::steam::application> & apps)
+        std::vector<wyrm::steam::application> & apps)
 {
 	if (not std::filesystem::exists(path))
 		return;
@@ -367,13 +367,13 @@ void read_steam_shortcuts(
 	if (type != 0 or name != "shortcuts")
 		throw std::runtime_error{"Invalid type for shortcuts file"};
 
-	std::vector<wivrn::steam_shortcut> res;
+	std::vector<wyrm::steam_shortcut> res;
 	struct V
 	{
-		std::vector<wivrn::steam::application> & apps;
+		std::vector<wyrm::steam::application> & apps;
 
 		int depth = 0;
-		wivrn::steam::application current{};
+		wyrm::steam::application current{};
 		bool VR = false;
 
 		void begin_dict(const std::string & key)
@@ -424,16 +424,16 @@ void read_steam_shortcuts(
 	read_dict(in, v);
 }
 
-wivrn::steam::steam(std::filesystem::path root, bool flatpak) :
+wyrm::steam::steam(std::filesystem::path root, bool flatpak) :
         root(std::move(root)),
         flatpak(flatpak),
         default_userid(guess_steam_userid(this->root))
 {
 }
 
-std::vector<wivrn::steam> wivrn::steam::find_installations()
+std::vector<wyrm::steam> wyrm::steam::find_installations()
 {
-	std::vector<wivrn::steam> res;
+	std::vector<wyrm::steam> res;
 	auto h = home();
 
 	auto try_construct = [&res](std::filesystem::path root, bool flatpak = false) {
@@ -441,7 +441,7 @@ std::vector<wivrn::steam> wivrn::steam::find_installations()
 		{
 			if (std::filesystem::exists(root))
 			{
-				res.push_back(wivrn::steam(std::move(root), flatpak));
+				res.push_back(wyrm::steam(std::move(root), flatpak));
 				return true;
 			}
 		}
@@ -464,9 +464,9 @@ std::vector<wivrn::steam> wivrn::steam::find_installations()
 	return res;
 }
 
-std::vector<wivrn::steam::application> wivrn::steam::list_applications()
+std::vector<wyrm::steam::application> wyrm::steam::list_applications()
 {
-	std::vector<wivrn::steam::application> res;
+	std::vector<wyrm::steam::application> res;
 	const auto installed = installed_appids(root);
 
 	if (default_userid)
@@ -509,7 +509,7 @@ std::vector<wivrn::steam::application> wivrn::steam::list_applications()
 	return res;
 }
 
-std::string wivrn::steam::get_steam_command() const
+std::string wyrm::steam::get_steam_command() const
 {
 	if (flatpak)
 		return "flatpak run com.valvesoftware.Steam";

@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -21,12 +21,12 @@
 
 #include "encoder/video_encoder.h"
 #include "ffmpeg_helper.h"
-#include "utils/wivrn_vk_bundle.h"
+#include "utils/wyrm_vk_bundle.h"
 
-namespace wivrn
+namespace wyrm
 {
 
-class video_encoder_ffmpeg : public wivrn::video_encoder
+class video_encoder_ffmpeg : public wyrm::video_encoder
 {
 public:
 	std::optional<data> encode(uint8_t slot, uint64_t frame_index) override;
@@ -39,7 +39,7 @@ public:
 
 protected:
 	video_encoder_ffmpeg(vk_bundle & vk, uint8_t stream_idx, const encoder_settings & settings) :
-	        wivrn::video_encoder(vk, stream_idx, vk.queue.family_index, settings, std::make_unique<default_idr_handler>(), true) {}
+	        wyrm::video_encoder(vk, stream_idx, vk.queue.family_index, settings, std::make_unique<default_idr_handler>(), true) {}
 
 	virtual void push_frame(bool idr, uint8_t slot) = 0;
 
@@ -48,4 +48,4 @@ protected:
 private:
 	static bool once;
 };
-} // namespace wivrn
+} // namespace wyrm

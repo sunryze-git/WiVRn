@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -23,10 +23,10 @@
 #include <mutex>
 #include <vector>
 
-namespace wivrn
+namespace wyrm
 {
 
-class wivrn_session;
+class wyrm_session;
 class app_pacer;
 
 class pacing_app_factory : public u_pacing_app_factory
@@ -46,4 +46,4 @@ public:
 	int64_t get_frame_time();
 };
 
-} // namespace wivrn
+} // namespace wyrm

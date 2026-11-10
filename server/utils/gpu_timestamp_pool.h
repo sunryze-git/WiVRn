@@ -1,6 +1,6 @@
 /*
- * WiVRn VR streaming
- * Copyright (C) 2026  WiVRn Contributors
+ * Wyrm VR streaming
+ * Copyright (C) 2026  Wyrm Contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,13 +24,13 @@
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
-namespace wivrn
+namespace wyrm
 {
 struct vk_bundle;
 
 // A begin/end GPU timestamp pair per slot, used to measure GPU-side encode and
 // copy durations for tracing. Conversion to host monotonic ns goes through
-// monado's vk_convert_timestamps_to_host_ns (via wivrn::trace::calibration_source)
+// monado's vk_convert_timestamps_to_host_ns (via wyrm::trace::calibration_source)
 // so the calibration cache is shared with any future monado-side perfetto
 // producer. If runtime tracing is off, the calibration source is missing, or
 // the queue family doesn't support timestamps, the pool stays disabled and
@@ -43,7 +43,7 @@ class gpu_timestamp_pool
 
 public:
 	gpu_timestamp_pool() = default;
-	gpu_timestamp_pool(wivrn::vk_bundle & vk, uint32_t queue_family_index, uint32_t slot_count, const std::string & name);
+	gpu_timestamp_pool(wyrm::vk_bundle & vk, uint32_t queue_family_index, uint32_t slot_count, const std::string & name);
 
 	void cmd_begin(const vk::raii::CommandBuffer & cmd, uint8_t slot, uint64_t frame_index, vk::PipelineStageFlagBits2 stage);
 	void cmd_end(const vk::raii::CommandBuffer & cmd, uint8_t slot, vk::PipelineStageFlagBits2 stage) const;
@@ -56,4 +56,4 @@ public:
 	};
 	std::optional<sample> collect(uint8_t slot);
 };
-} // namespace wivrn
+} // namespace wyrm

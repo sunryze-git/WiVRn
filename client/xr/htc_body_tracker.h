@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Awzri <awzri@awzricat.com>
  * Copyright (C) 2025  Sapphire <imsapphire0@gmail.com>
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "wivrn_packets.h"
+#include "wyrm_packets.h"
 #include "xr/space.h"
 #include <vector>
 #include <openxr/openxr.h>
@@ -49,7 +49,7 @@ class htc_body_tracker
 	std::vector<vive_xr_tracker> trackers;
 
 public:
-	using packet_type = wivrn::from_headset::htc_body;
+	using packet_type = wyrm::from_headset::htc_body;
 	htc_body_tracker(session & s, std::vector<std::pair<XrPath, xr::space>> & trackers);
 
 	void update_active();

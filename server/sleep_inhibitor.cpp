@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -50,8 +50,8 @@ sleep_inhibitor::sleep_inhibitor()
 	        g_variant_new(
 	                "(ssss)",
 	                "sleep:idle",                // What
-	                "WiVRn",                     // Who
-	                "A WiVRn session is active", // Why
+	                "Wyrm",                     // Who
+	                "A Wyrm session is active", // Why
 	                "block"),                    // Mode
 	        G_DBUS_CALL_FLAGS_NONE,
 	        -1,       // timeout_msec

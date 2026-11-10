@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2026 galister <galister-dev@pm.me>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -373,7 +373,7 @@ void center::update(std::span<const XrFovf> submitted_fov, std::span<const bool>
 			angles = target_angles(0, default_foveation_pitch, default_convergence_distance, views);
 	}
 	// angles guaranteed to have a value at this point
-	packet_ = wivrn::from_headset::foveation{.angles = *angles};
+	packet_ = wyrm::from_headset::foveation{.angles = *angles};
 }
 
 std::optional<center::projection_layer> center::get_layer() const
@@ -381,7 +381,7 @@ std::optional<center::projection_layer> center::get_layer() const
 	return layer_;
 }
 
-std::optional<wivrn::from_headset::foveation> center::take_packet()
+std::optional<wyrm::from_headset::foveation> center::take_packet()
 {
 	// A skipped render must not resend the previous frame's center.
 	auto result = packet_;

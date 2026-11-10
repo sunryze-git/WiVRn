@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -29,13 +29,13 @@
 #include <ffnvcodec/nvEncodeAPI.h>
 #include <vulkan/vulkan_raii.hpp>
 
-namespace wivrn
+namespace wyrm
 {
 
 class video_encoder_nvenc : public video_encoder
 {
 private:
-	wivrn::vk_bundle & vk;
+	wyrm::vk_bundle & vk;
 	vk::raii::CommandPool cmd_pool;
 
 	std::shared_ptr<video_encoder_nvenc_shared_state> shared_state;
@@ -66,7 +66,7 @@ private:
 	void set_init_params_fps(float framerate);
 
 public:
-	video_encoder_nvenc(wivrn::vk_bundle & vk, const encoder_settings & settings, uint8_t stream_idx);
+	video_encoder_nvenc(wyrm::vk_bundle & vk, const encoder_settings & settings, uint8_t stream_idx);
 	~video_encoder_nvenc();
 
 	void present_image(vk::Image y_cbcr, vk::SemaphoreSubmitInfo info, uint8_t slot, uint64_t frame_index) override;
@@ -75,4 +75,4 @@ public:
 	static std::array<int, 2> get_max_size(video_codec);
 };
 
-} // namespace wivrn
+} // namespace wyrm

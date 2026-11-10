@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2026 galister <galister-dev@pm.me>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -11,7 +11,7 @@
 #pragma once
 
 #include "decoder/decoder.h"
-#include "wivrn_sockets.h"
+#include "wyrm_sockets.h"
 
 #include <atomic>
 #include <cstdint>
@@ -33,14 +33,14 @@ namespace scenes
 class stream;
 }
 
-namespace wivrn
+namespace wyrm
 {
 class shard_accumulator;
 }
 
-namespace wivrn::v4l2
+namespace wyrm::v4l2
 {
-class decoder : public wivrn::decoder
+class decoder : public wyrm::decoder
 {
 private:
 	struct v4l2_blit_handle;
@@ -75,8 +75,8 @@ private:
 	struct pending_frame
 	{
 		uint64_t timestamp = 0;
-		wivrn::from_headset::feedback feedback;
-		wivrn::to_headset::video_stream_data_shard::view_info_t view_info;
+		wyrm::from_headset::feedback feedback;
+		wyrm::to_headset::video_stream_data_shard::view_info_t view_info;
 	};
 
 	struct ready_output
@@ -99,7 +99,7 @@ private:
 	vk::raii::Sampler ycbcr_sampler = nullptr;
 	vk::Format capture_vk_format = vk::Format::eUndefined;
 
-	wivrn::fd_base fd;
+	wyrm::fd_base fd;
 	std::vector<output_buffer> output_buffers;
 	std::vector<capture_buffer> capture_buffers;
 	std::vector<unsigned int> free_output_buffers;
@@ -113,7 +113,7 @@ private:
 	std::deque<unsigned int> recycle_capture_queue;
 	std::deque<unsigned int> recycle_capture_local;
 	std::mutex recycle_mutex;
-	wivrn::fd_base wake_fd;
+	wyrm::fd_base wake_fd;
 	std::jthread worker;
 	std::exception_ptr worker_exception;
 	std::mutex worker_exception_mutex;
@@ -132,11 +132,11 @@ private:
 	std::weak_ptr<scenes::stream> weak_scene;
 	shard_accumulator * accumulator;
 	const vk::Extent2D extent;
-	const wivrn::video_codec codec_type;
+	const wyrm::video_codec codec_type;
 	std::atomic<uint64_t> generation;
 	const uint32_t vk_queue_family_index;
 
-	void setup_device(wivrn::fd_base device_fd);
+	void setup_device(wyrm::fd_base device_fd);
 	void setup_output_queue();
 	void setup_capture_queue();
 	void teardown_capture_queue();
@@ -162,7 +162,7 @@ public:
 	decoder(vk::raii::Device & device,
 	        vk::raii::PhysicalDevice & physical_device,
 	        uint32_t vk_queue_family_index,
-	        const wivrn::to_headset::video_stream_description & description,
+	        const wyrm::to_headset::video_stream_description & description,
 	        uint8_t stream_index,
 	        std::weak_ptr<scenes::stream> scene,
 	        shard_accumulator * accumulator);
@@ -170,16 +170,16 @@ public:
 
 	void push_data(std::span<std::span<const uint8_t>> data, uint64_t frame_index, bool partial) override;
 	void frame_completed(
-	        const wivrn::from_headset::feedback & feedback,
-	        const wivrn::to_headset::video_stream_data_shard::view_info_t & view_info) override;
+	        const wyrm::from_headset::feedback & feedback,
+	        const wyrm::to_headset::video_stream_data_shard::view_info_t & view_info) override;
 
 	vk::Sampler sampler() override
 	{
 		return *ycbcr_sampler;
 	}
 
-	static bool available_for(wivrn::video_codec codec);
-	static bool supports_10bit(wivrn::video_codec codec);
-	static void supported_codecs(std::vector<wivrn::video_codec> & result);
+	static bool available_for(wyrm::video_codec codec);
+	static bool supports_10bit(wyrm::video_codec codec);
+	static void supported_codecs(std::vector<wyrm::video_codec> & result);
 };
-} // namespace wivrn::v4l2
+} // namespace wyrm::v4l2

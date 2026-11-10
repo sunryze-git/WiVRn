@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -39,7 +39,7 @@ struct method_trait<Method, Result (Class::*)(Args...)>
 };
 } // namespace details
 
-namespace wivrn
+namespace wyrm
 {
 
 // Convert a pointer to member function to a free function that takes the object as first argument.
@@ -62,4 +62,4 @@ auto method_pointer = ::details::method_trait<Method>::magic;
 // same, but "this" argument is last
 template <auto Method>
 auto method_pointer2 = ::details::method_trait<Method>::magic2;
-} // namespace wivrn
+} // namespace wyrm

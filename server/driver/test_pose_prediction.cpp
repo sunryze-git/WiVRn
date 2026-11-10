@@ -1,0 +1,220 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "clock_offset.h"
+#include "pose_list.h"
+#include <Eigen/Geometry>
+#include <cmath>
+#include <iostream>
+#include <source_location>
+#include <string_view>
+
+using namespace wyrm;
+
+static int failures = 0;
+static void check(bool valid, std::source_location where = std::source_location::current())
+{
+	if (not valid)
+	{
+		std::cerr << where.file_name() << ':' << where.line() << '\n';
+		++failures;
+	}
+}
+
+static constexpr XrTime epoch = 10'000'000'000;
+
+static Eigen::Vector3f vector(const xrt_vec3 & v)
+{
+	return {v.x, v.y, v.z};
+}
+
+static Eigen::Quaternionf quaternion(const xrt_quat & q)
+{
+	return {q.w, q.x, q.y, q.z};
+}
+
+static void add_rotation(pose_list & poses, XrDuration time, Eigen::Vector3f omega, bool negative = false, bool velocity = true)
+{
+	const Eigen::Quaternionf initial(Eigen::AngleAxisf(0.7f, Eigen::Vector3f(1, 2, 3).normalized()));
+	Eigen::Quaternionf q = Eigen::Quaternionf(Eigen::AngleAxisf(omega.norm() * time * 1e-9f, omega.normalized())) * initial;
+	if (negative)
+		q.coeffs() *= -1;
+
+	from_headset::tracking packet{};
+	packet.production_timestamp = packet.timestamp = epoch + time;
+	packet.device_poses.push_back({
+	        .pose = {.orientation = {.x = q.x(), .y = q.y(), .z = q.z(), .w = q.w()}},
+	        .linear_velocity = {},
+	        .angular_velocity = {.x = omega.x(), .y = omega.y(), .z = omega.z()},
+	        .device = device_id::LEFT_GRIP,
+	        .flags = uint8_t(from_headset::pose_flags::orientation_valid | from_headset::pose_flags::position_valid |
+	                         from_headset::pose_flags::linear_velocity_valid |
+	                         (velocity ? from_headset::pose_flags::angular_velocity_valid : 0)),
+	});
+	poses.update_tracking(packet, {.stable = true});
+}
+
+static void test_rotation()
+{
+	// Each world-space axis and a mixed axis, at a nonidentity orientation.
+	for (Eigen::Vector3f omega: {Eigen::Vector3f(12, 0, 0), Eigen::Vector3f(0, 12, 0), Eigen::Vector3f(0, 0, 12), Eigen::Vector3f(3, -8, 6)})
+	{
+		pose_list poses(device_id::LEFT_GRIP);
+		add_rotation(poses, 0, omega);
+		auto [produced, result] = poses.get_at(epoch);
+		check((result.relation_flags & XRT_SPACE_RELATION_ANGULAR_VELOCITY_VALID_BIT) != 0);
+		check((vector(result.angular_velocity) - omega).norm() < 0.001f);
+	}
+
+	// q and -q must yield the same fitted pose AND velocity, including replacement.
+	pose_list positive(device_id::LEFT_GRIP), alternating(device_id::LEFT_GRIP);
+	const Eigen::Vector3f omega(3, -8, 6);
+	for (int i = 0; i < 12; ++i)
+	{
+		add_rotation(positive, i * 8'000'000, omega);
+		add_rotation(alternating, i * 8'000'000, omega, i % 2);
+	}
+	for (XrDuration t: {80'000'000, 88'000'000, 100'000'000})
+	{
+		auto a = positive.get_at(epoch + t).second;
+		auto b = alternating.get_at(epoch + t).second;
+		check(quaternion(a.pose.orientation).angularDistance(quaternion(b.pose.orientation)) < 0.0001f);
+		check((vector(a.angular_velocity) - vector(b.angular_velocity)).norm() < 0.001f);
+	}
+	add_rotation(positive, 88'500'000, omega);
+	add_rotation(alternating, 88'500'000, omega, true);
+	check((vector(positive.get_at(epoch + 100'000'000).second.angular_velocity) - vector(alternating.get_at(epoch + 100'000'000).second.angular_velocity)).norm() < 0.001f);
+}
+
+static void test_normalization()
+{
+	// Three samples determine one quadratic independently of the fit's weights.
+	// Its normalized derivative must describe the returned orientation.
+	pose_list poses(device_id::LEFT_GRIP);
+	const Eigen::Vector3f omega(0, 25, 0);
+	for (int i = 0; i < 3; ++i)
+		add_rotation(poses, i * 16'000'000, omega, false, false);
+	const XrTime at = epoch + 64'000'000;
+	auto result = poses.get_at(at).second;
+	// Differentiate the normalized Lagrange polynomial analytically. The fixed
+	// initial rotation cancels, leaving the sine/cosine of the half angle.
+	const double h = 0.016, t = 0.064;
+	Eigen::Vector2d q = Eigen::Vector2d::Zero(), dq = Eigen::Vector2d::Zero();
+	const double weights[]{(t - h) * (t - 2 * h) / (2 * h * h), -t * (t - 2 * h) / (h * h), t * (t - h) / (2 * h * h)};
+	const double derivatives[]{(2 * t - 3 * h) / (2 * h * h), -(2 * t - 2 * h) / (h * h), (2 * t - h) / (2 * h * h)};
+	for (int i = 0; i < 3; ++i)
+	{
+		Eigen::Vector2d value(std::cos(12.5 * i * h), std::sin(12.5 * i * h));
+		q += weights[i] * value;
+		dq += derivatives[i] * value;
+	}
+	const float expected = 2 * (q.x() * dq.y() - q.y() * dq.x()) / q.squaredNorm();
+	check((vector(result.angular_velocity) - Eigen::Vector3f(0, expected, 0)).norm() < 0.03f);
+}
+
+static void test_derived_velocity()
+{
+	pose_list grip(device_id::LEFT_GRIP), aim(device_id::LEFT_AIM);
+	const Eigen::Vector3f omega(0, 10, 0);
+	for (int i = 0; i < 8; ++i)
+		add_rotation(grip, i * 8'000'000, omega);
+	xrt_pose offset = XRT_POSE_IDENTITY;
+	offset.position = {0, 0, -0.2f};
+	aim.set_derived(&grip, offset);
+	auto result = std::get<1>(aim.get_pose_at(epoch + 56'000'000));
+	auto source = grip.get_at(epoch + 56'000'000).second;
+	Eigen::Vector3f expected = vector(source.linear_velocity) + vector(source.angular_velocity).cross(quaternion(source.pose.orientation) * vector(offset.position));
+	check((vector(result.linear_velocity) - expected).norm() < 0.001f);
+	check(result.relation_flags == source.relation_flags);
+	check(quaternion(result.pose.orientation).angularDistance(quaternion(source.pose.orientation)) < 0.0001f);
+	check((vector(result.pose.position) - quaternion(source.pose.orientation) * vector(offset.position)).norm() < 0.0001f);
+
+	// Losing positional tracking must also invalidate derived positions.
+	grip.reset();
+	from_headset::tracking packet{};
+	packet.production_timestamp = packet.timestamp = epoch;
+	packet.device_poses.push_back({
+	        .pose = {.orientation = {.w = 1}},
+	        .device = device_id::LEFT_GRIP,
+	        .flags = from_headset::pose_flags::orientation_valid,
+	});
+	grip.update_tracking(packet, {.stable = true});
+	result = std::get<1>(aim.get_pose_at(epoch));
+	check((result.relation_flags & XRT_SPACE_RELATION_POSITION_VALID_BIT) == 0);
+}
+
+static void test_translation()
+{
+	polynomial_interpolator<3> positions;
+	check(not positions.get_at(epoch).y);
+	for (int i = 0; i < 20; ++i)
+	{
+		float t = i * 0.008f;
+		positions.add_sample({epoch + i * 8'000'000, epoch + i * 8'000'000, Eigen::Vector3f(1 + 2 * t + 3 * t * t, -t, 4), Eigen::Vector3f(2 + 6 * t, -1, 0)});
+	}
+	for (XrDuration ns: {100'000'000, 152'000'000, 170'000'000})
+	{
+		float t = ns * 1e-9f;
+		auto result = positions.get_at(epoch + ns);
+		check(result.y and (*result.y - Eigen::Vector3f(1 + 2 * t + 3 * t * t, -t, 4)).norm() < 0.0001f);
+		check(result.dy and (*result.dy - Eigen::Vector3f(2 + 6 * t, -1, 0)).norm() < 0.001f);
+	}
+	// Requests too far in the past must be rejected, even beyond 32-bit ns.
+	check(not positions.get_at(epoch - 5'000'000'000).y);
+	positions.reset();
+	check(not positions.get_at(epoch).y);
+}
+
+static void test_sample_management()
+{
+	pose_list empty(device_id::LEFT_GRIP);
+	auto [produced, relation] = empty.get_at(epoch);
+	check(produced == 0 and relation.relation_flags == 0);
+
+	using interpolator = polynomial_interpolator<3>;
+	const Eigen::Vector3f position(1, 2, 3), velocity(2, -1, 0);
+	interpolator samples;
+	samples.add_sample({epoch, epoch, position, velocity});
+	auto result = samples.get_at(epoch + 10'000'000);
+	check(result.y and (*result.y - position - 0.01f * velocity).norm() < 0.0001f);
+
+	// A delayed packet must not replace a newer prediction of the same time.
+	samples.add_sample({epoch - 1'000'000, epoch, Eigen::Vector3f::Zero(), velocity});
+	check((*samples.get_at(epoch).y - position).norm() < 0.0001f);
+	samples.add_sample({epoch + 1'000'000, epoch, position * 2, velocity});
+	check((*samples.get_at(epoch).y - position * 2).norm() < 0.0001f);
+
+	// Bounded extrapolation during a network stall.
+	const XrTime limit = epoch + 1'000'000 + max_extrapolation_ns * 11 / 10;
+	auto limited = samples.get_at(limit);
+	auto stalled = samples.get_at(limit + 1'000'000'000);
+	check(stalled.timestamp == limit);
+	check(stalled.y and (*stalled.y - *limited.y).norm() < 0.0001f);
+
+	// Runtime-predicted samples have distinct production and target times.
+	samples.reset();
+	samples.add_sample({epoch, epoch + 50'000'000, position, velocity});
+	check((*samples.get_at(epoch + 50'000'000).y - position).norm() < 0.0001f);
+	check(samples.get_at(epoch + 50'000'000).production_timestamp == epoch);
+
+	// Invalid tracking and subsequent recovery must not reuse invalid values.
+	samples.add_sample({epoch + 60'000'000, epoch + 60'000'000});
+	check(not samples.get_at(epoch + 60'000'000).y);
+	samples.add_sample({epoch + 70'000'000, epoch + 70'000'000, position, velocity});
+	check(samples.get_at(epoch + 70'000'000).y.has_value());
+}
+
+int main(int argc, char ** argv)
+{
+	std::string_view selected = argc > 1 ? argv[1] : "all";
+	if (selected == "all" or selected == "rotation")
+		test_rotation();
+	if (selected == "all" or selected == "normalization")
+		test_normalization();
+	if (selected == "all" or selected == "derived")
+		test_derived_velocity();
+	if (selected == "all" or selected == "translation")
+		test_translation();
+	if (selected == "all" or selected == "samples")
+		test_sample_management();
+	std::cout << "Pose prediction (" << selected << "): " << failures << " failures\n";
+	return failures ? 1 : 0;
+}

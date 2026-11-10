@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -28,7 +28,7 @@ vulkan_info::vulkan_info()
 	{
 		vk::raii::Context context;
 
-		vk::ApplicationInfo app_info{"WiVRn dashboard", 1, "No engine", 1, VK_API_VERSION_1_1};
+		vk::ApplicationInfo app_info{"Wyrm dashboard", 1, "No engine", 1, VK_API_VERSION_1_1};
 		vk::InstanceCreateInfo instance_info{vk::InstanceCreateFlags{0}, &app_info};
 		vk::raii::Instance vulkan{context, instance_info};
 

@@ -2,7 +2,7 @@ name: Release APK Only
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
 
 env:
   BUILD_TYPE: RelWithDebInfo
@@ -20,8 +20,6 @@ jobs:
     steps:
     - uses: actions/checkout@v6
       with:
-        # Checkout from upstream instead of WiVRn-APK to ensure the GIT_DESC variable is set correctly
-        repository: 'WiVRn/WiVRn'
         ref: ${{ github.sha }}
         fetch-depth: 0
 
@@ -63,7 +61,7 @@ jobs:
     - name: Build
       run: |
         chmod +x gradlew
-        ./gradlew -Psuffix=".github.nightly" -Pwivrn_css=images/wivrn-nightly.css -Pwivrn_app_name="WiVRn Nightly" -Pwivrn_compress_glb=ON assemble${{ matrix.buildtype }}
+        ./gradlew -Psuffix=".github.nightly" -Pwyrm_css=images/wyrm-nightly.css -Pwyrm_app_name="Wyrm Nightly" -Pwyrm_compress_glb=ON assemble${{ matrix.buildtype }}
 
     - name: Prepare before archiving artifacts
       run: |
@@ -107,7 +105,7 @@ jobs:
         cd apk
         for f in *.apk; do
           BASENAME=`echo ${f}|awk -F '-APK-' '{print $2}'`
-          mv "${f}" "org.meumeu.wivrn-${BASENAME}"
+          mv "${f}" "org.wyrmvr.wyrm-${BASENAME}"
         done
 
     - name: Download APK debug artifacts

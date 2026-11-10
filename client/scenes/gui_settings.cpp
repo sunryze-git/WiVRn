@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2026  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -50,7 +50,7 @@
 #include <tuple>
 #include <vector>
 
-namespace ui = wivrn::ui;
+namespace ui = wyrm::ui;
 
 namespace
 {
@@ -105,7 +105,7 @@ struct setting
 	std::string disabled_tooltip; // shown on a disabled row
 };
 
-void render_settings(const wivrn::gui::settings_context & ctx, const char * card_id, const std::vector<setting> & list)
+void render_settings(const wyrm::gui::settings_context & ctx, const char * card_id, const std::vector<setting> & list)
 {
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ui::metrics::card_item_spacing);
 	ui::begin_card(card_id);
@@ -213,7 +213,7 @@ std::optional<int> index(const Range & range, const T & value)
 
 } // namespace
 
-namespace wivrn::gui
+namespace wyrm::gui
 {
 
 void settings_video(const settings_context & ctx)
@@ -232,7 +232,7 @@ void settings_video(const settings_context & ctx)
 		        .id = "##refresh",
 		        .label = _("Refresh rate"),
 		        .description = system_managed
-		                               ? _("WiVRn can't directly change the refresh rate on this device. See your device's settings to change the refresh rate.")
+		                               ? _("Wyrm can't directly change the refresh rate on this device. See your device's settings to change the refresh rate.")
 		                               : _("Use 'auto' to select the refresh rate based on measured application performance. May cause flicker when a change happens."),
 		        .ui = rates.size() < 7 ? ui_kind::segmented : ui_kind::combo,
 		        .get_int = [&config, rates] {
@@ -326,26 +326,26 @@ void settings_streaming(const settings_context & ctx)
 	        .default_int = int(std::lround((1 - default_config.get_stream_scale()) * 100)),
 	});
 
-	auto codec_name = [](std::optional<wivrn::video_codec> codec) -> std::string {
+	auto codec_name = [](std::optional<wyrm::video_codec> codec) -> std::string {
 		if (not codec)
 			return _C("Codec", "Automatic");
 		switch (*codec)
 		{
-			case wivrn::h264:
+			case wyrm::h264:
 				return _C("Codec", "H.264");
-			case wivrn::h265:
+			case wyrm::h265:
 				return _C("Codec", "HEVC (H.265)");
-			case wivrn::av1:
+			case wyrm::av1:
 				return _C("Codec", "AV1");
-			case wivrn::raw:
+			case wyrm::raw:
 				break;
 		}
 		return _C("Codec", "Automatic");
 	};
 
-	std::vector<wivrn::video_codec> codecs;
-	for (auto capability: wivrn::decoder::supported_codecs())
-		if (capability.codec != wivrn::raw)
+	std::vector<wyrm::video_codec> codecs;
+	for (auto capability: wyrm::decoder::supported_codecs())
+		if (capability.codec != wyrm::raw)
 			codecs.push_back(capability.codec);
 
 	list.push_back({
@@ -367,7 +367,7 @@ void settings_streaming(const settings_context & ctx)
 	        .default_int = default_config.codec ? index(codecs, *default_config.codec).value_or(-1) + 1 : 0,
 	});
 
-	if (config.codec && wivrn::decoder::supports_10bit(*config.codec))
+	if (config.codec && wyrm::decoder::supports_10bit(*config.codec))
 	{
 		list.push_back({
 		        .id = "##ten_bit",
@@ -425,7 +425,7 @@ void settings_streaming(const settings_context & ctx)
 	ui::page_header(_cS("page header title", "Streaming"), _cS("page header subtitle", "How video is encoded and sent to the headset."));
 	render_settings(ctx, "##streaming", list);
 
-	if (wivrn::ui::confirm_modal(
+	if (wyrm::ui::confirm_modal(
 	            "confirm disable in stream gui",
 	            _C("confirmation messagebox title", "Disable in-stream window"),
 	            _C("confirmation message", "Do you really want to disable the in-stream window?\nYou will not be able to re-open it with the thumbsticks."),
@@ -946,4 +946,4 @@ void settings_theme(const settings_context & ctx)
 	ImGui::PopStyleVar(); // ImGuiStyleVar_ItemSpacing
 }
 
-} // namespace wivrn::gui
+} // namespace wyrm::gui

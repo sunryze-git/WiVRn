@@ -1,5 +1,5 @@
 name: Bug Report
-description: Create a report to help us improve WiVRn.
+description: Create a report to help us improve Wyrm.
 title: "[Bug]: "
 labels:
   - bug
@@ -27,8 +27,8 @@ body:
 
   - type: input
     attributes:
-      label: WiVRn Version
-      description: Provide the version or commit hash of WiVRn.
+      label: Wyrm Version
+      description: Provide the version or commit hash of Wyrm.
       placeholder: Version or commit
     validations:
       required: true
@@ -36,15 +36,15 @@ body:
   - type: input
     attributes:
       label: Installation method
-      description: Describe how WiVRn and OpenComposite/xrizer were installed
+      description: Describe how Wyrm and OpenComposite/xrizer were installed
       placeholder: flatpak --user, flatpak, AUR, Gentoo/Guru, built from sources...
 
   - type: textarea
     attributes:
       label: Server Logs
-      description: Provide the `wivrn-server` output.
+      description: Provide the `wyrm-server` output.
       placeholder: |
-        Add the output of the wivrn-server here.
+        Add the output of the wyrm-server here.
         If more than a few lines, prefer file attachment.
 
   - type: textarea

@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -21,7 +21,7 @@
 #include "application.h"
 #include "utils/contains.h"
 #include "utils/json_string.h"
-#include "wivrn_packets.h"
+#include "wyrm_packets.h"
 
 #include <fstream>
 #include <functional>
@@ -270,7 +270,7 @@ configuration::configuration(xr::system & system, xr::session & session, const s
 
 		if (auto val = root["body_parts"]; val.is_object())
 		{
-			for (const auto & [b, name]: magic_enum::enum_entries<wivrn::from_headset::body_part_mask>())
+			for (const auto & [b, name]: magic_enum::enum_entries<wyrm::from_headset::body_part_mask>())
 			{
 				const auto & body_part = val[name];
 				if (!body_part.is_bool())
@@ -395,7 +395,7 @@ void configuration::save()
 	{
 		bool first = true;
 		json << ",\"body_parts\": {";
-		for (const auto & [b, name]: magic_enum::enum_entries<wivrn::from_headset::body_part_mask>())
+		for (const auto & [b, name]: magic_enum::enum_entries<wyrm::from_headset::body_part_mask>())
 		{
 			if (not first)
 				json << ",";

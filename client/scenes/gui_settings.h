@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2026  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -33,7 +33,7 @@ class session;
 class system;
 } // namespace xr
 
-namespace wivrn::gui
+namespace wyrm::gui
 {
 
 // what the shared settings pages need, in the lobby or the in-stream window
@@ -71,4 +71,4 @@ bool settings_tracking(const settings_context &);
 void settings_system(const settings_context &);
 void settings_theme(const settings_context &);
 
-} // namespace wivrn::gui
+} // namespace wyrm::gui

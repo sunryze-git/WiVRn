@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -21,7 +21,7 @@
 
 #include "imgui.h"
 #include "render/imgui_impl.h"
-#include "wivrn_packets.h"
+#include "wyrm_packets.h"
 #include <chrono>
 #include <unordered_map>
 
@@ -64,6 +64,6 @@ public:
 		start_time = {};
 	}
 
-	void operator()(wivrn::to_headset::application_list && apps);
-	void operator()(wivrn::to_headset::application_icon && icon);
+	void operator()(wyrm::to_headset::application_list && apps);
+	void operator()(wyrm::to_headset::application_icon && icon);
 };

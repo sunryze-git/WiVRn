@@ -1,18 +1,20 @@
-<h1 align="center"> WiVRn </h1>
+<h1 align="center"> Wyrm </h1>
 
 <div align="center">
   
-[![License: GPL v3](images/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) ![CI](https://github.com/WiVRn/WiVRn/workflows/Build/badge.svg) ![Format](https://github.com/WiVRn/WiVRn/workflows/Format/badge.svg)
+[![License: GPL v3](images/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) ![CI](https://github.com/sunryze-git/Wyrm/workflows/Build/badge.svg) ![Format](https://github.com/sunryze-git/Wyrm/workflows/Format/badge.svg)
   
 </div>
-<p align="center"><img src="images/wivrn.svg" width="180"></p>
+<p align="center"><img src="images/wyrm.svg" width="180"></p>
 <h3 align="center">Fully FOSS PCVR streamer</h3>
 
 # About
 
-WiVRn is an application that wirelessly streams a virtual reality game to a standalone VR headset from a <b>Linux</b> computer.
+Wyrm is a fork of [WiVRn](https://github.com/WiVRn/WiVRn), originally developed by Guillaume Meunier, Patrick Nicolas, and the WiVRn contributors. Original copyright and license notices are preserved.
 
-WiVRn support a wide range of VR devices:
+Wyrm wirelessly streams a virtual reality game to a standalone VR headset from a <b>Linux</b> computer.
+
+Wyrm supports a wide range of VR devices:
 
 | Headset | Supported | Notes |
 |:--------:|:--------:|:--------:|
@@ -38,31 +40,18 @@ WiVRn support a wide range of VR devices:
 
 ## PC Server/Dashboard
 
-We recommend using native packages if available for your distribution:
-- [Arch User Repository](https://aur.archlinux.org/packages/wivrn-dashboard)
-- [Fedora](https://packages.fedoraproject.org/pkgs/wivrn/wivrn/)
-- [Gentoo Guru](https://gitweb.gentoo.org/repo/proj/guru.git/tree/media-libs/wivrn)
-- [NixOS](https://search.nixos.org/packages?show=wivrn)
-- [Ubuntu PPA](https://launchpad.net/~lvra/+archive/ubuntu/wivrn)
+Build Wyrm from this source tree using the [build instructions](docs/building.md). Distribution packages and store listings for the upstream project install WiVRn rather than this fork.
 
 For OpenVR and Steam compatibility, you also need a compatibility library such as [xrizer](https://github.com/Supreeeme/xrizer/) or [OpenComposite](https://gitlab.com/znixian/OpenOVR/).
 
-A Flatpak is available on Flathub for all distributions:
-
-[![Flathub](https://flathub.org/api/badge)](https://flathub.org/apps/io.github.wivrn.wivrn)
-
-The Flatpak contains both xrizer and OpenComposite.
-
-Note that due to Flatpak sandboxing, some features such as support for SteamVR tracked (Lighthouse) devices, or virtual gamepad/keyboard/input devices forwarded from the headset, may not be available.
+The [Flatpak manifest](flatpak/org.wyrmvr.wyrm.yml.in) can also be used to build Wyrm with xrizer and OpenComposite. Some device-forwarding features may be unavailable inside the Flatpak sandbox.
 
 ## Headset Client/App
 
-Follow the wizard in the PC dashboard to install the client on your VR headset.
-
-It should either lead you to the [Meta Store](https://www.meta.com/experiences/7959676140827574/) (for Meta Quest headsets) or to download the correct APK (for other headsets).
+Build the matching Wyrm client from this repository and install it on your headset. See [client build instructions](docs/building.md#client-headset). The dashboard can install a matching APK when one is available from this fork’s releases.
 
 > [!WARNING]
-> The VR client and PC server need to be on the same version of WiVRn
+> The VR client and PC server need to be on the same version of Wyrm
 
 > [!TIP]
 > If the headset fails to connect to the computer, see [troubleshooting](#troubleshooting).
@@ -79,20 +68,20 @@ Avahi must be running:
 systemctl enable --now avahi-daemon
 ```
 
-On SteamOS, the Avahi configuration needs to be modified to allow user services such as WiVRn to publish services on the network; see https://github.com/WiVRn/WiVRn/issues/1001#issuecomment-4940906113 for instructions on how to do so.
+On SteamOS, the Avahi configuration needs to be modified to allow user services such as Wyrm to publish services on the network; see https://github.com/WiVRn/WiVRn/issues/1001#issuecomment-4940906113 for instructions on how to do so.
 
-- If a firewall is installed, open port 5353/UDP for Avahi and ports 9757/UDP+TCP for WiVRn.
+- If a firewall is installed, open port 5353/UDP for Avahi and ports 9757/UDP+TCP for Wyrm.
 - For example, if using UFW run `ufw allow 5353/udp` and `ufw allow 9757`.
 
 ### Start the PC server process
-The graphical frontend is listed as "WiVRn server" in the application list, and is `wivrn-dashboard` on command line. On first start, a wizard will guide you through the initial steps.
+The graphical frontend is listed as "Wyrm server" in the application list, and is `wyrm-dashboard` on command line. On first start, a wizard will guide you through the initial steps.
 
-The actual server for headless usage is `wivrn-server`. When installed through your distribution's package manager, a systemd user service named `wivrn` is also installed, which can be enabled to automatically start on login with `systemctl --user enable --now wivrn`.
+The actual server for headless usage is `wyrm-server`. When installed through your distribution's package manager, a systemd user service named `wyrm` is also installed, which can be enabled to automatically start on login with `systemctl --user enable --now wyrm`.
 
 For Steam games, depending on the installation method, you may need to set launch options in the Steam properties for each game you want to run. Either the dashboard or command line output will display the launch command if it is required.
 
 ### Start the headset application
-On the headset, when installed from the store, simply start `WiVRn`. If you installed the app via the dashboard, or manually via `adb`, it will be in an "unknown sources" section.
+On the headset, start `Wyrm`. On Android headsets, clients installed through `adb` or the dashboard appear in the "unknown sources" section.
 
 On first start, it will ask if you want to enable some features such as microphone, hand tracking, eye tracking, etc., as they will require permissions to be granted. It is possible to grant those later from the Settings tab.
 
@@ -101,27 +90,27 @@ It is highly recommended to use default settings and only tweak them if you expe
 ### Connect to the server
 The headset application will start on a server list. Your computer should be visible and have a connect button. Simply click it to start streaming.
 
-When the headset is connected, wivrn-server sets the OpenXR and OpenVR configuration to use WiVRn. Thus, applications will only be able to run in VR once the headset connection is established. The configuration is reverted once the connection ends and all running VR applications are closed. 
+When the headset is connected, wyrm-server sets the OpenXR and OpenVR configuration to use Wyrm. Thus, applications will only be able to run in VR once the headset connection is established. The configuration is reverted once the connection ends and all running VR applications are closed.
 
 The headset connection also triggers the creation of a virtual speaker and, if enabled in the headset app settings, a microphone. You will have to set them as the default output and input devices in your system audio configuration. This setting persists to future sessions until you change the defaults to other devices.
 
 ### Start an application
 When the headset is connected and no XR application is running, it will show an application launcher. Applications in that list are sourced from:
 - Steam games that are flagged as VR. Steam may need to be restarted for the list to be updated when new games are installed.
-- .desktop files that contain `X-WiVRn-VR` in the `Categories` section. Files are searched in [standard locations](https://specifications.freedesktop.org/desktop-entry/latest/file-naming.html#desktop-file-id) which usually include `~/.local/share/applications` and `/usr/share/applications/`.
+- .desktop files that contain `X-Wyrm-VR` in the `Categories` section. Files are searched in [standard locations](https://specifications.freedesktop.org/desktop-entry/latest/file-naming.html#desktop-file-id) which usually include `~/.local/share/applications` and `/usr/share/applications/`.
 
 You can set an application to be started automatically when your headset is connected, in the dashboard settings or [manually](docs/configuration.md#application).
 
 ## Steam Flatpak
-Flatpak applications are only able to access the Flatpak version of WiVRn.
+Flatpak applications are only able to access the Flatpak version of Wyrm.
 
 If you're using the Steam Flatpak, you'll need to grant read only access to the following paths:
 
 ```bash
 flatpak override \
-  --filesystem=xdg-run/wivrn:ro \
-  --filesystem=xdg-data/flatpak/app/io.github.wivrn.wivrn:ro \
-  --filesystem=/var/lib/flatpak/app/io.github.wivrn.wivrn:ro \
+  --filesystem=xdg-run/wyrm:ro \
+  --filesystem=xdg-data/flatpak/app/org.wyrmvr.wyrm:ro \
+  --filesystem=/var/lib/flatpak/app/org.wyrmvr.wyrm:ro \
   --filesystem=xdg-config/openxr:ro \
   --filesystem=xdg-config/openvr:ro \
   com.valvesoftware.Steam
@@ -154,26 +143,22 @@ If the server list is empty in the headset app:
 
 <details><summary>How do I use a wired connection manually?</summary>
 
-- Make sure the WiVRn Server is installed and running on your computer
-- Make sure you have the WiVRn app installed on your headset
-- After starting the "WiVRn Server" on your computer and ensuring your device is connected to your PC via cable, run the following in your terminal (Note: using `adb` on some devices may require developer mode to be enabled):
+- Make sure the Wyrm Server is installed and running on your computer
+- Make sure you have the Wyrm app installed on your headset
+- After starting the "Wyrm Server" on your computer and ensuring your device is connected to your PC via cable, run the following in your terminal (Note: using `adb` on some devices may require developer mode to be enabled):
    - ```bash
       adb reverse tcp:9757 tcp:9757
-      adb shell am start -a android.intent.action.VIEW -d "wivrn+tcp://localhost" org.meumeu.wivrn
+      adb shell am start -a android.intent.action.VIEW -d "wyrm+tcp://localhost" org.wyrmvr.wyrm.local
       ```
-   - Depending on your install type, you may need to replace `org.meumeu.wivrn` (Meta Store install) with:
-      - `org.meumeu.wivrn.github` for [releases](https://github.com/WiVRn/WiVRn/releases) on Github
-      - `org.meumeu.wivrn.github.nighly` for Github nightlies (wirvn-apk [repository](https://github.com/WiVRn/WiVRn-APK/releases))
-      - `org.meumeu.wivrn.github.testing` for Github CI builds
-      - `org.meumeu.wivrn.local` for developer builds
+   - Locally built APKs use `org.wyrmvr.wyrm.local` by default. Replace the package name in the command above with the package you installed.
 - You can now continue the pairing process as documented in the running section.</details>
 
 <details><summary>How do I see server logs when using the dashboard?</summary>
 
 - Click **Troubleshoot > Open server logs**
-- Or, navigate to `${XDG_STATE_HOME}/wivrn/wivrn-dashboard`
-  - In other words, on common setups, the dashboard writes logs to `~/.local/state/wivrn/wivrn-dashboard`
-  - For WiVRn Flatpak, the dashboard writes logs to `~/.var/app/io.github.wivrn.wivrn/.local/state/wivrn/wivrn-dashboard`</details>
+- Or, navigate to `${XDG_STATE_HOME}/wyrm/wyrm-dashboard`
+  - In other words, on common setups, the dashboard writes logs to `~/.local/state/wyrm/wyrm-dashboard`
+  - For Wyrm Flatpak, the dashboard writes logs to `~/.var/app/org.wyrmvr.wyrm/.local/state/wyrm/wyrm-dashboard`</details>
 
 <details><summary>My NVIDIA GPU P-State is limited to P2 instead of reaching the highest P0 while using the NVIDIA NVENC encoder</summary>
     
@@ -185,19 +170,16 @@ If the server list is empty in the headset app:
 - Reset the settings using the button at the bottom of the settings tab
 - Try switching to software encoding
 - Decrease the bitrate
-- Decrease the resolution in the WiVRn app
+- Decrease the resolution in the Wyrm app
 - Connect through USB or use a better WiFi router.
 
-Note: WiVRn isn't properly optimized for NVIDIA GPUs due to the lack of developers with NVIDIA hardware. Motion latency may be significantly worse at rendering resolutions higher than default.</details>
+Note: Wyrm isn't properly optimized for NVIDIA GPUs due to the lack of developers with NVIDIA hardware. Motion latency may be significantly worse at rendering resolutions higher than default.</details>
 
-# Community Support
+# Project
 
-We are available on either **Discord** or **Matrix space**:
+The Wyrm source repository is [sunryze-git/Wyrm](https://github.com/sunryze-git/Wyrm).
 
-[![LVRA Discord](https://img.shields.io/discord/1065291958328758352?style=for-the-badge&logo=discord)](https://discord.gg/EHAYe3tTYa) [![LVRA Matrix](https://img.shields.io/matrix/linux-vr-adventures:matrix.org?logo=matrix&style=for-the-badge)](https://matrix.to/#/#linux-vr-adventures:matrix.org)
-
-Please use the `wivrn` chat room for questions or issues specific to WiVRn.
-
+Wyrm uses separate executables, app IDs, configuration directories, URI schemes, and network discovery from its upstream. Install matching Wyrm server and client builds; existing upstream pairings and settings are not automatically imported.
 
 # Contributing
 
@@ -207,7 +189,9 @@ See [translating](docs/translating.md) for procedure.
 
 
 # Credits
-WiVRn uses the following software:
+Wyrm builds on the work of the WiVRn developers and contributors.
+
+Wyrm uses the following software:
 - [ambientCG](https://ambientcg.com/)
 - [Avahi](https://www.avahi.org/)
 - [Boost.Locale](https://github.com/boostorg/locale)

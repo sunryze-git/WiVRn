@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -20,7 +20,7 @@
 #pragma once
 
 #include "decoder.h"
-#include "wivrn_packets.h"
+#include "wyrm_packets.h"
 
 #include <memory>
 #include <optional>
@@ -37,7 +37,7 @@ namespace scenes
 class stream;
 }
 
-namespace wivrn
+namespace wyrm
 {
 
 class shard_accumulator
@@ -45,7 +45,7 @@ class shard_accumulator
 	std::shared_ptr<decoder> decoder_;
 
 public:
-	using data_shard = wivrn::to_headset::video_stream_data_shard;
+	using data_shard = wyrm::to_headset::video_stream_data_shard;
 	struct shard_set
 	{
 		size_t min_for_reconstruction = -1;
@@ -55,7 +55,7 @@ public:
 
 		std::optional<uint16_t> insert(data_shard &&, xr::instance & instance);
 
-		wivrn::from_headset::feedback feedback{};
+		wyrm::from_headset::feedback feedback{};
 
 		explicit shard_set(uint8_t stream_index);
 		shard_set(const shard_set &) = default;
@@ -81,7 +81,7 @@ public:
 	        vk::raii::PhysicalDevice & physical_device,
 	        xr::instance & instance,
 	        uint32_t vk_queue_family_index,
-	        const wivrn::to_headset::video_stream_description & description,
+	        const wyrm::to_headset::video_stream_description & description,
 	        std::weak_ptr<scenes::stream> scene,
 	        uint8_t stream_index) :
 	        decoder_(decoder::make(device, physical_device, vk_queue_family_index, description, stream_index, scene, this)),
@@ -93,7 +93,7 @@ public:
 		next.reset(1);
 	}
 
-	void push_shard(wivrn::to_headset::video_stream_data_shard &&);
+	void push_shard(wyrm::to_headset::video_stream_data_shard &&);
 
 	vk::Sampler sampler()
 	{
@@ -105,7 +105,7 @@ public:
 private:
 	void try_submit_frame(std::optional<uint16_t> shard_idx);
 	void try_submit_frame(uint16_t shard_idx);
-	void send_feedback(wivrn::from_headset::feedback & feedback);
+	void send_feedback(wyrm::from_headset::feedback & feedback);
 	void advance();
 };
-} // namespace wivrn
+} // namespace wyrm

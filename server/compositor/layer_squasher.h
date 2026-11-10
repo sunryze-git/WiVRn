@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -32,10 +32,10 @@ struct render_compute_layer_ubo_data;
 struct xrt_pose;
 struct xrt_matrix_4x4;
 
-namespace wivrn
+namespace wyrm
 {
 struct vk_bundle;
-class wivrn_hmd;
+class wyrm_hmd;
 class layer_squasher
 {
 	const bool partially_bound_desc;
@@ -61,7 +61,7 @@ public:
 	do_layers(
 	        vk::raii::Device &,
 	        vk::raii::CommandBuffer &,
-	        wivrn_hmd &,
+	        wyrm_hmd &,
 	        uint64_t frame_interval_ns,
 	        const comp_frame &,
 	        const comp_layer_accum &,
@@ -110,4 +110,4 @@ private:
 	                           std::span<vk::DescriptorImageInfo> src_image_info,
 	                           render_compute_layer_ubo_data & ubo);
 };
-} // namespace wivrn
+} // namespace wyrm

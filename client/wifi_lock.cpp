@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -35,7 +35,7 @@ std::shared_ptr<wifi_lock> wifi_lock::make_wifi_lock(jobject activity)
 {
 	jni::object<""> act(application::native_app()->activity->clazz);
 
-	jni::string lock_name("WiVRn");
+	jni::string lock_name("Wyrm");
 
 	static int api_level = jni::klass("android/os/Build$VERSION").field<jni::Int>("SDK_INT");
 

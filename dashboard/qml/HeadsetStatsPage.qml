@@ -5,14 +5,14 @@ import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
 
-import io.github.wivrn.wivrn
+import org.wyrmvr.wyrm
 
 Kirigami.ScrollablePage {
     id: headsets
     title: i18n("Headset statistics")
 
     Connections {
-        target: WivrnServer
+        target: WyrmServer
         function onHeadsetConnectedChanged(value) {
             if (!value)
                 applicationWindow().pageStack.pop();

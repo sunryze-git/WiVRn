@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  galister <galister@librevr.org>
  * Copyright (C) 2025  Sapphire <imsapphire0@gmail.com>
  *
@@ -21,7 +21,7 @@
 
 #include "spdlog/common.h"
 #include "spdlog/spdlog.h"
-#include "wivrn_packets.h"
+#include "wyrm_packets.h"
 #include "xr/instance.h"
 #include "xr/pico_eye_types.h"
 #include "xr/pico_eye_types_reflection.h"
@@ -54,7 +54,7 @@ struct xr::pico_face_tracker::impl
 			spdlog::warn("Failed to deactivate face tracking: {}", xr::to_string(res));
 	}
 
-	void get_weights(XrTime time, wivrn::from_headset::tracking::fb_face2 & out_expressions)
+	void get_weights(XrTime time, wyrm::from_headset::tracking::fb_face2 & out_expressions)
 	{
 		out_expressions.is_valid = false;
 		out_expressions.is_eye_following_blendshapes_valid = false;

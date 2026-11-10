@@ -7,7 +7,7 @@
 #include <system_error>
 #include <vector>
 
-namespace wivrn
+namespace wyrm
 {
 
 const std::error_category & avahi_error_category();
@@ -42,4 +42,4 @@ public:
 	avahi_publisher & operator=(const avahi_publisher &) = delete;
 	~avahi_publisher();
 };
-} // namespace wivrn
+} // namespace wyrm

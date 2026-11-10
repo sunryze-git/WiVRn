@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -19,17 +19,17 @@
 
 #pragma once
 
-#include "wivrn_packets.h"
+#include "wyrm_packets.h"
 
 #include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <mutex>
 
-namespace wivrn
+namespace wyrm
 {
 
-class wivrn_connection;
+class wyrm_connection;
 
 struct clock_offset
 {
@@ -51,7 +51,7 @@ struct clock_offset
 
 class clock_offset_estimator
 {
-	struct sample : public wivrn::from_headset::timesync_response
+	struct sample : public wyrm::from_headset::timesync_response
 	{
 		XrTime received;
 	};
@@ -67,9 +67,9 @@ class clock_offset_estimator
 public:
 	std::chrono::steady_clock::time_point next() const;
 	void reset();
-	void request_sample(std::chrono::steady_clock::time_point now, wivrn_connection & connection);
-	void add_sample(const wivrn::from_headset::timesync_response & sample);
+	void request_sample(std::chrono::steady_clock::time_point now, wyrm_connection & connection);
+	void add_sample(const wyrm::from_headset::timesync_response & sample);
 
 	clock_offset get_offset();
 };
-} // namespace wivrn
+} // namespace wyrm

@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -32,7 +32,7 @@
 #include "systemd_manager.h"
 #include "systemd_unit.h"
 
-namespace wivrn
+namespace wyrm
 {
 
 // Start applications in transient units
@@ -75,4 +75,4 @@ private:
 	        const GParamSpec * pspec,
 	        void * self);
 };
-} // namespace wivrn
+} // namespace wyrm

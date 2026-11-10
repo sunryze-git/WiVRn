@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2026 galister <galister-dev@pm.me>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@
 
 #include "utils/handle.h"
 #include "utils/thread_safe.h"
-#include "wivrn_packets.h"
+#include "wyrm_packets.h"
 #include "xr/swapchain.h"
 
 #include <array>
@@ -80,7 +80,7 @@ public:
 
 	void update(std::span<const XrFovf> submitted_fov, std::span<const bool> valid, XrSwapchain stream_swapchain, XrTime display_time);
 	std::optional<projection_layer> get_layer() const;
-	std::optional<wivrn::from_headset::foveation> take_packet();
+	std::optional<wyrm::from_headset::foveation> take_packet();
 
 private:
 	mutable thread_safe<manual_override> manual_mode_{};
@@ -102,7 +102,7 @@ private:
 	std::optional<bool> cropped_mode;
 	xr::swapchain dummy_swapchain;
 	std::optional<projection_layer> layer_;
-	std::optional<wivrn::from_headset::foveation> packet_;
+	std::optional<wyrm::from_headset::foveation> packet_;
 
 	bool update_meta_swapchain(XrSwapchain swapchain) const;
 	std::optional<angles> meta_angles(XrSwapchain swapchain, std::span<const XrFovf> fov) const;

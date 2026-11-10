@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -35,7 +35,7 @@ void consume_whitespace(const char *& pos, const char * end)
 	throw std::runtime_error("malformed VDF file");
 }
 
-wivrn::vdf::string read_string(const char *& pos, const char * end)
+wyrm::vdf::string read_string(const char *& pos, const char * end)
 {
 	consume_whitespace(pos, end);
 
@@ -69,24 +69,24 @@ wivrn::vdf::string read_string(const char *& pos, const char * end)
 	throw std::runtime_error("malformed string in VDF file");
 }
 
-std::variant<wivrn::vdf::string, std::vector<wivrn::vdf::keyvalue>> read_value(const char *& pos, const char * end);
+std::variant<wyrm::vdf::string, std::vector<wyrm::vdf::keyvalue>> read_value(const char *& pos, const char * end);
 
-wivrn::vdf::keyvalue read_key_value(const char *& pos, const char * end)
+wyrm::vdf::keyvalue read_key_value(const char *& pos, const char * end)
 {
-	return wivrn::vdf::keyvalue{
+	return wyrm::vdf::keyvalue{
 	        .key = read_string(pos, end),
 	        .value = read_value(pos, end),
 	};
 }
 
-std::vector<wivrn::vdf::keyvalue> read_dict(const char *& pos, const char * end)
+std::vector<wyrm::vdf::keyvalue> read_dict(const char *& pos, const char * end)
 {
 	consume_whitespace(pos, end);
 	if (*pos != '{')
 		throw std::runtime_error("malformed VDF file");
 	++pos;
 
-	std::vector<wivrn::vdf::keyvalue> res;
+	std::vector<wyrm::vdf::keyvalue> res;
 	while (true)
 	{
 		consume_whitespace(pos, end);
@@ -101,7 +101,7 @@ std::vector<wivrn::vdf::keyvalue> read_dict(const char *& pos, const char * end)
 	throw std::runtime_error("malformed dict in VDF file");
 }
 
-std::variant<wivrn::vdf::string, std::vector<wivrn::vdf::keyvalue>> read_value(const char *& pos, const char * end)
+std::variant<wyrm::vdf::string, std::vector<wyrm::vdf::keyvalue>> read_value(const char *& pos, const char * end)
 {
 	consume_whitespace(pos, end);
 
@@ -113,7 +113,7 @@ std::variant<wivrn::vdf::string, std::vector<wivrn::vdf::keyvalue>> read_value(c
 
 } // namespace
 
-bool wivrn::vdf::string::operator==(const char * b) const
+bool wyrm::vdf::string::operator==(const char * b) const
 {
 	const char * a = data.begin();
 	for (; a != data.end(); ++a, ++b)
@@ -133,7 +133,7 @@ bool wivrn::vdf::string::operator==(const char * b) const
 	return *b == '\0';
 }
 
-wivrn::vdf::keyvalue const & wivrn::vdf::keyvalue::operator[](const char * key) const
+wyrm::vdf::keyvalue const & wyrm::vdf::keyvalue::operator[](const char * key) const
 {
 	for (auto const & kv: std::get<std::vector<keyvalue>>(value))
 	{
@@ -143,7 +143,7 @@ wivrn::vdf::keyvalue const & wivrn::vdf::keyvalue::operator[](const char * key) 
 	throw std::out_of_range{std::format("no key {}", key)};
 }
 
-wivrn::vdf::root::root(const std::filesystem::path & file)
+wyrm::vdf::root::root(const std::filesystem::path & file)
 {
 	try
 	{
@@ -160,7 +160,7 @@ wivrn::vdf::root::root(const std::filesystem::path & file)
 	}
 }
 
-void dump(const wivrn::vdf::keyvalue & kv, int depth)
+void dump(const wyrm::vdf::keyvalue & kv, int depth)
 {
 	for (int i = 0; i < depth; ++i)
 		std::cout << '\t';
@@ -168,11 +168,11 @@ void dump(const wivrn::vdf::keyvalue & kv, int depth)
 	struct V
 	{
 		int depth;
-		void operator()(const wivrn::vdf::string & s)
+		void operator()(const wyrm::vdf::string & s)
 		{
 			std::cout << '"' << s.data << '"';
 		}
-		void operator()(const std::vector<wivrn::vdf::keyvalue> & kv)
+		void operator()(const std::vector<wyrm::vdf::keyvalue> & kv)
 		{
 			std::cout << '{' << std::endl;
 			for (const auto & i: kv)
@@ -190,8 +190,8 @@ void dump(const wivrn::vdf::keyvalue & kv, int depth)
 	std::visit(V{depth}, kv.value);
 }
 
-#ifdef WIVRN_BUILD_TEST
-void dump(const wivrn::vdf::root & kv)
+#ifdef WYRM_BUILD_TEST
+void dump(const wyrm::vdf::root & kv)
 {
 	std::cout << '{';
 	dump(kv, 0);
@@ -202,7 +202,7 @@ int main(int argc, char ** argv)
 {
 	for (int i = 1; i < argc; ++i)
 	{
-		wivrn::vdf::root doc{argv[i]};
+		wyrm::vdf::root doc{argv[i]};
 		dump(doc);
 	}
 }

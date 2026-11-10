@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -19,11 +19,11 @@
 
 #include "clock_offset.h"
 
-#include "driver/wivrn_connection.h"
+#include "driver/wyrm_connection.h"
 #include "os/os_time.h"
 #include "util/u_logging.h"
 
-namespace wivrn
+namespace wyrm
 {
 
 static const size_t num_samples = 100;
@@ -43,19 +43,19 @@ void clock_offset_estimator::reset()
 	sample_interval = std::chrono::milliseconds(10);
 }
 
-void clock_offset_estimator::request_sample(std::chrono::steady_clock::time_point now, wivrn_connection & connection)
+void clock_offset_estimator::request_sample(std::chrono::steady_clock::time_point now, wyrm_connection & connection)
 {
 	if (now < next_sample)
 		return;
 
 	next_sample = now + sample_interval.load();
 	connection.send_stream(
-	        wivrn::to_headset::timesync_query{
+	        wyrm::to_headset::timesync_query{
 	                .query = XrTime(os_monotonic_get_ns()),
 	        });
 }
 
-void clock_offset_estimator::add_sample(const wivrn::from_headset::timesync_response & base_sample)
+void clock_offset_estimator::add_sample(const wyrm::from_headset::timesync_response & base_sample)
 {
 	XrTime now = os_monotonic_get_ns();
 	clock_offset_estimator::sample sample{base_sample, now};
@@ -158,4 +158,4 @@ XrTime clock_offset::to_headset(XrTime timestamp_ns) const
 {
 	return timestamp_ns + b;
 }
-} // namespace wivrn
+} // namespace wyrm

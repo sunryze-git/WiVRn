@@ -1,7 +1,7 @@
 issue_templates:
   - name: Bug Report
-    about: Create a report to help us improve WiVRn.
+    about: Create a report to help us improve Wyrm.
   - name: Feature Request
-    about: Suggest an enhancement or new feature for WiVRn.
+    about: Suggest an enhancement or new feature for Wyrm.
   - name: Other
     about: Use this template for anything else that doesn't fit into the above categories.

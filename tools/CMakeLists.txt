@@ -1,7 +1,7 @@
-if(WIVRN_BUILD_DISSECTOR)
+if(WYRM_BUILD_DISSECTOR)
 	add_subdirectory(wireshark)
 endif()
 
-if (WIVRN_BUILD_WIVRNCTL)
-	add_subdirectory(wivrnctl)
+if (WYRM_BUILD_WYRMCTL)
+	add_subdirectory(wyrmctl)
 endif()

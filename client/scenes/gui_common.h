@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022-2026  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -34,7 +34,7 @@ class session;
 class system;
 } // namespace xr
 
-namespace wivrn
+namespace wyrm
 {
 
 namespace gui
@@ -56,11 +56,11 @@ float toggle_width();
 struct battery_indicator
 {
 	std::string label;
-	wivrn::ui::chip_style style;
+	wyrm::ui::chip_style style;
 };
 
 // headset battery as a top-bar pill, nullopt when unavailable, now drives the charging animation
 std::optional<battery_indicator> battery_status_indicator(XrTime now);
 
 } // namespace gui
-} // namespace wivrn
+} // namespace wyrm

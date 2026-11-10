@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@
 
 #include "audio_setup.h"
 
-namespace wivrn
+namespace wyrm
 {
 
 std::unique_ptr<audio_device> create_pipewire_handle(
@@ -28,6 +28,6 @@ std::unique_ptr<audio_device> create_pipewire_handle(
         const std::string & source_description,
         const std::string & sink_name,
         const std::string & sink_description,
-        const wivrn::from_headset::headset_info_packet & info,
-        wivrn::wivrn_session & session);
+        const wyrm::from_headset::headset_info_packet & info,
+        wyrm::wyrm_session & session);
 }

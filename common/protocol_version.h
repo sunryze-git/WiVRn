@@ -1,10 +1,10 @@
-#include "wivrn_packets.h"
-#include "wivrn_serialization.h"
+#include "wyrm_packets.h"
+#include "wyrm_serialization.h"
 
 #pragma once
 
-namespace wivrn
+namespace wyrm
 {
 using protocol = std::variant<from_headset::packets, to_headset::packets>;
 static inline const constinit auto protocol_version = serialization_type_hash<protocol>(protocol_revision);
-} // namespace wivrn
+} // namespace wyrm

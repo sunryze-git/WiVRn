@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@
 #include "dashboard_utils.h"
 #include "escape_sandbox.h"
 #include "utils/flatpak.h"
-#include "wivrn_config.h"
+#include "wyrm_config.h"
 
 #include <QDBusInterface>
 #include <QDBusMetaType>
@@ -53,7 +53,7 @@ public:
 	bool need_setup() override
 	{
 		return not std::filesystem::exists(
-		        (wivrn::is_flatpak() ? "/run/host" : "/") / conf);
+		        (wyrm::is_flatpak() ? "/run/host" : "/") / conf);
 	}
 
 	void do_setup() override
@@ -61,7 +61,7 @@ public:
 		pkexec = escape_sandbox("pkexec",
 		                        "sh",
 		                        "-c",
-		                        "printf '[WiVRn]\\ntitle=WiVRn server\ndescription=WiVRn OpenXR streaming server\nports=" + std::to_string(wivrn::default_port) + "\n' > /" + conf.string() + " && ufw allow wivrn");
+		                        "printf '[Wyrm]\\ntitle=Wyrm server\ndescription=Wyrm OpenXR streaming server\nports=" + std::to_string(wyrm::default_port) + "\n' > /" + conf.string() + " && ufw allow wyrm");
 		pkexec->setProcessChannelMode(QProcess::MergedChannels);
 		pkexec->start();
 
@@ -74,7 +74,7 @@ public:
 	}
 };
 
-const std::filesystem::path ufw::conf = "etc/ufw/applications.d/wivrn";
+const std::filesystem::path ufw::conf = "etc/ufw/applications.d/wyrm";
 
 class firewalld : public firewall::Impl
 {
@@ -98,7 +98,7 @@ public:
 			qWarning() << "Failed to list enabled firewalld services" << res.error();
 			return false;
 		}
-		return not res.value().contains("wivrn");
+		return not res.value().contains("wyrm");
 	}
 
 	void do_setup() override
@@ -115,12 +115,12 @@ public:
 			qWarning() << "Failed to list firewalld services: " << res.error();
 			return;
 		}
-		if (not res.value().contains("wivrn"))
+		if (not res.value().contains("wyrm"))
 		{
-			qInfo() << "Creating firewalld wivrn service";
+			qInfo() << "Creating firewalld wyrm service";
 			QMap<QString, QVariant> map;
 
-			map["short"] = QString("WiVRn");
+			map["short"] = QString("Wyrm");
 			map["description"] = QString("OpenXR streaming service");
 			{
 				QList<QVariant> ports;
@@ -128,16 +128,16 @@ public:
 				{
 					QDBusArgument port;
 					port.beginStructure();
-					port << QString::number(wivrn::default_port) << QString(proto);
+					port << QString::number(wyrm::default_port) << QString(proto);
 					port.endStructure();
 					ports.push_back(QVariant::fromValue(port));
 				}
 				map["ports"] = ports;
 			}
-			if (QDBusReply<void> res = conf.call("addService2", "wivrn", map);
+			if (QDBusReply<void> res = conf.call("addService2", "wyrm", map);
 			    not res.isValid())
 			{
-				qWarning() << "Failed to create firewalld wivrn service: " << res.error();
+				qWarning() << "Failed to create firewalld wyrm service: " << res.error();
 				return;
 			}
 		}
@@ -157,9 +157,9 @@ public:
 
 		QDBusInterface zone_conf = QDBusInterface("org.fedoraproject.FirewallD1", zone_path.value().path(), "org.fedoraproject.FirewallD1.config.zone", QDBusConnection::systemBus());
 
-		if (QDBusReply<void> res = zone_conf.call("addService", "wivrn"); not res.isValid())
+		if (QDBusReply<void> res = zone_conf.call("addService", "wyrm"); not res.isValid())
 		{
-			qWarning() << "Failed to enable firewalld wivrn service: " << res.error();
+			qWarning() << "Failed to enable firewalld wyrm service: " << res.error();
 			return;
 		}
 

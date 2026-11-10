@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-namespace wivrn
+namespace wyrm
 {
 // Protected by the compositor's video mutex. A replacement stream cannot send
 // frames until its decoder has been installed, including after reconnecting.
@@ -51,4 +51,4 @@ public:
 		return decoded_eyes == 3;
 	}
 };
-} // namespace wivrn
+} // namespace wyrm

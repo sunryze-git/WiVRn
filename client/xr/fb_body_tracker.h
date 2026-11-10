@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Sapphire <imsapphire0@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "wivrn_packets.h"
+#include "wyrm_packets.h"
 
 #include "utils/handle.h"
 #include <openxr/openxr.h>
@@ -39,12 +39,12 @@ class fb_body_tracker : public utils::handle<XrBodyTrackerFB>
 	uint32_t skeleton_generation = 0;
 
 public:
-	using packet_type = wivrn::from_headset::meta_body;
+	using packet_type = wyrm::from_headset::meta_body;
 
 	fb_body_tracker(instance & inst, session & s, bool full_body);
 
 	packet_type locate_spaces(XrTime time, XrSpace reference);
 	bool should_send_skeleton();
-	wivrn::from_headset::meta_body_skeleton get_skeleton() noexcept(false);
+	wyrm::from_headset::meta_body_skeleton get_skeleton() noexcept(false);
 };
 } // namespace xr

@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@
 
 #include "audio_pipewire.h"
 
-#include "driver/wivrn_session.h"
+#include "driver/wyrm_session.h"
 #include "os/os_time.h"
 #include "util/u_logging.h"
 #include "utils/ring_buffer.h"
@@ -27,7 +27,7 @@
 #include <pipewire/pipewire.h>
 #include <spa/param/audio/format-utils.h>
 
-namespace wivrn
+namespace wyrm
 {
 
 namespace
@@ -49,7 +49,7 @@ struct deleter
 struct pipewire_device : public audio_device
 {
 	to_headset::audio_stream_description desc;
-	wivrn_session & session;
+	wyrm_session & session;
 
 	std::unique_ptr<pw_main_loop, deleter> pw_loop;
 
@@ -75,7 +75,7 @@ struct pipewire_device : public audio_device
 	static void mic_process(void * self_v);
 	static void mic_state_changed(void * self_v, pw_stream_state old, pw_stream_state state, const char * error);
 
-	void process_mic_data(wivrn::audio_data &&) override;
+	void process_mic_data(wyrm::audio_data &&) override;
 	void pause() override;
 	void resume() override;
 
@@ -89,8 +89,8 @@ struct pipewire_device : public audio_device
 	        const std::string & source_description,
 	        const std::string & sink_name,
 	        const std::string & sink_description,
-	        const wivrn::from_headset::headset_info_packet & info,
-	        wivrn::wivrn_session & session) :
+	        const wyrm::from_headset::headset_info_packet & info,
+	        wyrm::wyrm_session & session) :
 	        session(session)
 	{
 		int argc = 0;
@@ -405,7 +405,7 @@ void pipewire_device::speaker_process(void * self_v)
 	pw_stream_queue_buffer(self->speaker.get(), buffer);
 }
 
-void pipewire_device::process_mic_data(wivrn::audio_data && sample)
+void pipewire_device::process_mic_data(wyrm::audio_data && sample)
 {
 	auto size = sample.payload.size_bytes();
 	if (mic_samples.write(std::move(sample)))
@@ -427,8 +427,8 @@ std::unique_ptr<audio_device> create_pipewire_handle(
         const std::string & source_description,
         const std::string & sink_name,
         const std::string & sink_description,
-        const wivrn::from_headset::headset_info_packet & info,
-        wivrn_session & session)
+        const wyrm::from_headset::headset_info_packet & info,
+        wyrm_session & session)
 {
 	try
 	{
@@ -441,4 +441,4 @@ std::unique_ptr<audio_device> create_pipewire_handle(
 		return nullptr;
 	}
 }
-} // namespace wivrn
+} // namespace wyrm

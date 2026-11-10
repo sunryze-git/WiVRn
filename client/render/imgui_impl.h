@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -23,7 +23,7 @@
 #include "utils/cache.h"
 #include "utils/mapped_file.h"
 #include "utils/thread_safe.h"
-#include "wivrn_config.h"
+#include "wyrm_config.h"
 #include "xr/hand_tracker.h"
 #include "xr/space.h"
 #include "xr/swapchain.h"
@@ -198,7 +198,7 @@ private:
 	ImGuiID hovered_item = 0;      // Hovered item in the current frame, reset at the beginning of the frame
 	ImGuiID hovered_item_prev = 0; // Hovered item at the previous frame
 
-#if WIVRN_SHOW_IMGUI_DEMO_WINDOW
+#if WYRM_SHOW_IMGUI_DEMO_WINDOW
 	bool show_demo_window = true;
 #endif
 

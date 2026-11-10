@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -31,12 +31,14 @@
 #include <Eigen/Core>
 #include <Eigen/QR>
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <limits>
 #include <optional>
 #include <ranges>
 
 #include "openxr/openxr.h"
-#include "wivrn_config.h"
+#include "wyrm_config.h"
 
 template <int N, bool quaternion = false, int polynomial_order = 2, int stored_samples = 30>
 class polynomial_interpolator
@@ -76,7 +78,11 @@ private:
 						closest = &i;
 				}
 				if (closest and closest->y->dot(*stored.y) < 0)
+				{
 					*stored.y *= -1;
+					if (stored.dy)
+						*stored.dy *= -1;
+				}
 			}
 		}
 	}
@@ -96,7 +102,7 @@ public:
 		for (auto & i: data)
 		{
 			// Avoid samples too close to each other
-			if (std::abs(i.timestamp - s.timestamp) < 2'000'000)
+			if (i.production_timestamp != std::numeric_limits<XrTime>::lowest() and std::abs(i.timestamp - s.timestamp) < 2'000'000)
 			{
 				if (i.production_timestamp < s.production_timestamp)
 				{
@@ -135,23 +141,27 @@ public:
 		Eigen::Matrix<float, 2 * stored_samples, N> b;
 
 		const XrTime production_timestamp = std::ranges::max(data | std::ranges::views::transform(&sample::production_timestamp));
+		if (production_timestamp == std::numeric_limits<XrTime>::lowest())
+			return {};
 		// Maximum is the minimum of now + max_extrapolation_ns (outside of this function)
 		// and production_ts + 1.1 * max_extrapolation_ns
 		// This allows a small buffer so that polynomial extrapolation fills the gap of networking hiccups
-		timestamp = std::min(timestamp, production_timestamp + (wivrn::max_extrapolation_ns * 11) / 10);
+		timestamp = std::min(timestamp, production_timestamp + (wyrm::max_extrapolation_ns * 11) / 10);
 
-		const sample * closest = data.data();
+		const sample * closest = nullptr;
 
 		int row = 0;
 		for (const auto && [i, sample]: std::ranges::enumerate_view(data))
 		{
-			if (std::abs(closest->timestamp - timestamp) > std::abs(sample.timestamp - timestamp))
+			if (sample.production_timestamp == std::numeric_limits<XrTime>::lowest())
+				continue;
+			if (not closest or std::abs(closest->timestamp - timestamp) > std::abs(sample.timestamp - timestamp))
 				closest = &sample;
 
 			if (not sample.y)
 				continue;
 
-			int abs_Δt = std::abs(sample.timestamp - timestamp);
+			XrDuration abs_Δt = std::abs(sample.timestamp - timestamp);
 
 			float weight = 1. / (1. + std::pow(abs_Δt / float(window), 3.));
 

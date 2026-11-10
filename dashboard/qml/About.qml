@@ -6,7 +6,7 @@ import org.kde.kirigamiaddons.formcard as FormCard
 
 FormCard.AboutPage {
 	aboutData: KCoreAddons.AboutData
-	donateUrl: "https://opencollective.com/wivrn"
+	donateUrl: ""
 	getInvolvedUrl: ""
 
 	footer: Controls.DialogButtonBox {

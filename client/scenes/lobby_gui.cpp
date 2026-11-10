@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -30,7 +30,7 @@
 #include "utils/async.h"
 #include "utils/i18n.h"
 #include "utils/mapped_file.h"
-#if WIVRN_CLIENT_DEBUG_MENU
+#if WYRM_CLIENT_DEBUG_MENU
 #include "utils/ranges.h"
 #endif
 #include "version.h"
@@ -63,7 +63,7 @@ using namespace std::chrono_literals;
 static void display_recentering_tip(imgui_context & ctx, const std::string & tip)
 {
 	ImGui::PushFont(nullptr, constants::gui::font_size_large);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, wivrn::ui::metrics::window_padding);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, wyrm::ui::metrics::window_padding);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 2);
 	ImGui::SetNextWindowPos(ctx.layers()[3].vp_center(), ImGuiCond_Always, {0.5, 0.5});
 	ImGui::Begin("Recentering tip", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize);
@@ -92,7 +92,7 @@ static void display_recentering_tip(imgui_context & ctx, const std::string & tip
 
 void scenes::lobby::gui_connecting(locked_notifiable<pin_request_data> & pin_request)
 {
-	namespace ui = wivrn::ui;
+	namespace ui = wyrm::ui;
 	const ImGuiStyle & style = ImGui::GetStyle();
 	const auto & t = ui::current();
 
@@ -149,7 +149,7 @@ void scenes::lobby::gui_connecting(locked_notifiable<pin_request_data> & pin_req
 
 void scenes::lobby::gui_enter_pin(locked_notifiable<pin_request_data> & pin_request)
 {
-	namespace ui = wivrn::ui;
+	namespace ui = wyrm::ui;
 	const int pin_size = 6;
 
 	const ImGuiStyle & style = ImGui::GetStyle();
@@ -248,7 +248,7 @@ void scenes::lobby::gui_connected(XrTime predicted_display_time)
 
 void scenes::lobby::gui_disconnected()
 {
-	namespace ui = wivrn::ui;
+	namespace ui = wyrm::ui;
 	const ImGuiStyle & style = ImGui::GetStyle();
 	const auto & t = ui::current();
 
@@ -288,12 +288,12 @@ void scenes::lobby::gui_disconnected()
 
 void scenes::lobby::gui_new_server()
 {
-	namespace ui = wivrn::ui;
+	namespace ui = wyrm::ui;
 
 	auto reset = [&] {
 		add_server_window_prettyname = "";
 		add_server_window_hostname = "";
-		add_server_window_port = wivrn::default_port;
+		add_server_window_port = wyrm::default_port;
 		add_server_tcp_only = false;
 		add_server_cookie = "";
 	};
@@ -360,14 +360,14 @@ void scenes::lobby::gui_new_server()
 
 void scenes::lobby::gui_server_list()
 {
-	namespace ui = wivrn::ui;
+	namespace ui = wyrm::ui;
 	auto & config = application::get_config();
 	const auto & t = ui::current();
 
 	// header with an Add server button on the right
 	const ImVec2 hstart = ImGui::GetCursorPos();
 	const float header_avail = ImGui::GetContentRegionAvail().x;
-	ui::page_header(_cS("page header title", "Computers"), _cS("page header subtitle", "Pick a PC running the WiVRn server to stream from."));
+	ui::page_header(_cS("page header title", "Computers"), _cS("page header subtitle", "Pick a PC running the Wyrm server to stream from."));
 	const ImVec2 hend = ImGui::GetCursorPos();
 
 	const std::string add_label = _("Add server");
@@ -378,7 +378,7 @@ void scenes::lobby::gui_server_list()
 		add_server_cookie = "";
 		add_server_window_prettyname = "";
 		add_server_window_hostname = "";
-		add_server_window_port = wivrn::default_port;
+		add_server_window_port = wyrm::default_port;
 		add_server_tcp_only = false;
 		ImGui::OpenPopup("add or edit server");
 	}
@@ -398,7 +398,7 @@ void scenes::lobby::gui_server_list()
 		if (sorted_cookies.empty())
 		{
 			ImGui::PushStyleColor(ImGuiCol_Text, t.text_muted);
-			ImGui::TextUnformatted(_S("Start a WiVRn server on your local network."));
+			ImGui::TextUnformatted(_S("Start a Wyrm server on your local network."));
 			ImGui::PopStyleColor();
 		}
 
@@ -428,7 +428,7 @@ void scenes::lobby::gui_server_list()
 			const ImVec2 chip_sz = ui::chip_size(chip_label);
 			float trailing = bh + gap + cw + (data.autoconnect ? gap + chip_sz.x : 0) + ui::metrics::list_row_pad;
 
-			const auto server_icon = [](const wivrn_discover::service & service) {
+			const auto server_icon = [](const wyrm_discover::service & service) {
 				if (not service.addresses.empty())
 				{
 					const auto & interface = service.addresses.front().interface;
@@ -524,26 +524,26 @@ void scenes::lobby::gui_server_list()
 	if ((async_session.valid() || next_scene) and not ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopup))
 		ImGui::OpenPopup("connecting");
 
-	if (wivrn::ui::begin_modal("connecting", ""))
+	if (wyrm::ui::begin_modal("connecting", ""))
 	{
 		auto pin_request = this->pin_request.lock();
 		if (pin_request->pin_requested)
 			gui_enter_pin(pin_request);
 		else
 			gui_connecting(pin_request);
-		wivrn::ui::end_modal();
+		wyrm::ui::end_modal();
 	}
 
-	if (wivrn::ui::begin_modal("disconnected", ""))
+	if (wyrm::ui::begin_modal("disconnected", ""))
 	{
 		gui_disconnected();
-		wivrn::ui::end_modal();
+		wyrm::ui::end_modal();
 	}
 
-	if (wivrn::ui::begin_modal("add or edit server", add_server_cookie.empty() ? _C("popup window title", "Add server") : _C("popup window title", "Edit server"), 620))
+	if (wyrm::ui::begin_modal("add or edit server", add_server_cookie.empty() ? _C("popup window title", "Add server") : _C("popup window title", "Edit server"), 620))
 	{
 		gui_new_server();
-		wivrn::ui::end_modal();
+		wyrm::ui::end_modal();
 	}
 
 	if (not delete_server_cookie.empty())
@@ -552,7 +552,7 @@ void scenes::lobby::gui_server_list()
 		if (auto it = config.servers.find(delete_server_cookie); it != config.servers.end())
 			name = it->second.service.name;
 
-		switch (wivrn::ui::confirm_modal("delete server", _C("confirmation messagebox title", "Delete server"), fmt::format(_cF("confirmation message", "Remove \"{}\" from your saved computers?"), name), _("Delete"), _("Cancel"), true))
+		switch (wyrm::ui::confirm_modal("delete server", _C("confirmation messagebox title", "Delete server"), fmt::format(_cF("confirmation message", "Remove \"{}\" from your saved computers?"), name), _("Delete"), _("Cancel"), true))
 		{
 			case 1:
 				config.servers.erase(delete_server_cookie);
@@ -566,7 +566,7 @@ void scenes::lobby::gui_server_list()
 	}
 }
 
-#if WIVRN_CLIENT_DEBUG_MENU
+#if WYRM_CLIENT_DEBUG_MENU
 void scenes::lobby::gui_debug_node_hierarchy(entt::entity root)
 {
 	for (auto && [entity, node]: world.view<components::node>().each())
@@ -805,7 +805,7 @@ void scenes::lobby::gui_debug()
 void scenes::lobby::gui_about()
 {
 	ImGui::PushFont(nullptr, constants::gui::font_size_large);
-	CenterTextH(std::string("WiVRn ") + wivrn::display_version());
+	CenterTextH(std::string("Wyrm ") + wyrm::display_version());
 	ImGui::PopFont();
 
 	ImGui::Dummy(ImVec2(0, 60));
@@ -855,7 +855,7 @@ void scenes::lobby::gui_first_run()
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {20, 40});
 
 	ImGui::PushFont(nullptr, constants::gui::font_size_large);
-	CenterTextH(_("Welcome to WiVRn"));
+	CenterTextH(_("Welcome to Wyrm"));
 	ImGui::PopFont();
 
 	config.set_feature(feature::hand_tracking, true);
@@ -879,18 +879,18 @@ void scenes::lobby::gui_first_run()
 
 	CenterTextH(optional_features[optional_feature_index].text);
 
-	float button_width = wivrn::ui::metrics::button_size.x;
+	float button_width = wyrm::ui::metrics::button_size.x;
 	float buttons_width = 2 * button_width + style.ItemSpacing.x;
 	ImGui::SetCursorPosX((win_width - buttons_width) / 2);
 
-	if (ImGui::Button(_S("Yes"), wivrn::ui::metrics::button_size))
+	if (ImGui::Button(_S("Yes"), wyrm::ui::metrics::button_size))
 	{
 		config.set_feature(optional_features[optional_feature_index].f, true);
 	}
 	imgui_ctx->vibrate_on_hover();
 
 	ImGui::SameLine();
-	if (ImGui::Button(_S("No"), wivrn::ui::metrics::button_size))
+	if (ImGui::Button(_S("No"), wyrm::ui::metrics::button_size))
 	{
 		config.set_feature(optional_features[optional_feature_index].f, false);
 		optional_feature_index++;
@@ -908,15 +908,15 @@ void scenes::lobby::gui_first_run()
 
 void scenes::lobby::gui_licenses()
 {
-	namespace ui = wivrn::ui;
+	namespace ui = wyrm::ui;
 	const auto & t = ui::current();
 
-	ui::page_header(_S("Licenses"), _S("Open-source components bundled with WiVRn."));
+	ui::page_header(_S("Licenses"), _S("Open-source components bundled with Wyrm."));
 
 	// Components shipping a license file, probed once
 	static const std::vector<std::string> components = [] {
 		std::vector<std::string> v;
-		for (const char * c: {"WiVRn", "FontAwesome", "openxr-loader", "simdjson"})
+		for (const char * c: {"Wyrm", "FontAwesome", "openxr-loader", "simdjson"})
 		{
 			try
 			{
@@ -1051,29 +1051,29 @@ std::vector<std::pair<int, XrCompositionLayerQuad>> scenes::lobby::draw_gui(XrTi
 	update_file_picker();
 
 	ImGuiStyle & style = ImGui::GetStyle();
-	style.FontScaleMain = wivrn::ui::current().font_scale * wivrn::ui::metrics::font_base;
+	style.FontScaleMain = wyrm::ui::current().font_scale * wyrm::ui::metrics::font_base;
 
 	// rounding follows the theme so every window/popup gets rounded corners
-	style.WindowRounding = wivrn::ui::current().card_rounding;
-	style.ChildRounding = wivrn::ui::current().card_rounding;
-	style.PopupRounding = wivrn::ui::current().card_rounding;
-	style.FrameRounding = wivrn::ui::current().rounding;
-	style.GrabRounding = wivrn::ui::current().rounding;
-	style.TabRounding = wivrn::ui::current().rounding;
+	style.WindowRounding = wyrm::ui::current().card_rounding;
+	style.ChildRounding = wyrm::ui::current().card_rounding;
+	style.PopupRounding = wyrm::ui::current().card_rounding;
+	style.FrameRounding = wyrm::ui::current().rounding;
+	style.GrabRounding = wyrm::ui::current().rounding;
+	style.TabRounding = wyrm::ui::current().rounding;
 
 	// base text colour follows the theme so plain ImGui text stays legible
-	style.Colors[ImGuiCol_Text] = wivrn::ui::current().text;
-	style.Colors[ImGuiCol_TextDisabled] = wivrn::ui::current().text_muted;
+	style.Colors[ImGuiCol_Text] = wyrm::ui::current().text;
+	style.Colors[ImGuiCol_TextDisabled] = wyrm::ui::current().text_muted;
 
 	// combo modals open centred on the popup layer
 	const auto & ui_popup_layer = imgui_ctx->layers()[1];
-	wivrn::ui::set_popup_center(ui_popup_layer.vp_center(), float(ui_popup_layer.vp_size.y));
+	wyrm::ui::set_popup_center(ui_popup_layer.vp_center(), float(ui_popup_layer.vp_size.y));
 
 	// let the themed widgets fire the hover haptic and show tooltips
-	wivrn::ui::set_hover_haptic([this] { imgui_ctx->vibrate_on_hover(); });
-	wivrn::ui::set_tooltip_hook([this](const char * text) { imgui_ctx->tooltip(text); });
+	wyrm::ui::set_hover_haptic([this] { imgui_ctx->vibrate_on_hover(); });
+	wyrm::ui::set_tooltip_hook([this](const char * text) { imgui_ctx->tooltip(text); });
 
-	const float TabWidth = wivrn::ui::metrics::sidebar_width;
+	const float TabWidth = wyrm::ui::metrics::sidebar_width;
 
 	if (ImGui::GetIO().WantTextInput)
 	{
@@ -1083,18 +1083,18 @@ std::vector<std::pair<int, XrCompositionLayerQuad>> scenes::lobby::draw_gui(XrTi
 
 	ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 30);
 	// window background follows the theme, with a user-controlled opacity
-	const wivrn::ui::theme & th = wivrn::ui::current();
-	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4{th.background.x, th.background.y, th.background.z, wivrn::ui::background_alpha()});
+	const wyrm::ui::theme & th = wyrm::ui::current();
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4{th.background.x, th.background.y, th.background.z, wyrm::ui::background_alpha()});
 
 	ImGui::SetNextWindowPos(imgui_ctx->layers()[0].vp_center(), ImGuiCond_Always, {0.5, 0.5});
 
 	if (current_tab == tab::first_run)
 	{
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10);
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, wivrn::ui::metrics::window_padding * 2);
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, wivrn::ui::metrics::window_rounding);
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, wivrn::ui::metrics::window_border_size);
-		ImGui::Begin("WiVRn", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, wyrm::ui::metrics::window_padding * 2);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, wyrm::ui::metrics::window_rounding);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, wyrm::ui::metrics::window_border_size);
+		ImGui::Begin("Wyrm", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize);
 		gui_first_run();
 		ImGui::End();
 		ImGui::PopStyleVar(4); // ImGuiStyleVar_FrameRounding, ImGuiStyleVar_WindowPadding, ImGuiStyleVar_WindowRounding, ImGuiStyleVar_WindowBorderSize
@@ -1104,7 +1104,7 @@ std::vector<std::pair<int, XrCompositionLayerQuad>> scenes::lobby::draw_gui(XrTi
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});
 		ImGui::SetNextWindowSize({1400, 900});
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10);
-		ImGui::Begin("WiVRn", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+		ImGui::Begin("Wyrm", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 		gui_connected(predicted_display_time);
 		ImGui::End();
 		ImGui::PopStyleVar(2); // ImGuiStyleVar_WindowPadding, ImGuiStyleVar_FrameRounding
@@ -1113,21 +1113,21 @@ std::vector<std::pair<int, XrCompositionLayerQuad>> scenes::lobby::draw_gui(XrTi
 	{
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});
 		ImGui::SetNextWindowSize({1400, 900});
-		ImGui::Begin("WiVRn", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+		ImGui::Begin("Wyrm", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 
-		const float TopBarH = wivrn::ui::metrics::top_bar_height;
+		const float TopBarH = wyrm::ui::metrics::top_bar_height;
 
 		// Top bar: logo left, feature toggles / battery / connection status right
-		const float side = ImGui::GetFrameHeight() * wivrn::ui::metrics::control_height;
-		std::vector<wivrn::ui::top_bar_item> top_items;
+		const float side = ImGui::GetFrameHeight() * wyrm::ui::metrics::control_height;
+		std::vector<wyrm::ui::top_bar_item> top_items;
 
 		// feature toggle slot: reads its state, toggles on click
 		auto toggle_item = [&](const char * icon, const std::string & label, feature f) {
 			top_items.push_back({side, [icon, label, f] {
-				                     const float s = ImGui::GetFrameHeight() * wivrn::ui::metrics::control_height;
+				                     const float s = ImGui::GetFrameHeight() * wyrm::ui::metrics::control_height;
 				                     auto & config = application::get_config();
 				                     const bool on = config.check_feature(f);
-				                     if (wivrn::ui::icon_button(icon, {s, s}, on, label))
+				                     if (wyrm::ui::icon_button(icon, {s, s}, on, label))
 					                     config.set_feature(f, not on);
 			                     }});
 		};
@@ -1142,18 +1142,18 @@ std::vector<std::pair<int, XrCompositionLayerQuad>> scenes::lobby::draw_gui(XrTi
 		if (system.body_tracker_supported() != xr::body_tracker_type::none)
 			toggle_item(ICON_FA_PERSON, _cS("tooltip for top bar item in the lobby", "Body tracking"), feature::body_tracking);
 
-		if (auto bat = wivrn::gui::battery_status_indicator(instance.now()))
-			top_items.push_back({wivrn::ui::chip_width(bat->label, false, side),
-			                     [bat = *bat, side] { wivrn::ui::chip(bat.label, bat.style, false, side); }});
+		if (auto bat = wyrm::gui::battery_status_indicator(instance.now()))
+			top_items.push_back({wyrm::ui::chip_width(bat->label, false, side),
+			                     [bat = *bat, side] { wyrm::ui::chip(bat.label, bat.style, false, side); }});
 
 		const std::string conn = _C("status in the title bar", "Not connected");
-		top_items.push_back({wivrn::ui::chip_width(conn, true, side),
-		                     [conn, side] { wivrn::ui::chip(conn, wivrn::ui::chip_style::muted, true, side); }});
+		top_items.push_back({wyrm::ui::chip_width(conn, true, side),
+		                     [conn, side] { wyrm::ui::chip(conn, wyrm::ui::chip_style::muted, true, side); }});
 
-		wivrn::ui::top_bar(TopBarH, about_picture, top_items);
+		wyrm::ui::top_bar(TopBarH, about_picture, top_items);
 
 		// content area: content_margin from the sidebar, panel runs to the window's right edge so the scrollbar sits at the edge
-		const float content_margin = wivrn::ui::metrics::content_margin;
+		const float content_margin = wyrm::ui::metrics::content_margin;
 		ImGui::SetCursorPos({TabWidth + content_margin, TopBarH});
 
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10);
@@ -1214,7 +1214,7 @@ std::vector<std::pair<int, XrCompositionLayerQuad>> scenes::lobby::draw_gui(XrTi
 				gui_theme();
 				break;
 
-#if WIVRN_CLIENT_DEBUG_MENU
+#if WYRM_CLIENT_DEBUG_MENU
 			case tab::debug:
 				gui_debug();
 				break;
@@ -1245,49 +1245,49 @@ std::vector<std::pair<int, XrCompositionLayerQuad>> scenes::lobby::draw_gui(XrTi
 		ImGui::EndChild();
 		ImGui::PopStyleVar(2); // ImGuiStyleVar_FrameRounding, ImGuiStyleVar_WindowPadding
 
-		wivrn::ui::begin_sidebar(TopBarH, TabWidth, 3);
+		wyrm::ui::begin_sidebar(TopBarH, TabWidth, 3);
 		{
-			if (wivrn::ui::nav_item(ICON_FA_COMPUTER, _cS("tab label", "Computers"), current_tab == tab::server_list))
+			if (wyrm::ui::nav_item(ICON_FA_COMPUTER, _cS("tab label", "Computers"), current_tab == tab::server_list))
 				current_tab = tab::server_list;
 
-			wivrn::ui::nav_section(_cS("tab group", "SETTINGS"));
-			if (wivrn::ui::nav_item(ICON_FA_IMAGE, _cS("tab label", "Video"), current_tab == tab::video))
+			wyrm::ui::nav_section(_cS("tab group", "SETTINGS"));
+			if (wyrm::ui::nav_item(ICON_FA_IMAGE, _cS("tab label", "Video"), current_tab == tab::video))
 				current_tab = tab::video;
-			if (wivrn::ui::nav_item(ICON_FA_VOLUME_HIGH, _cS("tab label", "Audio"), current_tab == tab::audio))
+			if (wyrm::ui::nav_item(ICON_FA_VOLUME_HIGH, _cS("tab label", "Audio"), current_tab == tab::audio))
 				current_tab = tab::audio;
-			if (wivrn::ui::nav_item(ICON_FA_TOWER_BROADCAST, _cS("tab label", "Streaming"), current_tab == tab::streaming))
+			if (wyrm::ui::nav_item(ICON_FA_TOWER_BROADCAST, _cS("tab label", "Streaming"), current_tab == tab::streaming))
 				current_tab = tab::streaming;
-			if (wivrn::ui::nav_item(ICON_FA_WAND_MAGIC_SPARKLES, _cS("tab label", "Post-processing"), current_tab == tab::post_processing))
+			if (wyrm::ui::nav_item(ICON_FA_WAND_MAGIC_SPARKLES, _cS("tab label", "Post-processing"), current_tab == tab::post_processing))
 				current_tab = tab::post_processing;
-			if (wivrn::ui::nav_item(ICON_FA_KEYBOARD, _cS("tab label", "Devices"), current_tab == tab::devices))
+			if (wyrm::ui::nav_item(ICON_FA_KEYBOARD, _cS("tab label", "Devices"), current_tab == tab::devices))
 				current_tab = tab::devices;
-			if (wivrn::ui::nav_item(ICON_FA_LOCATION_CROSSHAIRS, _cS("tab label", "Tracking"), current_tab == tab::tracking))
+			if (wyrm::ui::nav_item(ICON_FA_LOCATION_CROSSHAIRS, _cS("tab label", "Tracking"), current_tab == tab::tracking))
 				current_tab = tab::tracking;
-			if (wivrn::ui::nav_item(ICON_FA_GEARS, _cS("tab label", "System"), current_tab == tab::system))
+			if (wyrm::ui::nav_item(ICON_FA_GEARS, _cS("tab label", "System"), current_tab == tab::system))
 				current_tab = tab::system;
 
-			wivrn::ui::nav_section(_cS("tab group", "PERSONALIZE"));
-			if (wivrn::ui::nav_item(ICON_FA_IMAGE, _cS("tab label", "Environment"), current_tab == tab::customize))
+			wyrm::ui::nav_section(_cS("tab group", "PERSONALIZE"));
+			if (wyrm::ui::nav_item(ICON_FA_IMAGE, _cS("tab label", "Environment"), current_tab == tab::customize))
 				current_tab = tab::customize;
-			if (wivrn::ui::nav_item(ICON_FA_PALETTE, _cS("tab label", "Theme"), current_tab == tab::theme))
+			if (wyrm::ui::nav_item(ICON_FA_PALETTE, _cS("tab label", "Theme"), current_tab == tab::theme))
 				current_tab = tab::theme;
-#if WIVRN_CLIENT_DEBUG_MENU
-			if (wivrn::ui::nav_item(ICON_FA_BUG_SLASH, _cS("tab label", "Debug"), current_tab == tab::debug))
+#if WYRM_CLIENT_DEBUG_MENU
+			if (wyrm::ui::nav_item(ICON_FA_BUG_SLASH, _cS("tab label", "Debug"), current_tab == tab::debug))
 				current_tab = tab::debug;
 #endif
 
 			// pinned to the bottom
-			wivrn::ui::sidebar_footer();
-			if (wivrn::ui::nav_item(ICON_FA_CIRCLE_INFO, _cS("tab label", "About"), current_tab == tab::about))
+			wyrm::ui::sidebar_footer();
+			if (wyrm::ui::nav_item(ICON_FA_CIRCLE_INFO, _cS("tab label", "About"), current_tab == tab::about))
 				current_tab = tab::about;
-			if (wivrn::ui::nav_item(ICON_FA_SCALE_BALANCED, _cS("tab label", "Licenses"), current_tab == tab::licenses))
+			if (wyrm::ui::nav_item(ICON_FA_SCALE_BALANCED, _cS("tab label", "Licenses"), current_tab == tab::licenses))
 				current_tab = tab::licenses;
-			if (wivrn::ui::nav_item(ICON_FA_DOOR_OPEN, _cS("exit button in the lobby", "Exit"), current_tab == tab::exit))
+			if (wyrm::ui::nav_item(ICON_FA_DOOR_OPEN, _cS("exit button in the lobby", "Exit"), current_tab == tab::exit))
 				current_tab = tab::exit;
 		}
-		wivrn::ui::end_sidebar();
+		wyrm::ui::end_sidebar();
 
-		wivrn::ui::shell_dividers(TopBarH, TabWidth);
+		wyrm::ui::shell_dividers(TopBarH, TabWidth);
 
 		ImGui::End();
 		ImGui::PopStyleVar(); // ImGuiStyleVar_WindowPadding
@@ -1298,7 +1298,7 @@ std::vector<std::pair<int, XrCompositionLayerQuad>> scenes::lobby::draw_gui(XrTi
 
 	if (not is_gui_visible(*imgui_ctx, predicted_display_time))
 	{
-		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4{th.background.x, th.background.y, th.background.z, wivrn::ui::background_alpha()});
+		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4{th.background.x, th.background.y, th.background.z, wyrm::ui::background_alpha()});
 		if (system.hand_tracking_supported())
 			display_recentering_tip(*imgui_ctx, _("Press the grip button or put your palm up\nto move the main window"));
 		else
@@ -1306,7 +1306,7 @@ std::vector<std::pair<int, XrCompositionLayerQuad>> scenes::lobby::draw_gui(XrTi
 		ImGui::PopStyleColor(); // ImGuiCol_WindowBg
 	}
 
-#if WIVRN_CLIENT_DEBUG_MENU
+#if WYRM_CLIENT_DEBUG_MENU
 	{
 		input->offset[xr::spaces::grip_left].first = offset_position;
 		input->offset[xr::spaces::grip_right].first = offset_position;

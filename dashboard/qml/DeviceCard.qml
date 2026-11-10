@@ -5,14 +5,14 @@ import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
 
-import io.github.wivrn.wivrn
+import org.wyrmvr.wyrm
 
 Kirigami.Card {
     id: device_card
 
     property alias name: label_name.text
     property string serial_number
-    property bool is_wivrn_installed
+    property bool is_wyrm_installed
     property bool installing: false
 
     Connections {
@@ -43,7 +43,7 @@ Kirigami.Card {
             Layout.fillWidth: true
             Layout.column: 0
             Layout.row: 1
-            text: device_card.is_wivrn_installed ? i18n("WiVRn is already installed on this device") : ""
+            text: device_card.is_wyrm_installed ? i18n("Wyrm is already installed on this device") : ""
         }
 
         Controls.Button {
@@ -51,7 +51,7 @@ Kirigami.Card {
             Layout.column: 1
             Layout.row: 0
             Layout.rowSpan: 2
-            text: device_card.is_wivrn_installed ? i18n("Reinstall WiVRn") : i18n("Install WiVRn")
+            text: device_card.is_wyrm_installed ? i18n("Reinstall Wyrm") : i18n("Install Wyrm")
             icon.name: "install-symbolic"
             onClicked: device_card.install()
             enabled: !ApkInstaller.busy
@@ -89,10 +89,10 @@ Kirigami.Card {
     }
 
     function install() {
-        console.log("Installing WiVRn on " + device_card.serial_number);
+        console.log("Installing Wyrm on " + device_card.serial_number);
         installing = true;
         ApkInstaller.installApk(device_card.serial_number).then(() => {
-            Adb.checkIfWivrnIsInstalled(device_card.serial_number);
+            Adb.checkIfWyrmIsInstalled(device_card.serial_number);
             applicationWindow().showPassiveNotification(ApkInstaller.installStatus);
         });
     }

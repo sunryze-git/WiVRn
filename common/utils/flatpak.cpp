@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -25,12 +25,12 @@
 static const std::filesystem::path info_path = "/.flatpak-info";
 static const bool is_flatpak_v = std::filesystem::exists(info_path);
 
-bool wivrn::is_flatpak()
+bool wyrm::is_flatpak()
 {
 	return is_flatpak_v;
 }
 
-std::optional<std::string> wivrn::flatpak_key(std::string section, std::string key)
+std::optional<std::string> wyrm::flatpak_key(std::string section, std::string key)
 {
 	section = "[" + section + "]";
 	key += "=";

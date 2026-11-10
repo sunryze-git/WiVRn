@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  galister <galister@librevr.org>
  * Copyright (C) 2025  Sapphire <imsapphire0@gmail.com>
  *
@@ -20,7 +20,7 @@
 #pragma once
 
 #include "utils/handle.h"
-#include "wivrn_packets.h"
+#include "wyrm_packets.h"
 #include <openxr/openxr.h>
 
 namespace xr
@@ -34,7 +34,7 @@ class android_face_tracker : public utils::handle<XrFaceTrackerANDROID>
 	PFN_xrGetFaceStateANDROID xrGetFaceStateANDROID{};
 
 public:
-	using packet_type = wivrn::from_headset::tracking::android_face;
+	using packet_type = wyrm::from_headset::tracking::android_face;
 	android_face_tracker(instance & inst, session & s);
 
 	void get_weights(XrTime, packet_type & out_expressions);

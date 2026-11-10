@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -28,7 +28,7 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 
-namespace wivrn
+namespace wyrm
 {
 
 namespace
@@ -142,7 +142,7 @@ std::optional<application> do_desktop_entry(const std::filesystem::path & filena
 		std::string_view line(bounds.begin(), bounds.end());
 		key_value item(line);
 		if (item.key == "Categories")
-			vr = contains(item.value, "X-WiVRn-VR");
+			vr = contains(item.value, "X-Wyrm-VR");
 	}
 	if (not vr)
 		return res;
@@ -245,7 +245,7 @@ std::unordered_map<std::string, application> list_applications()
 	for (auto && dir: xdg_data_dirs())
 		do_data_dir(std::move(dir), res);
 
-	if (wivrn::is_flatpak())
+	if (wyrm::is_flatpak())
 	{
 		// Try to guess host data dirs
 		do_data_dir("/run/host/usr/share", res);
@@ -254,4 +254,4 @@ std::unordered_map<std::string, application> list_applications()
 	return res;
 }
 
-} // namespace wivrn
+} // namespace wyrm

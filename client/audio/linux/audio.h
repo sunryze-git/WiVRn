@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2026  galister <galister-dev@pm.me>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 #pragma once
 
 #include "utils/ring_buffer.h"
-#include "wivrn_packets.h"
+#include "wyrm_packets.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -33,14 +33,14 @@ struct pw_stream;
 struct pw_stream_events;
 struct pw_thread_loop;
 
-class wivrn_session;
+class wyrm_session;
 
 namespace xr
 {
 class instance;
 }
 
-namespace wivrn::linux_audio
+namespace wyrm::linux_audio
 {
 struct pipewire_deleter
 {
@@ -66,18 +66,18 @@ class audio
 	void shutdown_pipewire();
 
 	to_headset::audio_stream_description desc;
-	wivrn_session & session;
+	wyrm_session & session;
 	xr::instance & instance;
 
 	pipewire_ptr<pw_thread_loop> loop;
 	pipewire_ptr<pw_stream> speaker;
 	pipewire_ptr<pw_stream> microphone;
 
-	utils::ring_buffer<wivrn::audio_data, 100> speaker_samples;
+	utils::ring_buffer<wyrm::audio_data, 100> speaker_samples;
 	std::atomic<size_t> speaker_buffer_size_bytes = 0;
-	wivrn::audio_data speaker_current;
+	wyrm::audio_data speaker_current;
 
-	utils::ring_buffer<wivrn::audio_data, 100> microphone_samples;
+	utils::ring_buffer<wyrm::audio_data, 100> microphone_samples;
 	std::atomic<size_t> microphone_buffer_size_bytes = 0;
 	std::mutex microphone_mutex;
 	std::condition_variable microphone_cv;
@@ -88,12 +88,12 @@ class audio
 public:
 	audio(const audio &) = delete;
 	audio & operator=(const audio &) = delete;
-	audio(const wivrn::to_headset::audio_stream_description &, wivrn_session &, xr::instance &);
+	audio(const wyrm::to_headset::audio_stream_description &, wyrm_session &, xr::instance &);
 	~audio();
 
-	void operator()(wivrn::audio_data &&);
+	void operator()(wyrm::audio_data &&);
 	void set_mic_state(bool running);
 
-	static void get_audio_description(wivrn::from_headset::headset_info_packet & info);
+	static void get_audio_description(wyrm::from_headset::headset_info_packet & info);
 };
-} // namespace wivrn::linux_audio
+} // namespace wyrm::linux_audio

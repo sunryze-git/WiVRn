@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -19,41 +19,41 @@
 
 #pragma once
 
-#include "wivrn_config.h"
+#include "wyrm_config.h"
 
 #ifdef __ANDROID__
 #include "android/audio.h"
-namespace wivrn
+namespace wyrm
 {
-using audio = ::wivrn::android::audio;
+using audio = ::wyrm::android::audio;
 }
-#elif WIVRN_USE_PIPEWIRE
+#elif WYRM_USE_PIPEWIRE
 #include "linux/audio.h"
-namespace wivrn
+namespace wyrm
 {
-using audio = ::wivrn::linux_audio::audio;
+using audio = ::wyrm::linux_audio::audio;
 }
 #else
 
-#include "wivrn_client.h"
-#include "wivrn_packets.h"
+#include "wyrm_client.h"
+#include "wyrm_packets.h"
 #include "xr/instance.h"
 
-namespace wivrn
+namespace wyrm
 {
 class audio
 {
 public:
 	audio(const audio &) = delete;
 	audio & operator=(const audio &) = delete;
-	audio(const wivrn::to_headset::audio_stream_description &, wivrn_session &, xr::instance &) {}
+	audio(const wyrm::to_headset::audio_stream_description &, wyrm_session &, xr::instance &) {}
 	~audio() = default;
 
-	void operator()(wivrn::audio_data &&) {}
+	void operator()(wyrm::audio_data &&) {}
 	void set_mic_state(bool running) {}
 
-	static void get_audio_description(wivrn::from_headset::headset_info_packet & info) {}
+	static void get_audio_description(wyrm::from_headset::headset_info_packet & info) {}
 };
-} // namespace wivrn
+} // namespace wyrm
 
 #endif

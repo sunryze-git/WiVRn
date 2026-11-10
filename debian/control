@@ -1,4 +1,4 @@
-Source: wivrn
+Source: wyrm
 Section: net
 Priority: optional
 Maintainer: Guillaume Meunier <guillaume.meunier@centraliens.net>
@@ -42,18 +42,16 @@ Build-Depends:
  qcoro-qt6-dev,
  xz-utils
 Standards-Version: 4.6.2
-Homepage: https://wivrn.github.io
-#Vcs-Browser: https://salsa.debian.org/debian/wivrn
-#Vcs-Git: https://salsa.debian.org/debian/wivrn.git
+Homepage: https://github.com/sunryze-git/Wyrm
 
-Package: wivrn
+Package: wyrm
 Architecture: any
 Multi-Arch: foreign
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
 Description: OpenXR streaming application to a standalone headset
- WiVRn wirelessly connects a standalone VR headset to a Linux
+ Wyrm wirelessly connects a standalone VR headset to a Linux
  computer. You can then play PCVR games on the headset while
  processing is done on the computer.
  .

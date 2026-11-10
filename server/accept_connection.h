@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -23,9 +23,9 @@
 #include <memory>
 #include <stop_token>
 
-namespace wivrn
+namespace wyrm
 {
 class TCP;
-class wivrn_session;
-std::unique_ptr<wivrn::TCP> accept_connection(wivrn_session & cnx, std::stop_token stop, std::function<void(wivrn_session &)> tick = {});
-} // namespace wivrn
+class wyrm_session;
+std::unique_ptr<wyrm::TCP> accept_connection(wyrm_session & cnx, std::stop_token stop, std::function<void(wyrm_session &)> tick = {});
+} // namespace wyrm

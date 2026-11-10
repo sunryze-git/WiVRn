@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -22,7 +22,7 @@
 
 static const char git_desc[] = "@GIT_DESC@";
 
-namespace wivrn
+namespace wyrm
 {
 
 extern const char git_commit[];
@@ -38,4 +38,4 @@ const char * display_version()
 	else
 		return git_desc;
 }
-} // namespace wivrn
+} // namespace wyrm

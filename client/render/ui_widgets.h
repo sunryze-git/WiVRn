@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2026  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -24,9 +24,9 @@
 #include <string>
 #include <vector>
 
-// Themed, reusable UI widgets, colors and metrics from wivrn::ui::current()
+// Themed, reusable UI widgets, colors and metrics from wyrm::ui::current()
 // Display text takes const std::string &, ids and icon glyphs stay const char *
-namespace wivrn::ui
+namespace wyrm::ui
 {
 
 enum class button_style
@@ -184,7 +184,7 @@ struct top_bar_item
 	std::function<void()> draw;
 };
 
-// Top bar: WiVRn logo + wordmark on the left, right_items right-aligned, height in pixels
+// Top bar: Wyrm logo + wordmark on the left, right_items right-aligned, height in pixels
 void top_bar(float height, ImTextureID logo, const std::vector<top_bar_item> & right_items);
 
 // sidebar nav frame: scrolling top section, footer_items rows pinned at the bottom
@@ -196,4 +196,4 @@ void end_sidebar();
 // Hairline dividers separating the top bar, sidebar and content, dimmed with the panel
 void shell_dividers(float top_bar_h, float tab_width);
 
-} // namespace wivrn::ui
+} // namespace wyrm::ui

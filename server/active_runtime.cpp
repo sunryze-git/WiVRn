@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -22,7 +22,7 @@
 #include "utils/flatpak.h"
 #include "utils/overloaded.h"
 #include "utils/xdg_base_directory.h"
-#include "wivrn_config.h"
+#include "wyrm_config.h"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -40,25 +40,25 @@ static std::vector<std::filesystem::path> filter_files(const std::filesystem::pa
 	return result;
 }
 
-namespace wivrn
+namespace wyrm
 {
 
 std::vector<std::filesystem::path> active_runtime::manifest_path()
 {
 	const std::filesystem::path location = "share/openxr/1";
-	const std::filesystem::path prefix = "openxr_wivrn";
+	const std::filesystem::path prefix = "openxr_wyrm";
 	// Check if in a flatpak
 	if (auto path = flatpak_key(flatpak::section::instance, "app-path"))
-		return {*path / location / "openxr_wivrn.json"};
+		return {*path / location / "openxr_wyrm.json"};
 
 	// Check if running from build directory
 	auto exe = std::filesystem::read_symlink("/proc/self/exe");
-	auto dev_manifest = exe.parent_path().parent_path() / "openxr_wivrn-dev.json";
+	auto dev_manifest = exe.parent_path().parent_path() / "openxr_wyrm-dev.json";
 	if (std::filesystem::exists(dev_manifest))
 		return {dev_manifest};
 
 	// Assume we are installed
-	return filter_files(WIVRN_INSTALL_PREFIX / location, prefix);
+	return filter_files(WYRM_INSTALL_PREFIX / location, prefix);
 }
 
 std::filesystem::path active_runtime::openvr_compat_path()
@@ -94,7 +94,7 @@ std::filesystem::path active_runtime::openvr_compat_path()
 
 static std::filesystem::path backup_name(std::filesystem::path file)
 {
-	file += ".wivrn-backup";
+	file += ".wyrm-backup";
 	return file;
 }
 
@@ -179,7 +179,7 @@ active_runtime::active_runtime() :
 		else
 		{
 			std::cerr << "Setting the OpenVR compatibility library to " << ovr_compat.native() << std::endl;
-			if (not wivrn::is_flatpak())
+			if (not wyrm::is_flatpak())
 			{
 				auto vrclient = ovr_compat / "bin"
 #ifdef __x86_64__
@@ -254,4 +254,4 @@ void active_runtime::cleanup_openxr()
 	}
 }
 
-} // namespace wivrn
+} // namespace wyrm

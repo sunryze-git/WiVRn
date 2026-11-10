@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -23,7 +23,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace wivrn
+namespace wyrm
 {
 
 struct application
@@ -36,4 +36,4 @@ struct application
 };
 
 std::unordered_map<std::string, application> list_applications();
-} // namespace wivrn
+} // namespace wyrm

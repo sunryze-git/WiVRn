@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -95,7 +95,7 @@ void libcurl::curl_thread_fn()
 	};
 #endif
 
-	std::string user_agent = std::string("WiVRn/") + wivrn::display_version();
+	std::string user_agent = std::string("Wyrm/") + wyrm::display_version();
 
 	// We can't use auto here because of curl_easy_setopt
 	size_t (*write_callback)(void *, size_t, size_t, void *) = [](void * buffer, size_t size, size_t nmemb, void * userp) -> size_t {

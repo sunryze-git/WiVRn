@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -21,14 +21,14 @@
 
 #include "decoder/decoder.h"
 #include "vk/allocation.h"
-#include "wivrn_packets.h"
+#include "wyrm_packets.h"
 #include <memory>
 #include <mutex>
 #include <span>
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
-namespace wivrn
+namespace wyrm
 {
 class shard_accumulator;
 }
@@ -45,9 +45,9 @@ namespace scenes
 class stream;
 }
 
-namespace wivrn::ffmpeg
+namespace wyrm::ffmpeg
 {
-class decoder : public wivrn::decoder
+class decoder : public wyrm::decoder
 {
 private:
 	struct ffmpeg_blit_handle;
@@ -80,7 +80,7 @@ private:
 public:
 	decoder(vk::raii::Device & device,
 	        vk::raii::PhysicalDevice & physical_device,
-	        const wivrn::to_headset::video_stream_description & description,
+	        const wyrm::to_headset::video_stream_description & description,
 	        uint8_t stream_index,
 	        std::weak_ptr<scenes::stream> scene,
 	        shard_accumulator * accumulator);
@@ -88,14 +88,14 @@ public:
 	void push_data(std::span<std::span<const uint8_t>> data, uint64_t frame_index, bool partial) override;
 
 	void frame_completed(
-	        const wivrn::from_headset::feedback & feedback,
-	        const wivrn::to_headset::video_stream_data_shard::view_info_t & view_info) override;
+	        const wyrm::from_headset::feedback & feedback,
+	        const wyrm::to_headset::video_stream_data_shard::view_info_t & view_info) override;
 
 	vk::Sampler sampler() override
 	{
 		return *rgb_sampler;
 	}
 
-	static void supported_codecs(std::vector<wivrn::video_codec> &);
+	static void supported_codecs(std::vector<wyrm::video_codec> &);
 };
-} // namespace wivrn::ffmpeg
+} // namespace wyrm::ffmpeg

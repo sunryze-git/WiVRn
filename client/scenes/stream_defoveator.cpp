@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -297,7 +297,7 @@ void stream_defoveator::reset_pipelines()
 	ds_pool.reset();
 }
 
-static size_t required_vertices(const wivrn::to_headset::foveation_parameter & p)
+static size_t required_vertices(const wyrm::to_headset::foveation_parameter & p)
 {
 	// strips are constructed like this:
 	// 0 2 4
@@ -308,7 +308,7 @@ static size_t required_vertices(const wivrn::to_headset::foveation_parameter & p
 }
 
 void stream_defoveator::defoveate(vk::raii::CommandBuffer & command_buffer,
-                                  const std::array<wivrn::to_headset::foveation_parameter, 2> & foveation,
+                                  const std::array<wyrm::to_headset::foveation_parameter, 2> & foveation,
                                   const std::array<input, 2> & inputs,
                                   std::array<float, 4> scale,
                                   std::array<float, 4> bias,
@@ -461,7 +461,7 @@ static uint16_t count_pixels(const std::vector<uint16_t> & param)
 	return res;
 }
 
-XrExtent2Di stream_defoveator::defoveated_size(const wivrn::to_headset::foveation_parameter & view)
+XrExtent2Di stream_defoveator::defoveated_size(const wyrm::to_headset::foveation_parameter & view)
 {
 	return {
 	        count_pixels(view.x),

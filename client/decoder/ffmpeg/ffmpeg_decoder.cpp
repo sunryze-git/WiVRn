@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -33,7 +33,7 @@ extern "C"
 #include <libswscale/swscale.h>
 }
 
-namespace wivrn::ffmpeg
+namespace wyrm::ffmpeg
 {
 static void free_codec_context(AVCodecContext * ctx)
 {
@@ -45,9 +45,9 @@ static void free_frame(AVFrame * frame)
 	av_frame_free(&frame);
 }
 
-static AVCodecID codec_id(wivrn::video_codec codec)
+static AVCodecID codec_id(wyrm::video_codec codec)
 {
-	using c = wivrn::video_codec;
+	using c = wyrm::video_codec;
 	switch (codec)
 	{
 		case c::h264:
@@ -63,21 +63,21 @@ static AVCodecID codec_id(wivrn::video_codec codec)
 	__builtin_unreachable();
 }
 
-struct decoder::ffmpeg_blit_handle : public wivrn::decoder::blit_handle
+struct decoder::ffmpeg_blit_handle : public wyrm::decoder::blit_handle
 {
 	int image_index;
-	wivrn::ffmpeg::decoder * self;
+	wyrm::ffmpeg::decoder * self;
 
 	ffmpeg_blit_handle(
-	        const wivrn::from_headset::feedback & feedback,
-	        const wivrn::to_headset::video_stream_data_shard::view_info_t & view_info,
+	        const wyrm::from_headset::feedback & feedback,
+	        const wyrm::to_headset::video_stream_data_shard::view_info_t & view_info,
 	        vk::ImageView image_view,
 	        vk::Image image,
 	        vk::Extent2D extent,
 	        vk::ImageLayout & current_layout,
 	        int image_index,
-	        wivrn::ffmpeg::decoder * self) :
-	        wivrn::decoder::blit_handle{
+	        wyrm::ffmpeg::decoder * self) :
+	        wyrm::decoder::blit_handle{
 	                feedback,
 	                view_info,
 	                image_view,
@@ -102,7 +102,7 @@ struct decoder::ffmpeg_blit_handle : public wivrn::decoder::blit_handle
 decoder::decoder(
         vk::raii::Device & device,
         vk::raii::PhysicalDevice & physical_device,
-        const wivrn::to_headset::video_stream_description & description,
+        const wyrm::to_headset::video_stream_description & description,
         uint8_t stream_index,
         std::weak_ptr<scenes::stream> scene,
         shard_accumulator * accumulator) :
@@ -203,7 +203,7 @@ void decoder::push_data(std::span<std::span<const uint8_t>> data, uint64_t frame
 	this->frame_index = frame_index;
 }
 
-void decoder::frame_completed(const wivrn::from_headset::feedback & feedback, const wivrn::to_headset::video_stream_data_shard::view_info_t & view_info)
+void decoder::frame_completed(const wyrm::from_headset::feedback & feedback, const wyrm::to_headset::video_stream_data_shard::view_info_t & view_info)
 {
 	spdlog::trace("ffmpeg decoder:frame_completed {}", frame_index);
 	AVPacket packet{};
@@ -272,12 +272,12 @@ void decoder::frame_completed(const wivrn::from_headset::feedback & feedback, co
 		scene->push_blit_handle(accumulator, std::move(handle));
 }
 
-void decoder::supported_codecs(std::vector<wivrn::video_codec> & res)
+void decoder::supported_codecs(std::vector<wyrm::video_codec> & res)
 {
 	// As long as we do software decoding, prefer faster ones
-	res.push_back(wivrn::video_codec::h264);
-	res.push_back(wivrn::video_codec::h265);
-	res.push_back(wivrn::video_codec::av1);
+	res.push_back(wyrm::video_codec::h264);
+	res.push_back(wyrm::video_codec::h265);
+	res.push_back(wyrm::video_codec::av1);
 }
 
-} // namespace wivrn::ffmpeg
+} // namespace wyrm::ffmpeg

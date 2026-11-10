@@ -9,7 +9,7 @@
 #include <avahi-common/strlst.h>
 #include <iostream>
 
-namespace wivrn
+namespace wyrm
 {
 
 const std::error_category & avahi_error_category()
@@ -51,7 +51,7 @@ void avahi_publisher::create_service(AvahiClient * client)
 	}
 
 	if (!name)
-		name = avahi_strdup("WiVRn");
+		name = avahi_strdup("Wyrm");
 
 	std::vector<const char *> txt_array;
 	for (const auto & i: txt)
@@ -176,4 +176,4 @@ void avahi_publisher::watch_free(AvahiWatch * watch)
 {
         poll_api->watch_free(watch);
 }*/
-} // namespace wivrn
+} // namespace wyrm

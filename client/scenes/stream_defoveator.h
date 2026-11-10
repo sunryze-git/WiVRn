@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -20,7 +20,7 @@
 #pragma once
 
 #include "vk/allocation.h"
-#include "wivrn_packets.h"
+#include "wyrm_packets.h"
 #include <vulkan/vulkan_raii.hpp>
 #include <openxr/openxr.h>
 
@@ -85,11 +85,11 @@ public:
 
 	void defoveate(
 	        vk::raii::CommandBuffer & command_buffer,
-	        const std::array<wivrn::to_headset::foveation_parameter, 2> & foveation,
+	        const std::array<wyrm::to_headset::foveation_parameter, 2> & foveation,
 	        const std::array<input, 2> & inputs,
 	        std::array<float, 4> scale,
 	        std::array<float, 4> bias,
 	        int destination);
 
-	static XrExtent2Di defoveated_size(const wivrn::to_headset::foveation_parameter &);
+	static XrExtent2Di defoveated_size(const wyrm::to_headset::foveation_parameter &);
 };

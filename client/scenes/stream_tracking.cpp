@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -21,7 +21,7 @@
 #include "battery.h"
 #include "stream.h"
 #include "utils/overloaded.h"
-#include "wivrn_packets.h"
+#include "wyrm_packets.h"
 #include "xr/body_tracker.h"
 #include "xr/face_tracker.h"
 #include "xr/fb_body_tracker.h"
@@ -96,7 +96,7 @@ class locate_spaces_functor
 {
 	std::vector<XrSpaceLocationData> locations;
 	std::vector<XrSpaceVelocityData> velocities;
-	std::vector<wivrn::device_id> devices;
+	std::vector<wyrm::device_id> devices;
 	std::vector<XrSpace> spaces;
 	XrSpace reference;
 	PFN_xrLocateSpaces locate_spaces = nullptr;
@@ -118,7 +118,7 @@ public:
 		}
 	}
 
-	void add_space(wivrn::device_id device, XrSpace space, XrTime t, std::vector<from_headset::tracking::pose> & out)
+	void add_space(wyrm::device_id device, XrSpace space, XrTime t, std::vector<from_headset::tracking::pose> & out)
 	{
 		if (locate_spaces)
 		{
@@ -485,7 +485,7 @@ void scenes::stream::tracking()
 			tracking.face = {};
 
 			if (recenter_requested.exchange(false))
-				tracking.state_flags = wivrn::from_headset::tracking::recentered;
+				tracking.state_flags = wyrm::from_headset::tracking::recentered;
 
 			try
 			{
@@ -511,23 +511,23 @@ void scenes::stream::tracking()
 
 							locate_spaces.add_space(item.device, view_space, tracking.timestamp, tracking.device_poses);
 							break;
-						case wivrn::device_id::LEFT_GRIP:
-						case wivrn::device_id::LEFT_AIM:
-						case wivrn::device_id::LEFT_PALM:
-						case wivrn::device_id::RIGHT_GRIP:
-						case wivrn::device_id::RIGHT_AIM:
-						case wivrn::device_id::RIGHT_PALM:
-						case wivrn::device_id::LEFT_PINCH_POSE:
-						case wivrn::device_id::LEFT_POKE:
-						case wivrn::device_id::RIGHT_PINCH_POSE:
-						case wivrn::device_id::RIGHT_POKE:
+						case wyrm::device_id::LEFT_GRIP:
+						case wyrm::device_id::LEFT_AIM:
+						case wyrm::device_id::LEFT_PALM:
+						case wyrm::device_id::RIGHT_GRIP:
+						case wyrm::device_id::RIGHT_AIM:
+						case wyrm::device_id::RIGHT_PALM:
+						case wyrm::device_id::LEFT_PINCH_POSE:
+						case wyrm::device_id::LEFT_POKE:
+						case wyrm::device_id::RIGHT_PINCH_POSE:
+						case wyrm::device_id::RIGHT_POKE:
 							locate_spaces.add_space(item.device, spaces[item.device], tracking.timestamp, tracking.device_poses);
 							break;
-						case wivrn::device_id::EYE_GAZE:
+						case wyrm::device_id::EYE_GAZE:
 							if (eye_gaze_enabled)
 								tracking.device_poses.push_back(locate_eye_gaze(tracking.timestamp));
 							break;
-						case wivrn::device_id::FACE:
+						case wyrm::device_id::FACE:
 							std::visit(utils::overloaded{
 							                   [](std::monostate &) {},
 							                   [&](auto & ft) {
@@ -536,7 +536,7 @@ void scenes::stream::tracking()
 							           },
 							           face_tracker);
 							break;
-						case wivrn::device_id::LEFT_HAND:
+						case wyrm::device_id::LEFT_HAND:
 							if (left_hand)
 								hands.emplace_back(locate_hands(
 								        *left_hand,
@@ -544,7 +544,7 @@ void scenes::stream::tracking()
 								        t0,
 								        at_time));
 							break;
-						case wivrn::device_id::RIGHT_HAND:
+						case wyrm::device_id::RIGHT_HAND:
 							if (right_hand)
 								hands.emplace_back(locate_hands(
 								        *right_hand,
@@ -552,7 +552,7 @@ void scenes::stream::tracking()
 								        t0,
 								        at_time));
 							break;
-						case wivrn::device_id::BODY:
+						case wyrm::device_id::BODY:
 							std::visit(utils::overloaded{
 							                   [](std::monostate &) {},
 							                   [&](auto & b) {
@@ -609,14 +609,14 @@ void scenes::stream::tracking()
 			{
 				auto & packet = packets[packet_count++];
 				packet.clear();
-				wivrn_session::stream_socket_t::serialize(packet, tracking);
+				wyrm_session::stream_socket_t::serialize(packet, tracking);
 			}
 
 			for (const auto & i: hands)
 			{
 				auto & packet = packets[packet_count++];
 				packet.clear();
-				wivrn_session::stream_socket_t::serialize(packet, i);
+				wyrm_session::stream_socket_t::serialize(packet, i);
 			}
 			for (const auto & i: body)
 			{
@@ -624,7 +624,7 @@ void scenes::stream::tracking()
 				packet.clear();
 				std::visit(utils::overloaded{
 				                   [&](auto & p) {
-					                   wivrn_session::stream_socket_t::serialize(packet, p);
+					                   wyrm_session::stream_socket_t::serialize(packet, p);
 				                   },
 				           },
 				           i);

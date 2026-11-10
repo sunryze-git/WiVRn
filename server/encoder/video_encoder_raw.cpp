@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,21 +20,21 @@
 
 #include "encoder/encoder_settings.h"
 #include "util/u_logging.h"
-#include "utils/wivrn_vk_bundle.h"
+#include "utils/wyrm_vk_bundle.h"
 
 namespace
 {
-class dummy_idr_handler : public wivrn::idr_handler
+class dummy_idr_handler : public wyrm::idr_handler
 {
 public:
-	void on_feedback(const wivrn::from_headset::feedback &) override {};
+	void on_feedback(const wyrm::from_headset::feedback &) override {};
 	void reset() override {};
 	bool should_skip(uint64_t frame_id, uint8_t stream_idx) override
 	{
 		return false;
 	};
 };
-vk::raii::CommandPool make_cmd_pool(wivrn::vk_bundle & vk, uint8_t stream_idx)
+vk::raii::CommandPool make_cmd_pool(wyrm::vk_bundle & vk, uint8_t stream_idx)
 {
 	auto res = vk.device.createCommandPool(vk::CommandPoolCreateInfo{
 
@@ -46,8 +46,8 @@ vk::raii::CommandPool make_cmd_pool(wivrn::vk_bundle & vk, uint8_t stream_idx)
 }
 } // namespace
 
-wivrn::video_encoder_raw::video_encoder_raw(
-        wivrn::vk_bundle & vk,
+wyrm::video_encoder_raw::video_encoder_raw(
+        wyrm::vk_bundle & vk,
         const encoder_settings & settings,
         uint8_t stream_idx) :
         video_encoder(vk,
@@ -89,7 +89,7 @@ wivrn::video_encoder_raw::video_encoder_raw(
 	}
 }
 
-void wivrn::video_encoder_raw::present_image(vk::Image y_cbcr, vk::SemaphoreSubmitInfo compositor_sem, uint8_t slot, uint64_t)
+void wyrm::video_encoder_raw::present_image(vk::Image y_cbcr, vk::SemaphoreSubmitInfo compositor_sem, uint8_t slot, uint64_t)
 {
 	if (vk.device.waitForFences(*in[slot].fence, true, 1'000'000'000) == vk::Result::eTimeout)
 	{
@@ -173,7 +173,7 @@ void wivrn::video_encoder_raw::present_image(vk::Image y_cbcr, vk::SemaphoreSubm
 	                       *in[slot].fence);
 }
 
-std::optional<wivrn::video_encoder::data> wivrn::video_encoder_raw::encode(uint8_t slot, uint64_t frame_id)
+std::optional<wyrm::video_encoder::data> wyrm::video_encoder_raw::encode(uint8_t slot, uint64_t frame_id)
 {
 	if (vk.device.waitForFences(*in[slot].fence, true, 1'000'000'000) == vk::Result::eTimeout)
 	{
@@ -181,7 +181,7 @@ std::optional<wivrn::video_encoder::data> wivrn::video_encoder_raw::encode(uint8
 		return {};
 	}
 
-	return wivrn::video_encoder::data{
+	return wyrm::video_encoder::data{
 	        .encoder = this,
 	        .span = std::span<uint8_t>((uint8_t *)in[slot].buffer.map(), in[slot].buffer.info().size),
 	};

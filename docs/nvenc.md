@@ -3,7 +3,7 @@
 ### Introduction
 NVIDIA GPUs use performance states (P-states), which influence how the driver manages GPU core and memory clocks. P0 is generally the highest-performance state, while P8 is typically one of the lowest-power states. 
 
-WiVRn's NVIDIA NVENC encoder implementation relies on CUDA, which may cause NVIDIA drivers to keep the GPU in the P2 performance state instead of allowing it to enter P0.
+Wyrm's NVIDIA NVENC encoder implementation relies on CUDA, which may cause NVIDIA drivers to keep the GPU in the P2 performance state instead of allowing it to enter P0.
 This behavior is associated with CUDA workloads and may be used by NVIDIA drivers to improve stability.
 
 NVIDIA drivers support an application profile setting named `CudaNoStablePerfLimit`, users have reported that it resolves the issue. [open-gpu-kernel-modules](https://github.com/NVIDIA/open-gpu-kernel-modules/issues/333#issuecomment-3669477571)
@@ -35,7 +35,7 @@ To check whether your system is affected, monitor the GPU P-State using `watch n
 {
     "profiles": [
         {
-            "name": "WiVRnServer",
+            "name": "WyrmServer",
             "settings": [
                 {
                   "key"   : "0x166c5e",
@@ -45,13 +45,13 @@ To check whether your system is affected, monitor the GPU P-State using `watch n
         }
     ],
     "rules": [
-        { "pattern" : { "feature" : "procname", "matches" : "wivrn-server" }, "profile" : "WiVRnServer" }
+        { "pattern" : { "feature" : "procname", "matches" : "wyrm-server" }, "profile" : "WyrmServer" }
     ]
 }
 ```
 3. Save the file
 
-    Save the file and `restart wivrn-server`. The profile should be applied automatically by the NVIDIA driver.
+    Save the file and `restart wyrm-server`. The profile should be applied automatically by the NVIDIA driver.
 
 | Settings key | Reference name | Value | Description |
 | --- | --- | :---: | --- |
@@ -108,7 +108,7 @@ and spatial AQ. Options persist across live bitrate and frame-rate updates.
 Unknown options and invalid ranges are rejected. Lookahead and B-frames remain
 disabled: buffering them is incompatible with the current synchronous streaming
 pipeline. Explicit nonzero values are rejected. The preset is queried before
-WiVRn applies its streaming constraints. Intra refresh remains capability checked.
+Wyrm applies its streaming constraints. Intra refresh remains capability checked.
 See NVIDIA's [NVENC programming guide](https://docs.nvidia.com/video-technologies/video-codec-sdk/13.0/nvenc-video-encoder-api-prog-guide/index.html)
 for the underlying quality and rate-control behavior.
 

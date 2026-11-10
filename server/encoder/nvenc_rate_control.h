@@ -3,7 +3,7 @@
 #include "nvenc_options.h"
 #include <algorithm>
 #include <ffnvcodec/nvEncodeAPI.h>
-namespace wivrn
+namespace wyrm
 {
 inline NV_ENC_RC_PARAMS nvenc_rate_control(const nvenc_options & options, uint64_t bitrate, float framerate)
 {
@@ -34,4 +34,4 @@ inline NV_ENC_RC_PARAMS nvenc_rate_control(const nvenc_options & options, uint64
 	}
 	return rc;
 }
-} // namespace wivrn
+} // namespace wyrm

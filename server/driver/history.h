@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -26,7 +26,7 @@
 #include <mutex>
 #include <openxr/openxr.h>
 
-namespace wivrn
+namespace wyrm
 {
 
 template <typename Derived, typename Data, size_t MaxSamples = 10>
@@ -126,4 +126,4 @@ public:
 		data.fill({});
 	}
 };
-} // namespace wivrn
+} // namespace wyrm

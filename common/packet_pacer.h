@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <mutex>
 
-namespace wivrn
+namespace wyrm
 {
 // A bounded-burst, aggregate video budget, shared by all eyes and transports.
 class packet_schedule
@@ -56,4 +56,4 @@ public:
 		changed.wait_until(lock, deadline, [&] { return epoch != start_epoch; });
 	}
 };
-} // namespace wivrn
+} // namespace wyrm

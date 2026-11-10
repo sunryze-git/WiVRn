@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,20 +20,20 @@
 
 #ifdef __ANDROID__
 #include "decoder/android/android_decoder.h"
-#elif WIVRN_USE_V4L2
+#elif WYRM_USE_V4L2
 #include "decoder/v4l2/v4l2_decoder.h"
 #else
 #include "decoder/ffmpeg/ffmpeg_decoder.h"
 #endif
 #include "decoder/raw_decoder.h"
 
-wivrn::decoder::~decoder() = default;
+wyrm::decoder::~decoder() = default;
 
-std::shared_ptr<wivrn::decoder> wivrn::decoder::make(
+std::shared_ptr<wyrm::decoder> wyrm::decoder::make(
         vk::raii::Device & device,
         vk::raii::PhysicalDevice & phys_dev,
         uint32_t vk_queue_family_index,
-        const wivrn::to_headset::video_stream_description & description,
+        const wyrm::to_headset::video_stream_description & description,
         uint8_t stream_index,
         std::weak_ptr<scenes::stream> scene,
         shard_accumulator * acc)
@@ -44,22 +44,22 @@ std::shared_ptr<wivrn::decoder> wivrn::decoder::make(
 		case h265:
 		case av1:
 #ifdef __ANDROID__
-			return std::make_shared<wivrn::android::decoder>(
+			return std::make_shared<wyrm::android::decoder>(
 			        device,
 			        phys_dev,
 			        description,
 			        stream_index,
 			        scene,
 			        acc);
-#elif WIVRN_USE_V4L2
-			return std::make_shared<wivrn::v4l2::decoder>(
+#elif WYRM_USE_V4L2
+			return std::make_shared<wyrm::v4l2::decoder>(
 			        device, phys_dev, vk_queue_family_index, description, stream_index, scene, acc);
 #else
-			return std::make_shared<wivrn::ffmpeg::decoder>(
+			return std::make_shared<wyrm::ffmpeg::decoder>(
 			        device, phys_dev, description, stream_index, scene, acc);
 #endif
 		case raw:
-			return std::make_shared<wivrn::raw_decoder>(
+			return std::make_shared<wyrm::raw_decoder>(
 			        device,
 			        phys_dev,
 			        vk_queue_family_index,
@@ -71,53 +71,53 @@ std::shared_ptr<wivrn::decoder> wivrn::decoder::make(
 	__builtin_unreachable();
 }
 
-static std::vector<wivrn::video_codec_capability> supported_codecs_()
+static std::vector<wyrm::video_codec_capability> supported_codecs_()
 {
-	std::vector<wivrn::video_codec> codecs;
+	std::vector<wyrm::video_codec> codecs;
 #ifdef __ANDROID__
-	wivrn::android::decoder::supported_codecs(codecs);
-#elif WIVRN_USE_V4L2
-	wivrn::v4l2::decoder::supported_codecs(codecs);
+	wyrm::android::decoder::supported_codecs(codecs);
+#elif WYRM_USE_V4L2
+	wyrm::v4l2::decoder::supported_codecs(codecs);
 #else
-	wivrn::ffmpeg::decoder::supported_codecs(codecs);
+	wyrm::ffmpeg::decoder::supported_codecs(codecs);
 #endif
-	codecs.push_back(wivrn::video_codec::raw);
+	codecs.push_back(wyrm::video_codec::raw);
 
-	std::vector<wivrn::video_codec_capability> res;
+	std::vector<wyrm::video_codec_capability> res;
 	res.reserve(codecs.size());
 	for (auto codec: codecs)
-		res.push_back({.codec = codec, .supports_10bit = wivrn::decoder::supports_10bit(codec)});
+		res.push_back({.codec = codec, .supports_10bit = wyrm::decoder::supports_10bit(codec)});
 	return res;
 }
 
-const std::vector<wivrn::video_codec_capability> & wivrn::decoder::supported_codecs()
+const std::vector<wyrm::video_codec_capability> & wyrm::decoder::supported_codecs()
 {
-	static std::vector<wivrn::video_codec_capability> res = supported_codecs_();
+	static std::vector<wyrm::video_codec_capability> res = supported_codecs_();
 	return res;
 }
 
-bool wivrn::decoder::supports_10bit(wivrn::video_codec codec)
+bool wyrm::decoder::supports_10bit(wyrm::video_codec codec)
 {
 #ifdef __ANDROID__
-	return codec == wivrn::video_codec::h265 or codec == wivrn::video_codec::av1;
-#elif WIVRN_USE_V4L2
+	return codec == wyrm::video_codec::h265 or codec == wyrm::video_codec::av1;
+#elif WYRM_USE_V4L2
 	switch (codec)
 	{
-		case wivrn::video_codec::h265: {
-			static const bool supported = wivrn::v4l2::decoder::supports_10bit(codec);
+		case wyrm::video_codec::h265: {
+			static const bool supported = wyrm::v4l2::decoder::supports_10bit(codec);
 			return supported;
 		}
-		case wivrn::video_codec::av1: {
-			static const bool supported = wivrn::v4l2::decoder::supports_10bit(codec);
+		case wyrm::video_codec::av1: {
+			static const bool supported = wyrm::v4l2::decoder::supports_10bit(codec);
 			return supported;
 		}
-		case wivrn::video_codec::h264:
-		case wivrn::video_codec::raw:
+		case wyrm::video_codec::h264:
+		case wyrm::video_codec::raw:
 			return false;
 	}
 	__builtin_unreachable();
 #else
 	// ffmpeg
-	return codec == wivrn::video_codec::h265 or codec == wivrn::video_codec::av1;
+	return codec == wyrm::video_codec::h265 or codec == wyrm::video_codec::av1;
 #endif
 }

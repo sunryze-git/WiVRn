@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,32 +24,32 @@
 
 std::atomic_bool link_properties_changed = false;
 
-extern "C" void Java_org_meumeu_wivrn_NetworkInfoCallback_onAvailable(JNIEnv * env, jobject instance, jobject network)
+extern "C" void Java_org_wyrmvr_wyrm_NetworkInfoCallback_onAvailable(JNIEnv * env, jobject instance, jobject network)
 {
 	spdlog::info("NetworkInfoCallback_onAvailable");
 }
-extern "C" void Java_org_meumeu_wivrn_NetworkInfoCallback_onBlockedStatusChanged(JNIEnv * env, jobject instance, jobject network, jboolean blocked)
+extern "C" void Java_org_wyrmvr_wyrm_NetworkInfoCallback_onBlockedStatusChanged(JNIEnv * env, jobject instance, jobject network, jboolean blocked)
 {
 	spdlog::info("NetworkInfoCallback_onBlockedStatusChanged");
 }
-extern "C" void Java_org_meumeu_wivrn_NetworkInfoCallback_onCapabilitiesChanged(JNIEnv * env, jobject instance, jobject network, jobject caps)
+extern "C" void Java_org_wyrmvr_wyrm_NetworkInfoCallback_onCapabilitiesChanged(JNIEnv * env, jobject instance, jobject network, jobject caps)
 {
 	spdlog::info("NetworkInfoCallback_onCapabitilitiesChanged");
 }
-extern "C" void Java_org_meumeu_wivrn_NetworkInfoCallback_onLinkPropertiesChanged(JNIEnv * env, jobject instance, jobject network, jobject jprops)
+extern "C" void Java_org_wyrmvr_wyrm_NetworkInfoCallback_onLinkPropertiesChanged(JNIEnv * env, jobject instance, jobject network, jobject jprops)
 {
 	link_properties_changed = true;
 }
-extern "C" void Java_org_meumeu_wivrn_NetworkInfoCallback_onLosing(JNIEnv * env, jobject instance, jobject network, jint ms)
+extern "C" void Java_org_wyrmvr_wyrm_NetworkInfoCallback_onLosing(JNIEnv * env, jobject instance, jobject network, jint ms)
 {
 	spdlog::info("NetworkInfoCallback_onLosing");
 }
-extern "C" void Java_org_meumeu_wivrn_NetworkInfoCallback_onLost(JNIEnv * env, jobject instance, jobject network)
+extern "C" void Java_org_wyrmvr_wyrm_NetworkInfoCallback_onLost(JNIEnv * env, jobject instance, jobject network)
 {
 	spdlog::info("NetworkInfoCallback_onLost");
 	link_properties_changed = true;
 }
-extern "C" void Java_org_meumeu_wivrn_NetworkInfoCallback_onUnavailable(JNIEnv * env, jobject instance)
+extern "C" void Java_org_wyrmvr_wyrm_NetworkInfoCallback_onUnavailable(JNIEnv * env, jobject instance)
 {
 	spdlog::info("NetworkInfoCallback_onUnavailable");
 	application::get_config().usb_network = false;

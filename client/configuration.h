@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include "wivrn_discover.h"
-#include "wivrn_packets.h"
+#include "wyrm_discover.h"
+#include "wyrm_packets.h"
 
 #include <filesystem>
 #include <map>
@@ -66,14 +66,14 @@ public:
 		bool visible;
 		bool compatible;
 
-		wivrn_discover::service service;
+		wyrm_discover::service service;
 	};
 
 	std::map<std::string, server_data> servers;
 	float preferred_refresh_rate = 0;
 	std::optional<float> minimum_refresh_rate;
 	float resolution_scale = 1.2;
-	std::optional<wivrn::video_codec> codec;
+	std::optional<wyrm::video_codec> codec;
 	uint32_t bitrate_bps = 50'000'000;
 	uint8_t bit_depth = 10;
 
@@ -87,7 +87,7 @@ public:
 	bool forward_mouse = false;
 	bool forward_gamepad = false;
 
-	std::underlying_type_t<wivrn::from_headset::body_part_mask> body_part_mask = ~0;
+	std::underlying_type_t<wyrm::from_headset::body_part_mask> body_part_mask = ~0;
 
 	bool enable_stream_gui = true;
 

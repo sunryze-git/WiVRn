@@ -7,7 +7,7 @@ import QtQuick.Controls as Controls
 import QtQuick.Templates as Templates
 import org.kde.kirigami as Kirigami
 
-import io.github.wivrn.wivrn
+import org.wyrmvr.wyrm
 
 Kirigami.ScrollablePage {
     id: wizard
@@ -61,12 +61,12 @@ Kirigami.ScrollablePage {
             id: page_welcome
             Controls.Label {
                 font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.35
-                text: i18n("Welcome to WiVRn")
+                text: i18n("Welcome to Wyrm")
             }
             Controls.Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: i18n("This wizard will help you set up WiVRn on your headset and connect it to your computer.")
+                text: i18n("This wizard will help you set up Wyrm on your headset and connect it to your computer.")
             }
 
             Item {
@@ -134,23 +134,14 @@ Kirigami.ScrollablePage {
         WizardStep {
             Controls.Label {
                 font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.35
-                text: i18n("Install the WiVRn app on your headset")
+                text: i18n("Install the Wyrm app on your headset")
             }
             Controls.Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: i18n("In order to use WiVRn, you will have to install the client app on your headset.\nYou can either install it from the Meta store or directly over USB.")
+                text: i18n("In order to use Wyrm, you will have to install the client app on your headset.\nInstall the matching Wyrm client directly over USB.")
             }
 
-            Controls.Label {
-                Layout.topMargin: 4 * Kirigami.Units.largeSpacing
-                font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.35
-                text: i18n("Install from the Meta store")
-            }
-            BetterLabel {
-                Layout.fillWidth: true
-                text: i18n("For the Quest 2, 3, 3S, and Pro, you can get the app from the <a href=\"https://www.meta.com/experiences/7959676140827574/\">Meta store</a>.")
-            }
             Controls.Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
@@ -161,14 +152,14 @@ Kirigami.ScrollablePage {
             Controls.Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: i18n("A newer release is available: %1 → %2, the client app on the Meta store may not be compatible.", ApkInstaller.currentVersion, ApkInstaller.latestVersion)
+                text: i18n("A newer release is available: %1 → %2. Use a client that matches your server version.", ApkInstaller.currentVersion, ApkInstaller.latestVersion)
                 visible: wizard.newer_version
             }
 
             Controls.Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: i18n("This is a nightly build, the client app on the Meta store may not be compatible.")
+                text: i18n("This is a development build. Use a client built from the same revision.")
                 visible: !wizard.is_tagged
             }
 
@@ -201,7 +192,7 @@ Kirigami.ScrollablePage {
 
             BetterLabel {
                 Layout.fillWidth: true
-                text: i18n("Follow the instructions in the <a href=\"https://github.com/WiVRn/WiVRn/blob/master/docs/building.md#client-headset\">documentation</a> to build your own client.")
+                text: i18n("Follow the client headset instructions in docs/building.md in the Wyrm source tree to build your own client.")
                 visible: !ApkInstaller.busy && !ApkInstaller.apkAvailable
             }
 
@@ -234,11 +225,11 @@ Kirigami.ScrollablePage {
                     required property string serial
                     required property string model
                     required property string manufacturer
-                    required property bool isWivrnInstalled
+                    required property bool isWyrmInstalled
 
                     name: device_card.manufacturer + " " + device_card.model
                     serial_number: device_card.serial
-                    is_wivrn_installed: device_card.isWivrnInstalled
+                    is_wyrm_installed: device_card.isWyrmInstalled
                 }
             }
 
@@ -246,7 +237,7 @@ Kirigami.ScrollablePage {
                 Layout.fillHeight: true
             }
 
-            // image: Qt.resolvedUrl("wivrn.svg")
+            // image: Qt.resolvedUrl("wyrm.svg")
 
             actions: [
                 Kirigami.Action {
@@ -257,7 +248,7 @@ Kirigami.ScrollablePage {
                 Kirigami.Action {
                     text: i18n("Next")
                     icon.name: "go-next"
-                    onTriggered: pageStack.push(page_startwivrn_component.createObject(pageStack))
+                    onTriggered: pageStack.push(page_startwyrm_component.createObject(pageStack))
                 },
                 Kirigami.Action {
                     text: i18n("Cancel")
@@ -268,23 +259,23 @@ Kirigami.ScrollablePage {
     }
 
     Component {
-        id: page_startwivrn_component
+        id: page_startwyrm_component
 
         WizardStep {
-            id: page_startwivrn
+            id: page_startwyrm
             Component.onCompleted: {
-                WivrnServer.headsetConnectedChanged.connect(onHeadsetConnectedChanged);
-                WivrnServer.pairingEnabledChanged.connect(onCurrentItemChanged_or_PairingEnabledChanged);
+                WyrmServer.headsetConnectedChanged.connect(onHeadsetConnectedChanged);
+                WyrmServer.pairingEnabledChanged.connect(onCurrentItemChanged_or_PairingEnabledChanged);
                 pageStack.currentItemChanged.connect(onCurrentItemChanged_or_PairingEnabledChanged);
             }
 
             function onCurrentItemChanged_or_PairingEnabledChanged() {
-                if (pageStack?.currentItem === page_startwivrn && !WivrnServer.pairingEnabled)
-                    WivrnServer.enable_pairing();
+                if (pageStack?.currentItem === page_startwyrm && !WyrmServer.pairingEnabled)
+                    WyrmServer.enable_pairing();
             }
 
             function onHeadsetConnectedChanged(value) {
-                if (value && pageStack?.currentItem === page_startwivrn)
+                if (value && pageStack?.currentItem === page_startwyrm)
                     pageStack.push(page_connected_component.createObject(pageStack));
             }
 
@@ -298,11 +289,11 @@ Kirigami.ScrollablePage {
             Controls.Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: i18n("WiVRn entirely replaces SteamVR, you should not start SteamVR while WiVRn is running.")
+                text: i18n("Wyrm entirely replaces SteamVR, you should not start SteamVR while Wyrm is running.")
             }
 
             SteamLaunchOptions {
-                visible: WivrnServer.steamCommand != ""
+                visible: WyrmServer.steamCommand != ""
                 Layout.topMargin: 2 * Kirigami.Units.largeSpacing
             }
 
@@ -310,13 +301,13 @@ Kirigami.ScrollablePage {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.35
-                text: i18n("Start the WiVRn app on your headset")
+                text: i18n("Start the Wyrm app on your headset")
                 Layout.topMargin: 2 * Kirigami.Units.largeSpacing
             }
             Controls.Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: i18n("To connect over WiFi, start the WiVRn app on your headset, connect to \"%1\" and enter PIN \"%2\".", WivrnServer.hostname, WivrnServer.pin)
+                text: i18n("To connect over WiFi, start the Wyrm app on your headset, connect to \"%1\" and enter PIN \"%2\".", WyrmServer.hostname, WyrmServer.pin)
             }
 
             RowLayout {
@@ -330,7 +321,7 @@ Kirigami.ScrollablePage {
                     onClicked: select_usb_device.connect()
                     enabled: select_usb_device.connected_headset_count > 0
 
-                    Controls.ToolTip.visible: WivrnServer.serverStatus == WivrnServer.Started&& hovered
+                    Controls.ToolTip.visible: WyrmServer.serverStatus == WyrmServer.Started&& hovered
                     Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
                     Controls.ToolTip.text: {
                         if (!Adb.adbInstalled)
@@ -350,7 +341,7 @@ Kirigami.ScrollablePage {
             }
             BetterLabel {
                 Layout.fillWidth: true
-                text: i18n("If you installed WiVRn over USB on a Meta or Pico headset, the app is in the \"unknown sources\" section.")
+                text: i18n("If you installed Wyrm over USB on a Meta or Pico headset, the app is in the \"unknown sources\" section.")
                 Layout.topMargin: Kirigami.Units.largeSpacing
             }
             BetterLabel {
@@ -403,7 +394,7 @@ Kirigami.ScrollablePage {
             Controls.Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: i18n("When the headset is connected, select \"WiVRn\" as the default audio output device for applications to use it.")
+                text: i18n("When the headset is connected, select \"Wyrm\" as the default audio output device for applications to use it.")
             }
             Item {
                 Layout.fillHeight: true

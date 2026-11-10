@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -29,9 +29,9 @@
 #include "os/os_time.h"
 #include "util/u_debug.h"
 
-DEBUG_GET_ONCE_FLOAT_OPTION(client_margin_ms, "WIVRN_CLIENT_MARGIN_MS", 1.f)
+DEBUG_GET_ONCE_FLOAT_OPTION(client_margin_ms, "WYRM_CLIENT_MARGIN_MS", 1.f)
 
-namespace wivrn
+namespace wyrm
 {
 
 static const int64_t margin_ns = 3'000'000;
@@ -140,7 +140,7 @@ void pacer::predict(
 	out_present_slop_ns = slop_ns;
 }
 
-void pacer::on_feedback(const wivrn::from_headset::feedback & feedback, const clock_offset & offset)
+void pacer::on_feedback(const wyrm::from_headset::feedback & feedback, const clock_offset & offset)
 {
 	if (feedback.times_displayed > 1 or not feedback.blitted)
 		return;
@@ -241,4 +241,4 @@ void pacer::reset_locked()
 	std::ranges::fill(frame_times_compute, frame_time{});
 	compute_pending = false;
 }
-} // namespace wivrn
+} // namespace wyrm

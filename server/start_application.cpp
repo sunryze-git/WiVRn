@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -29,7 +29,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-namespace wivrn
+namespace wyrm
 {
 
 children_manager::~children_manager() {}
@@ -148,7 +148,7 @@ void forked_children::start_application(const std::vector<std::string> & args, c
 	std::vector<char *> argv;
 	argv.reserve(args.size() + 3);
 
-	if (wivrn::flatpak_key(wivrn::flatpak::section::session_bus_policy, "org.freedesktop.Flatpak") == "talk")
+	if (wyrm::flatpak_key(wyrm::flatpak::section::session_bus_policy, "org.freedesktop.Flatpak") == "talk")
 	{
 		tmp.push_back("flatpak-spawn");
 		tmp.push_back("--host");
@@ -238,4 +238,4 @@ void display_child_status(int wstatus, const std::string & name)
 	}
 }
 
-} // namespace wivrn
+} // namespace wyrm

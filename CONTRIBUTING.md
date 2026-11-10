@@ -1,6 +1,6 @@
-# Contributing to WiVRn
+# Contributing to Wyrm
 
-WiVRn is developed by volunteers and published under GPL-3 license.
+Wyrm is developed by volunteers and published under GPL-3 license.
 
 Contributions are welcome, there are few rules that should be followed:
 

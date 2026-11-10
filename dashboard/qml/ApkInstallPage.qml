@@ -5,11 +5,11 @@ import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
 
-import io.github.wivrn.wivrn
+import org.wyrmvr.wyrm
 
 Kirigami.ScrollablePage {
     id: apk_install
-    title: i18n("Install the WiVRn app on your headset")
+    title: i18n("Install the Wyrm app on your headset")
 
     flickable.interactive: false
 
@@ -22,11 +22,11 @@ Kirigami.ScrollablePage {
             required property string serial
             required property string model
             required property string manufacturer
-            required property bool isWivrnInstalled
+            required property bool isWyrmInstalled
 
             name: device_card.manufacturer + " " + device_card.model
             serial_number: device_card.serial
-            is_wivrn_installed: device_card.isWivrnInstalled
+            is_wyrm_installed: device_card.isWyrmInstalled
         }
 
         Kirigami.PlaceholderMessage {
@@ -48,7 +48,7 @@ Kirigami.ScrollablePage {
             }
             explanation: {
                 if (!ApkInstaller.busy && !ApkInstaller.apkAvailable)
-                    return i18n("Follow the instructions in the <a href=\"https://github.com/WiVRn/WiVRn/blob/master/docs/building.md#client-headset\">documentation</a> to build your own client.");
+                    return i18n("Follow the client headset instructions in docs/building.md in the Wyrm source tree to build your own client.");
                 else
                     return "";
             }

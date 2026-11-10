@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -31,8 +31,8 @@
 #include "stream_defoveator.h"
 #include "utils/thread_safe.h"
 #include "wifi_lock.h"
-#include "wivrn_client.h"
-#include "wivrn_packets.h"
+#include "wyrm_client.h"
+#include "wyrm_packets.h"
 #include "xr/space.h"
 #include <mutex>
 #include <optional>
@@ -63,11 +63,11 @@ private:
 
 	struct accumulator_images
 	{
-		std::unique_ptr<wivrn::shard_accumulator> decoder;
+		std::unique_ptr<wyrm::shard_accumulator> decoder;
 		// latest frames, rolling buffer
-		std::array<std::shared_ptr<wivrn::shard_accumulator::blit_handle>, image_buffer_size> latest_frames;
+		std::array<std::shared_ptr<wyrm::shard_accumulator::blit_handle>, image_buffer_size> latest_frames;
 
-		std::shared_ptr<wivrn::shard_accumulator::blit_handle> frame(uint64_t id) const;
+		std::shared_ptr<wyrm::shard_accumulator::blit_handle> frame(uint64_t id) const;
 		bool empty() const;
 	};
 
@@ -75,9 +75,9 @@ private:
 
 	// for frames inside accumulator images
 	std::mutex frames_mutex;
-	std::array<std::shared_ptr<wivrn::shard_accumulator::blit_handle>, decoder_count> common_frame(XrTime display_time);
+	std::array<std::shared_ptr<wyrm::shard_accumulator::blit_handle>, decoder_count> common_frame(XrTime display_time);
 
-	std::unique_ptr<wivrn_session> network_session;
+	std::unique_ptr<wyrm_session> network_session;
 	std::thread network_thread;
 	thread_safe<to_headset::tracking_control> tracking_control{};
 	std::array<std::atomic<interaction_profile>, 3> interaction_profiles; // left hand, right hand, gamepad
@@ -145,7 +145,7 @@ private:
 	uint32_t height;
 
 	std::optional<imgui_context> imgui_ctx;
-	ImTextureID wivrn_logo = 0; // wordmark logo shown in the top bar, like the lobby
+	ImTextureID wyrm_logo = 0; // wordmark logo shown in the top bar, like the lobby
 	struct gui_toast
 	{
 		std::string content;
@@ -206,7 +206,7 @@ private:
 	void update_gui_position(xr::spaces controller, float predicted_display_period);
 
 	// Keep a reference to the resources needed to blit the images until vkWaitForFences
-	std::array<std::shared_ptr<wivrn::shard_accumulator::blit_handle>, decoder_count> current_blit_handles;
+	std::array<std::shared_ptr<wyrm::shard_accumulator::blit_handle>, decoder_count> current_blit_handles;
 
 	XrTime running_application_req = 0;
 	thread_safe<to_headset::running_applications> running_applications;
@@ -219,7 +219,7 @@ public:
 	~stream();
 
 	static std::shared_ptr<stream> create(
-	        std::unique_ptr<wivrn_session> session,
+	        std::unique_ptr<wyrm_session> session,
 	        float guessed_fps,
 	        std::string server_name,
 	        scene & parent_scene);
@@ -256,9 +256,9 @@ public:
 	void operator()(to_headset::running_applications &&);
 	void operator()(audio_data &&);
 
-	void push_blit_handle(wivrn::shard_accumulator * decoder, std::shared_ptr<wivrn::shard_accumulator::blit_handle> handle);
+	void push_blit_handle(wyrm::shard_accumulator * decoder, std::shared_ptr<wyrm::shard_accumulator::blit_handle> handle);
 
-	void send_feedback(const wivrn::from_headset::feedback & feedback);
+	void send_feedback(const wyrm::from_headset::feedback & feedback);
 	void video_stream_failed(uint64_t generation, const std::string & error);
 
 	state current_state() const
@@ -356,7 +356,7 @@ private:
 	float compact_cpu_time = 0;
 	float compact_gpu_time = 0;
 
-	void accumulate_metrics(XrTime predicted_display_time, const std::array<std::shared_ptr<wivrn::shard_accumulator::blit_handle>, decoder_count> & blit_handles, const gpu_timestamps & timestamps);
+	void accumulate_metrics(XrTime predicted_display_time, const std::array<std::shared_ptr<wyrm::shard_accumulator::blit_handle>, decoder_count> & blit_handles, const gpu_timestamps & timestamps);
 	void gui_performance_metrics();
 	void gui_compact_view();
 	void gui_settings(float predicted_display_period);

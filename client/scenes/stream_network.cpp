@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -91,7 +91,7 @@ void scenes::stream::operator()(to_headset::feature_control && control)
 {
 	switch (control.f)
 	{
-		case wivrn::to_headset::feature_control::hid_input:
+		case wyrm::to_headset::feature_control::hid_input:
 			hid_forwarding = control.state;
 			if (not control.state and (application::get_config().forward_keyboard or application::get_config().forward_mouse or application::get_config().forward_gamepad))
 			{
@@ -100,7 +100,7 @@ void scenes::stream::operator()(to_headset::feature_control && control)
 				gui_status_last_change = instance.now();
 			}
 			return;
-		case wivrn::to_headset::feature_control::microphone:
+		case wyrm::to_headset::feature_control::microphone:
 			if (audio_handle)
 				audio_handle->set_mic_state(control.state);
 			return;
@@ -147,7 +147,7 @@ void scenes::stream::operator()(audio_data && data)
 		(*audio_handle)(std::move(data));
 }
 
-void scenes::stream::send_feedback(const wivrn::from_headset::feedback & feedback)
+void scenes::stream::send_feedback(const wyrm::from_headset::feedback & feedback)
 {
 	try
 	{
@@ -198,7 +198,7 @@ void scenes::stream::operator()(to_headset::running_applications && apps)
 
 void scenes::stream::start_application(std::string appid)
 {
-	network_session->send_control(wivrn::from_headset::start_app{
+	network_session->send_control(wyrm::from_headset::start_app{
 	        .app_id = std::move(appid),
 	});
 }

@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -33,9 +33,9 @@
 #include "utils/files.h"
 #include "utils/glm_cast.h"
 #include "utils/i18n.h"
-#include "wivrn_client.h"
-#include "wivrn_discover.h"
-#include "wivrn_sockets.h"
+#include "wyrm_client.h"
+#include "wyrm_discover.h"
+#include "wyrm_sockets.h"
 #include "xr/passthrough.h"
 #include "xr/space.h"
 
@@ -60,8 +60,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#include "wivrn_config.h"
-#if WIVRN_FEATURE_RENDERDOC
+#include "wyrm_config.h"
+#if WYRM_FEATURE_RENDERDOC
 #include "vk/renderdoc.h"
 #endif
 
@@ -156,7 +156,7 @@ scenes::lobby::lobby() :
 	else
 		spdlog::info("Composition layer color scale/bias NOT supported");
 
-	if (std::getenv("WIVRN_AUTOCONNECT"))
+	if (std::getenv("WYRM_AUTOCONNECT"))
 		force_autoconnect = true;
 
 	auto & config = application::get_config();
@@ -213,12 +213,12 @@ static std::string ip_address_to_string(const sockaddr_in6 & addr)
 	return ip_address_to_string(addr.sin6_addr);
 }
 
-std::unique_ptr<wivrn_session> scenes::lobby::connect_to_session(wivrn_discover::service service, bool manual_connection)
+std::unique_ptr<wyrm_session> scenes::lobby::connect_to_session(wyrm_discover::service service, bool manual_connection)
 {
 	if (!manual_connection)
 	{
 		char protocol_string[17];
-		sprintf(protocol_string, "%016lx", wivrn::protocol_version);
+		sprintf(protocol_string, "%016lx", wyrm::protocol_version);
 
 		spdlog::debug("Client protocol version: {}", protocol_string);
 		spdlog::debug("Server TXT:");
@@ -229,10 +229,10 @@ std::unique_ptr<wivrn_session> scenes::lobby::connect_to_session(wivrn_discover:
 
 		auto protocol = service.txt.find("protocol");
 		if (protocol == service.txt.end())
-			throw std::runtime_error(_("Incompatible WiVRn server: no protocol field in TXT"));
+			throw std::runtime_error(_("Incompatible Wyrm server: no protocol field in TXT"));
 
 		if (protocol->second != protocol_string)
-			throw std::runtime_error(fmt::format(_F("Incompatible WiVRn server protocol (client: {}, server: {})"), protocol_string, protocol->second));
+			throw std::runtime_error(fmt::format(_F("Incompatible Wyrm server protocol (client: {}, server: {})"), protocol_string, protocol->second));
 	}
 
 	// Only the automatically discovered servers already have their IP addresses available
@@ -288,7 +288,7 @@ std::unique_ptr<wivrn_session> scenes::lobby::connect_to_session(wivrn_discover:
 			spdlog::info("Connection to {}", address_string);
 
 			return std::visit([this, &service](auto & address) {
-				return std::make_unique<wivrn_session>(address, service.tcp_only, keypair, [&](int fd) {
+				return std::make_unique<wyrm_session>(address, service.tcp_only, keypair, [&](int fd) {
 					auto request = pin_request.lock();
 					request->pin_requested = true;
 					request->pin_cancelled = false;
@@ -366,7 +366,7 @@ void scenes::lobby::update_server_list()
 		discover.emplace();
 #endif
 
-	std::vector<wivrn_discover::service> discovered_services = discover->get_services();
+	std::vector<wyrm_discover::service> discovered_services = discover->get_services();
 
 	// TODO: only if discovered_services changed
 	auto & servers = application::get_config().servers;
@@ -376,7 +376,7 @@ void scenes::lobby::update_server_list()
 	}
 
 	char protocol_string[17];
-	sprintf(protocol_string, "%016lx", wivrn::protocol_version);
+	sprintf(protocol_string, "%016lx", wyrm::protocol_version);
 
 	for (auto & service: discovered_services)
 	{
@@ -427,8 +427,8 @@ void scenes::lobby::connect(const configuration::server_data & data)
 	server_name = data.service.name;
 	async_error.reset();
 
-	async_session = utils::async<std::unique_ptr<wivrn_session>, std::string>(
-	        [this](auto token, wivrn_discover::service service, bool manual) {
+	async_session = utils::async<std::unique_ptr<wyrm_session>, std::string>(
+	        [this](auto token, wyrm_discover::service service, bool manual) {
 		        token.set_progress(_("Waiting for connection"));
 		        return connect_to_session(service, manual);
 	        },
@@ -943,7 +943,7 @@ void scenes::lobby::render(const XrFrameState & frame_state)
 	session.begin_frame();
 	renderer->debug_draw_clear();
 
-#if WIVRN_FEATURE_RENDERDOC
+#if WYRM_FEATURE_RENDERDOC
 	renderdoc_begin(*vk_instance);
 #endif
 
@@ -1011,7 +1011,7 @@ void scenes::lobby::render(const XrFrameState & frame_state)
 		move_gui(head_position->first, *new_gui_position);
 	}
 
-#if WIVRN_CLIENT_DEBUG_MENU
+#if WYRM_CLIENT_DEBUG_MENU
 	{
 		auto & left_node = world.get<components::node>(xyz_axes_left_controller);
 		auto & right_node = world.get<components::node>(xyz_axes_right_controller);
@@ -1052,7 +1052,7 @@ void scenes::lobby::render(const XrFrameState & frame_state)
 
 	std::vector<std::pair<int, XrCompositionLayerQuad>> imgui_layers = draw_gui(frame_state.predictedDisplayTime);
 
-#if WIVRN_CLIENT_DEBUG_MENU
+#if WYRM_CLIENT_DEBUG_MENU
 	if (auto * node = world.try_get<components::node>(debug_primitive_to_highlight.first);
 	    node and
 	    node->mesh and
@@ -1134,7 +1134,7 @@ void scenes::lobby::render(const XrFrameState & frame_state)
 
 	render_end();
 
-#if WIVRN_FEATURE_RENDERDOC
+#if WYRM_FEATURE_RENDERDOC
 	renderdoc_end(*vk_instance);
 #endif
 }
@@ -1192,7 +1192,7 @@ void scenes::lobby::on_focused()
 		             rot.z);
 	}
 
-#if WIVRN_CLIENT_DEBUG_MENU
+#if WYRM_CLIENT_DEBUG_MENU
 	offset_position = input->offset[xr::spaces::grip_left].first;
 	offset_orientation = glm::degrees(glm::eulerAngles(input->offset[xr::spaces::grip_left].second));
 	ray_offset = input->offset[xr::spaces::aim_left].first.z;
@@ -1315,13 +1315,13 @@ void scenes::lobby::on_focused()
 	switch (tm->tm_mon)
 	{
 		case 5:
-			about_picture = imgui_ctx->load_texture("assets://wivrn-pride.ktx2");
+			about_picture = imgui_ctx->load_texture("assets://wyrm-pride.ktx2");
 			break;
 		case 11:
-			about_picture = imgui_ctx->load_texture("assets://wivrn-christmas.ktx2");
+			about_picture = imgui_ctx->load_texture("assets://wyrm-christmas.ktx2");
 			break;
 		default:
-			about_picture = imgui_ctx->load_texture("assets://wivrn.ktx2");
+			about_picture = imgui_ctx->load_texture("assets://wyrm.ktx2");
 			break;
 	}
 

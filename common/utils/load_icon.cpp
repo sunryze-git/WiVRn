@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -75,7 +75,7 @@ std::span<const T> read(std::span<const std::byte> & buffer, size_t count)
 	return value;
 }
 
-std::vector<wivrn::icon> try_load_svg(const std::vector<std::byte> & data, int size)
+std::vector<wyrm::icon> try_load_svg(const std::vector<std::byte> & data, int size)
 {
 	// TODO check if aspect ratio needs to be handled, dpi
 
@@ -143,7 +143,7 @@ std::vector<wivrn::icon> try_load_svg(const std::vector<std::byte> & data, int s
 	return {{size, size, 32, std::move(png)}};
 }
 
-std::vector<wivrn::icon> try_load_ico(const std::vector<std::byte> & ico)
+std::vector<wyrm::icon> try_load_ico(const std::vector<std::byte> & ico)
 {
 	const uint32_t ICO_PNG_MAGIC = 0x474e5089;
 
@@ -192,7 +192,7 @@ std::vector<wivrn::icon> try_load_ico(const std::vector<std::byte> & ico)
 	if (reserved != 0 or resource_type != 1)
 		throw std::runtime_error{"Cannot read icon"};
 
-	std::vector<wivrn::icon> icons;
+	std::vector<wyrm::icon> icons;
 
 	for (int i = 0; i < icon_count; i++)
 	{
@@ -472,7 +472,7 @@ std::vector<wivrn::icon> try_load_ico(const std::vector<std::byte> & ico)
 	return icons;
 }
 
-std::vector<wivrn::icon> try_load_zip(const std::vector<std::byte> & data)
+std::vector<wyrm::icon> try_load_zip(const std::vector<std::byte> & data)
 {
 	std::unique_ptr<archive, decltype(&archive_read_free)> zip{archive_read_new(), &archive_read_free};
 
@@ -483,7 +483,7 @@ std::vector<wivrn::icon> try_load_zip(const std::vector<std::byte> & data)
 		throw std::runtime_error{std::string("Cannot open ZIP: ") + archive_error_string(zip.get())};
 
 	archive_entry * entry;
-	std::vector<wivrn::icon> icons;
+	std::vector<wyrm::icon> icons;
 
 	while (archive_read_next_header(zip.get(), &entry) == ARCHIVE_OK)
 	{
@@ -523,9 +523,9 @@ std::vector<wivrn::icon> try_load_zip(const std::vector<std::byte> & data)
 	return icons;
 }
 
-std::vector<wivrn::icon> try_load_png(const std::vector<std::byte> & png_data)
+std::vector<wyrm::icon> try_load_png(const std::vector<std::byte> & png_data)
 {
-	std::vector<wivrn::icon> icons;
+	std::vector<wyrm::icon> icons;
 
 	// Try reading the PNG
 	std::vector<uint8_t> pixels;
@@ -556,11 +556,11 @@ std::vector<wivrn::icon> try_load_png(const std::vector<std::byte> & png_data)
 	return icons;
 }
 
-std::unordered_map<std::filesystem::path, std::vector<wivrn::icon>> icon_cache;
+std::unordered_map<std::filesystem::path, std::vector<wyrm::icon>> icon_cache;
 
 } // namespace
 
-const std::vector<wivrn::icon> & wivrn::load_icon(const std::filesystem::path & filename)
+const std::vector<wyrm::icon> & wyrm::load_icon(const std::filesystem::path & filename)
 {
 	auto it = icon_cache.find(filename);
 	if (it != icon_cache.end() and not it->second.empty())

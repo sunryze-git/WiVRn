@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -659,7 +659,7 @@ loaded_image image_loader::do_load_ktx(std::span<const std::byte> bytes, bool sr
 		if (output_file != "")
 		{
 			spdlog::debug("Saving transcoded texture to {}", output_file.native());
-			const char writer[] = "WiVRn";
+			const char writer[] = "Wyrm";
 			ktxHashList_DeleteKVPair(&texture->kvDataHead, KTX_WRITER_KEY);
 			ktxHashList_AddKVPair(&texture->kvDataHead, KTX_WRITER_KEY, sizeof(writer), writer);
 

@@ -71,7 +71,7 @@ if __name__ == "__main__":
                 "--keyword=gettext_noop:1,1t",
                 "--output",
                 client_pot,
-                "--package-name=WiVRn",
+                "--package-name=Wyrm",
             ]
             + sorted(list_files(os.path.join(root, "client"), ".cpp"))
         )
@@ -88,7 +88,7 @@ if __name__ == "__main__":
                 "--keyword=i18ncp:1c,2,3",
                 "--output",
                 dashboard_pot,
-                "--package-name=WiVRn-dashboard",
+                "--package-name=Wyrm-dashboard",
             ]
             + sorted(list_files(os.path.join(root, "dashboard"), [".cpp", ".qml"]))
         )
@@ -99,8 +99,8 @@ if __name__ == "__main__":
         for lang in args.lang:
             lang_issues = {}
             for po_ref, po in (
-                (client_ref, os.path.join(locale_dir, lang, "wivrn.po")),
-                (dashboard_ref, os.path.join(locale_dir, lang, "wivrn-dashboard.po")),
+                (client_ref, os.path.join(locale_dir, lang, "wyrm.po")),
+                (dashboard_ref, os.path.join(locale_dir, lang, "wyrm-dashboard.po")),
             ):
                 if not os.path.exists(po):
                     continue

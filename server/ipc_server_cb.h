@@ -1,5 +1,5 @@
 /*
- * WiVRn VR streaming
+ * Wyrm VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@
 
 #include "server/ipc_server_interface.h"
 
-namespace wivrn
+namespace wyrm
 {
 class ipc_server_cb : public ipc_server_callbacks
 {
@@ -34,4 +34,4 @@ public:
 	using base_t = void;
 	ipc_server_cb();
 };
-} // namespace wivrn
+} // namespace wyrm
