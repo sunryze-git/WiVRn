@@ -335,6 +335,8 @@ struct headset_info_packet
 	uint16_t stream_eye_width;
 	uint16_t stream_eye_height;
 	std::vector<float> available_refresh_rates;
+	float current_refresh_rate = 0;
+	bool refresh_rate_external = false;
 
 	// runtime configurable settings
 	settings_changed settings;

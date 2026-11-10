@@ -88,6 +88,10 @@ private:
 	std::atomic<XrDuration> display_time_phase = 0;
 	std::atomic<XrDuration> display_time_period = 0;
 	XrTime last_display_time = 0;
+	mutable std::optional<std::vector<float>> stable_refresh_rates;
+	mutable float observed_refresh_rate = 0;
+	std::chrono::steady_clock::time_point refresh_rate_poll;
+	bool refresh_rate_external = false;
 	std::atomic<XrDuration> real_display_period = 0;
 	std::optional<std::thread> tracking_thread;
 
@@ -220,6 +224,7 @@ public:
 	        std::string server_name,
 	        scene & parent_scene);
 
+	void prepare_video_stream(); // render thread; also called while connecting from the lobby
 	void render(const XrFrameState &) override;
 	void on_focused() override;
 	void on_unfocused() override;

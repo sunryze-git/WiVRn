@@ -53,7 +53,7 @@ set(XRT_FEATURE_OPENXR_INTERACTION_TOUCH_PRO     ON)
 set(XRT_FEATURE_OPENXR_INTERACTION_TOUCH_PLUS    ON)
 set(XRT_FEATURE_OPENXR_LAYER_COLOR_SCALE_BIAS    ON)
 set(XRT_FEATURE_OPENXR_LAYER_DEPTH              OFF)
-set(XRT_FEATURE_OPENXR_VARJO_QUAD_VIEWS         OFF)
+set(XRT_FEATURE_OPENXR_VARJO_QUAD_VIEWS          ON)
 set(XRT_FEATURE_OPENXR_SPACE_UNBOUNDED          OFF)
 
 set(XRT_HAVE_BLUETOOTH               OFF)
@@ -268,6 +268,18 @@ if (WIVRN_BUILD_SERVER)
 			wivrn-external
 			nlohmann_json::nlohmann_json
 		)
+
+	if(WIVRN_BUILD_TEST)
+		add_executable(test-pacer compositor/test_pacer.cpp compositor/pacer.cpp encoder/idr_handler.cpp driver/clock_offset.cpp)
+		target_include_directories(test-pacer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${monado_SOURCE_DIR}/src/xrt/compositor)
+		target_link_libraries(test-pacer PRIVATE wivrn-common aux_util aux_vk comp_util)
+		add_test(NAME pacer COMMAND test-pacer)
+		if(WIVRN_USE_NVENC)
+			add_executable(test-nvenc-rate-control encoder/test_nvenc_rate_control.cpp)
+			target_link_libraries(test-nvenc-rate-control PRIVATE wivrn-common)
+			add_test(NAME nvenc-rate-control COMMAND test-nvenc-rate-control)
+		endif()
+	endif()
 
 	include(CompileGLSL)
 	FetchContent_GetProperties(monado SOURCE_DIR _monado_src)

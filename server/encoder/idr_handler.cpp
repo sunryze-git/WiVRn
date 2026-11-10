@@ -17,6 +17,7 @@
  */
 
 #include "idr_handler.h"
+#include "stream_recovery.h"
 
 #include "util/u_logging.h"
 #include "utils/overloaded.h"
@@ -74,7 +75,7 @@ bool default_idr_handler::should_skip(uint64_t frame_id, uint8_t stream_idx)
 	std::unique_lock lock(mutex);
 	auto res = std::visit(utils::overloaded{
 	                              [this, frame_id, stream_idx](wait_idr_feedback w) {
-		                              if (frame_id > w.idr_id + 100)
+		                              if (keyframe_retry_due(std::chrono::steady_clock::now(), w.sent))
 		                              {
 			                              U_LOG_W("IDR frame timeout on stream %d", stream_idx);
 			                              state = need_idr{};

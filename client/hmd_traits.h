@@ -27,6 +27,7 @@
 #include <string>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 #include <openxr/openxr.h>
 
 using hmd_permissions = magic_enum::containers::array<feature, const char *>;
@@ -48,6 +49,7 @@ public:
 	hmd_permissions permissions{};
 	XrVersion max_openxr_api_version = XR_API_VERSION_1_1;
 	uint32_t panel_width_override = 0;
+	std::vector<float> panel_refresh_rates;
 	bool needs_srgb_conversion = true;
 	bool view_locate = true; // can locate relative to view
 	bool vk_debug_ext_allowed = true;

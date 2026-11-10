@@ -292,11 +292,14 @@ float xr::session::get_current_refresh_rate()
 
 std::vector<float> xr::session::get_refresh_rates()
 {
+	if (cached_refresh_rates)
+		return *cached_refresh_rates;
 	if (xrEnumerateDisplayRefreshRatesFB)
 	{
 		try
 		{
-			return xr::details::enumerate<float>(xrEnumerateDisplayRefreshRatesFB, id);
+			cached_refresh_rates = xr::details::enumerate<float>(xrEnumerateDisplayRefreshRatesFB, id);
+			return *cached_refresh_rates;
 		}
 		catch (...)
 		{

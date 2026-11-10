@@ -59,7 +59,7 @@ video_encoder::sender::sender() :
 			        else
 				        d = &pending.front();
 		        }
-		        if (d and not d->span.empty())
+		        if (d)
 		        {
 			        d->encoder->SendData(d->span, true, d->prefer_control);
 			        std::unique_lock lock(mutex);
@@ -319,7 +319,7 @@ void video_encoder::SendData(std::span<uint8_t> data, bool end_of_frame, bool co
 	if (video_dump)
 		video_dump.write((char *)data.data(), data.size());
 
-	ssize_t max_payload_size = (cnx->has_stream() and not control) ? to_headset::video_stream_data_shard::max_payload_size : std::numeric_limits<uint32_t>::max();
+	const ssize_t max_payload_size = to_headset::video_stream_data_shard::max_payload_size;
 
 	auto begin = data.begin();
 	auto end = data.end();
@@ -338,6 +338,14 @@ void video_encoder::SendData(std::span<uint8_t> data, bool end_of_frame, bool co
 			}
 		}
 		shard.payload = {begin, next};
+		// Account for headers as well as payload. Audio and control messages do
+		// not wait behind this budget; no socket lock is held while pacing.
+		cnx->pace_video(shard.payload.size() + 128);
+		if (next == end and end_of_frame)
+		{
+			timing_info.send_end = clock.to_headset(os_monotonic_get_ns());
+			shard.timing_info = timing_info;
+		}
 		try
 		{
 			if (control)

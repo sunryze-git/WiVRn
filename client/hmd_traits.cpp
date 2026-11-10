@@ -18,6 +18,7 @@
  */
 
 #include "hmd_traits.h"
+#include "panel_mode.h"
 
 #include "utils/overloaded.h"
 #include "utils/strings.h"
@@ -338,24 +339,11 @@ void hmd_traits::init()
 		std::string mode;
 		while (std::getline(modes, mode))
 		{
-			// panel modes are reported as `2*2160x2160_120` etc.
-			if (not mode.starts_with("2*"))
-				// not a HMD
-				continue;
-
-			const auto x = mode.find('x', 2);
-			if (x == std::string::npos)
-				continue;
-
-			try
+			if (const auto panel = wivrn::parse_panel_mode(mode))
 			{
-				panel_width_override = std::stoul(mode.substr(2, x - 2));
-				spdlog::info("Detected native panel mode {}, panel width {}", mode, panel_width_override);
-				break;
-			}
-			catch (...)
-			{
-				spdlog::warn("Failed to parse native panel mode {}", mode);
+				panel_width_override = panel->width;
+				panel_refresh_rates.push_back(panel->refresh_rate);
+				spdlog::info("Detected native panel mode {}", mode);
 			}
 		}
 
@@ -436,6 +424,10 @@ void hmd_traits::init()
 		                }
 	                },
 	                [](std::string_view, hmd_permissions) {},
+	                [](std::string_view name, std::vector<float> & values) {
+		                for (auto rate: values)
+			                spdlog::info("\t{}: {}Hz", name, rate);
+	                },
 	        });
 }
 

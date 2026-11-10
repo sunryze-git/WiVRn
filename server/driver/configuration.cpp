@@ -20,6 +20,7 @@
 #define JSON_DISABLE_ENUM_SERIALIZATION 1
 
 #include "configuration.h"
+#include <cmath>
 
 #include <algorithm>
 #include <chrono>
@@ -153,6 +154,15 @@ configuration::configuration()
 	try
 	{
 		auto json = read_configuration();
+		if (auto it = json.find("quad-views"); it != json.end())
+			quad_views = it->get<bool>();
+		if (auto it = json.find("video-pacing"); it != json.end())
+		{
+			const auto ratio = it->get<float>();
+			if (not std::isfinite(ratio) or (ratio != 0 and (ratio < 1 or ratio > 4)))
+				throw std::runtime_error("video-pacing must be zero or between 1 and 4");
+			video_pacing = ratio;
+		}
 
 		if (auto it = json.find("grip-surface"); it != json.end())
 		{

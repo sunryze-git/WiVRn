@@ -22,7 +22,9 @@
 #include "app_pacer.h"
 #include "clock_offset.h"
 #include "compositor/compositor.h"
+#include "configuration.h"
 #include "inplace_vector.hpp"
+#include "packet_pacer.h"
 #include "tracking_control.h"
 #include "utils/thread_safe.h"
 #include "wivrn_android_face_tracker.h"
@@ -70,6 +72,9 @@ class wivrn_session : public xrt_system_devices
 	// run-time editable settings
 	thread_safe<from_headset::settings_changed> settings;
 
+	std::atomic<float> observed_refresh_rate = headset_info.current_refresh_rate > 0 ? headset_info.current_refresh_rate : headset_info.available_refresh_rates.back();
+	packet_pacer video_pacer;
+	const float video_pacing = configuration().video_pacing;
 	wivrn::compositor compositor;
 	pacing_app_factory app_pacers;
 
@@ -140,6 +145,18 @@ public:
 
 	clock_offset get_offset();
 	bool connected();
+	float get_display_refresh_rate() const
+	{
+		return observed_refresh_rate;
+	}
+	void set_video_bitrate(uint64_t bitrate)
+	{
+		video_pacer.set_rate(bitrate * video_pacing);
+	}
+	void pace_video(size_t bytes)
+	{
+		video_pacer.pace(bytes);
+	}
 	const from_headset::headset_info_packet & get_info() const
 	{
 		return headset_info;

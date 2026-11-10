@@ -25,6 +25,7 @@
 #include "utils/wivrn_trace.h"
 #include "utils/wivrn_vk_bundle.h"
 
+#include "stream_recovery.h"
 #include <iostream>
 #include <ranges>
 #include <stdexcept>
@@ -46,6 +47,7 @@ public:
 	std::vector<dpb_item> items;
 	std::vector<vk::VideoReferenceSlotInfoKHR> infos;
 	uint32_t frame_num = 0;
+	std::chrono::steady_clock::time_point last_idr;
 	std::mutex mutex;
 
 	void on_feedback(const wivrn::from_headset::feedback & feedback) override
@@ -87,6 +89,18 @@ public:
 			if (i.info.slotIndex != -1)
 				pending = true;
 		}
+		if (pending and wivrn::keyframe_retry_due(std::chrono::steady_clock::now(), last_idr))
+		{
+			// A lost keyframe (or its ACK) must not stop this stream forever.
+			for (auto & item: items)
+			{
+				item.frame_index = -1;
+				item.info.pPictureResource = nullptr;
+				item.info.slotIndex = -1;
+				item.acked = false;
+			}
+			return false;
+		}
 		return pending;
 	}
 
@@ -112,6 +126,7 @@ public:
 
 		if (not ref_slot)
 		{
+			last_idr = std::chrono::steady_clock::now();
 			frame_num = 0;
 			for (auto & slot: items)
 			{

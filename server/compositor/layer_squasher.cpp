@@ -482,7 +482,10 @@ layer_squasher::do_layers(
 			}
 
 			//! Exit loop if shader cannot receive more image samplers
-			if (cur_image + required_image_samplers > image_array_size)
+			const bool context = data.flags & XRT_LAYER_SPLIT_QUAD_VIEW_CONTEXT;
+			const auto required_layers = context ? 2u : 1u;
+			if (cur_layer + required_layers > std::size(ubo.layers) or
+			    cur_image + required_image_samplers * required_layers > image_array_size)
 				break;
 
 			xrt_fov layer_fov;
@@ -652,7 +655,7 @@ uint32_t layer_squasher::max_layers(const vk::PhysicalDeviceProperties & prop) c
 	return std::min({XRT_MAX_LAYERS * 2u,
 	                 prop.limits.maxPerStageDescriptorSampledImages,
 	                 prop.limits.maxPerStageDescriptorSamplers}) /
-	       2u;
+	       4u; // A quad projection expands to two stereo layers (with depth).
 }
 
 xrt_fov layer_squasher::do_projection_layer(
@@ -669,7 +672,8 @@ xrt_fov layer_squasher::do_projection_layer(
 
 	uint32_t sc_array_index = view % 2;
 
-	ubo.layers[cur_layer].layer_data.layer_type = LAYER_COMP_TYPE_PROJECTION;
+	ubo.layers[cur_layer].layer_data.layer_type = (layer_data.flags & XRT_LAYER_SPLIT_QUAD_VIEW_CONTEXT) ? LAYER_COMP_TYPE_CONTEXT : (layer_data.flags & XRT_LAYER_SPLIT_QUAD_VIEW_INSET) ? LAYER_COMP_TYPE_INSET
+	                                                                                                                                                                                      : LAYER_COMP_TYPE_PROJECTION;
 
 	// Color
 	src_image_info[cur_image].sampler = *clamp_to_border_black;

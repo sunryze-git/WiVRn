@@ -20,6 +20,7 @@
 // Copyright 2025-2026, NVIDIA CORPORATION.
 
 #include "compositor.h"
+#include <cmath>
 
 // Monado includes
 #include "driver/xrt_cast.h"
@@ -347,6 +348,7 @@ xrt_result_t compositor::layer_commit(xrt_graphics_sync_handle_t sync_handle)
 
 	// Check if we can pass a layer directly to foveation
 	if (layer_accum.layer_count == 1 and
+	    not(layer_accum.layers[0].data.flags & (XRT_LAYER_SPLIT_QUAD_VIEW_CONTEXT | XRT_LAYER_SPLIT_QUAD_VIEW_INSET)) and
 	    (layer_accum.layers[0].data.type == XRT_LAYER_PROJECTION or
 	     layer_accum.layers[0].data.type == XRT_LAYER_PROJECTION_DEPTH))
 	{
@@ -556,10 +558,7 @@ xrt_result_t compositor::layer_commit(xrt_graphics_sync_handle_t sync_handle)
 
 xrt_result_t compositor::get_display_refresh_rate(float * hz)
 {
-	auto settings = session.get_settings();
-	// there should not be rounding errors, hz must be one of the available refresh rates
-	*hz = frame_rate * settings->fps_divider;
-	assert(std::ranges::contains(session.get_info().available_refresh_rates, *hz));
+	*hz = session.get_display_refresh_rate();
 	return XRT_SUCCESS;
 }
 
@@ -567,7 +566,7 @@ xrt_result_t compositor::request_display_refresh_rate(float hz)
 {
 	requested_refresh_rate = hz;
 	U_LOG_I("request refresh rate: %fHz", hz);
-	if (hz > 0)
+	if (hz > 0 and not session.get_info().refresh_rate_external)
 	{
 		try
 		{
@@ -592,17 +591,19 @@ xrt_result_t compositor::get_view_config(
 	{
 		case XRT_VIEW_TYPE_MONO:
 			return XRT_ERROR_UNSUPPORTED_VIEW_TYPE;
+		case XRT_VIEW_TYPE_QUAD:
 		case XRT_VIEW_TYPE_STEREO:
 			*out_view_config = {
-			        .view_type = XRT_VIEW_TYPE_STEREO,
-			        .view_count = 2,
+			        .view_type = view_type,
+			        .view_count = view_type == XRT_VIEW_TYPE_QUAD ? 4u : 2u,
 			        .views = {}};
-			for (auto & view: std::span(out_view_config->views, out_view_config->view_count))
+			for (auto [i, view]: std::ranges::enumerate_view(std::span(out_view_config->views, out_view_config->view_count)))
 			{
+				const float scale = view_type == XRT_VIEW_TYPE_QUAD ? (i < 2 ? 0.5f : 0.75f) : 1.0f;
 				view = {
 				        .recommended = {
-				                .width_pixels = extent.width,
-				                .height_pixels = extent.height,
+				                .width_pixels = uint32_t(extent.width * scale),
+				                .height_pixels = uint32_t(extent.height * scale),
 				                .sample_count = 1,
 				        },
 				        .max = {
@@ -613,7 +614,6 @@ xrt_result_t compositor::get_view_config(
 				};
 			}
 			return XRT_SUCCESS;
-		case XRT_VIEW_TYPE_QUAD:
 		case XRT_VIEW_TYPE_INVALID:
 		case XRT_VIEW_TYPE_MAX:
 			return XRT_ERROR_UNSUPPORTED_VIEW_TYPE;
@@ -773,6 +773,7 @@ compositor::compositor(wivrn_session & session) :
 		throw std::runtime_error("comp_swapchain_shared_init failed");
 
 	print_encoders(video->settings);
+	session.set_video_bitrate(session.get_settings()->bitrate_bps);
 
 	send_video_stream_description();
 
@@ -801,9 +802,10 @@ xrt_system_compositor_info compositor::sys_info() const
 	const auto & info = session.get_info();
 	auto [prop, dev_id] = vk.physical_device.getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceIDProperties>();
 	xrt_system_compositor_info res{
-	        .view_type_count = 1,
+	        .view_type_count = configuration().quad_views ? 2u : 1u,
 	        .view_types = {
 	                XRT_VIEW_TYPE_STEREO,
+	                XRT_VIEW_TYPE_QUAD,
 	        },
 	        .max_layers = video->squasher.max_layers(prop.properties),
 	        .supported_blend_modes = {
@@ -813,6 +815,7 @@ xrt_system_compositor_info compositor::sys_info() const
 	        .supported_blend_mode_count = uint8_t(1 + info.passthrough),
 	        .refresh_rate_count = std::min<uint32_t>(info.available_refresh_rates.size(), std::size(res.refresh_rates_hz)),
 	        .supports_fov_mutable = true,
+	        .supports_emulated_quad_views_with_inset = configuration().quad_views,
 	};
 
 	std::ranges::copy(dev_id.deviceUUID, res.compositor_vk_deviceUUID.data);
@@ -823,20 +826,47 @@ xrt_system_compositor_info compositor::sys_info() const
 
 void compositor::set_bitrate(uint32_t bitrate)
 {
-	std::shared_lock video_lock(video_mutex);
-	for (auto & encoder: video->encoders)
-		encoder->set_bitrate(bitrate);
+	if (not bitrate)
+		return;
+	std::unique_lock video_lock(video_mutex);
+	requested_bitrate = bitrate;
+	session.set_video_bitrate(bitrate);
+	for (size_t i = 0; i < video->encoders.size(); ++i)
+	{
+		auto & settings = video->settings[i];
+		const auto rate = uint64_t(bitrate * settings.bitrate_multiplier);
+		if (settings.bitrate == rate)
+			continue;
+		if (settings.encoder_name == encoder_vaapi)
+			rebuild_encoder_pending = true;
+		else
+		{
+			settings.bitrate = rate;
+			video->encoders[i]->set_bitrate(bitrate);
+		}
+	}
 }
 
 void compositor::set_framerate(float hz)
 {
-	std::shared_lock video_lock(video_mutex);
-	if (frame_rate.exchange(hz) == hz)
+	if (not std::isfinite(hz) or hz < 10 or hz > 300)
 		return;
-	U_LOG_IFL_D(log_level, "Framerate change from %.0f to %.0f", frame_rate.load(), hz);
+	std::unique_lock video_lock(video_mutex);
+	const auto previous = frame_rate.exchange(hz);
+	if (previous == hz)
+		return;
+	U_LOG_IFL_D(log_level, "Framerate change from %.2f to %.2f", previous, hz);
 	pacer.set_frame_duration(U_TIME_1S_IN_NS / hz);
-	for (auto & encoder: video->encoders)
-		encoder->set_framerate(hz);
+	for (size_t i = 0; i < video->encoders.size(); ++i)
+	{
+		if (video->settings[i].encoder_name == encoder_vaapi)
+			rebuild_encoder_pending = true;
+		else
+		{
+			video->settings[i].fps = hz;
+			video->encoders[i]->set_framerate(hz);
+		}
+	}
 }
 
 void compositor::update_foveation(const from_headset::foveation & packet)
@@ -850,6 +880,7 @@ void compositor::resume()
 {
 	std::unique_lock video_lock(video_mutex);
 	video_state.suspend();
+	pacer.reset();
 	for (auto & encoder: video->encoders)
 		encoder->reset();
 	send_video_stream_description();
@@ -866,13 +897,14 @@ std::optional<from_headset::headset_info_packet> compositor::on_feedback(const f
 	video->encoders[stream]->on_feedback(feedback);
 	if (o)
 		pacer.on_feedback(feedback, o);
-	if (previous_video and stream < 2 and feedback.received_from_decoder)
+	if (stream < 2 and feedback.received_from_decoder)
 	{
 		video_lock.unlock();
 		std::unique_lock lock(video_mutex);
 		video_state.decoded(feedback.generation, stream);
 		if (video_state.accepts(feedback.generation) and video_state.confirmed())
 		{
+			decoder_failed = false;
 			previous_video.reset();
 			return std::exchange(pending_video_info, {});
 		}
@@ -893,7 +925,31 @@ std::optional<from_headset::headset_info_packet> compositor::acknowledge_stream(
 		return {};
 	}
 	U_LOG_W("Client rejected video stream: %s", ready.error.c_str());
-	restore_previous_stream();
+	if (previous_video)
+	{
+		restore_previous_stream();
+		return {};
+	}
+	decoder_failed = true;
+	video_state.suspend();
+	if (decoder_recovery.retry(std::chrono::steady_clock::now()))
+	{
+		drain_video();
+		video_state.replace();
+		for (auto & encoder: video->encoders)
+		{
+			encoder->set_generation(video_state.generation());
+			encoder->reset();
+		}
+		send_video_stream_description();
+	}
+	else
+	{
+		session.send_control(to_headset::server_message{
+		        .kind = to_headset::server_message::kind::toast_urgent,
+		        .msg = "Video decoder recovery failed repeatedly. Change codec or video resolution to retry.",
+		});
+	}
 	return {};
 }
 
@@ -907,7 +963,7 @@ void compositor::reconfigure(const from_headset::headset_info_packet & info)
 		throw std::runtime_error("Invalid video stream dimensions or codec capabilities");
 
 	std::unique_lock video_lock(video_mutex);
-	if (previous_video or not video_state.ready())
+	if (previous_video or (not video_state.ready() and not decoder_failed))
 	{
 		pending_video_info = info;
 		return;
@@ -916,22 +972,33 @@ void compositor::reconfigure(const from_headset::headset_info_packet & info)
 
 	auto settings = get_encoder_settings(vk, session, info);
 	for (auto & encoder: settings)
+	{
 		encoder.fps = frame_rate;
+		if (requested_bitrate)
+			encoder.bitrate = *requested_bitrate * encoder.bitrate_multiplier;
+	}
 	const auto extent = render_extent(info);
 	const bool unchanged = extent == video->render_extent and std::ranges::equal(settings, video->settings, [](const auto & a, const auto & b) {
 		                       return a.width == b.width and a.height == b.height and a.codec == b.codec and
-		                              a.bit_depth == b.bit_depth and a.encoder_name == b.encoder_name;
+		                              a.bit_depth == b.bit_depth and a.encoder_name == b.encoder_name and a.options == b.options and a.device == b.device;
 	                       });
-	if (unchanged)
+	if (unchanged and not decoder_failed)
 	{
 		send_video_stream_description();
 		return;
 	}
 
+	replace_video(std::move(settings), extent);
+}
+
+void compositor::replace_video(std::array<encoder_settings, 3> settings, vk::Extent3D extent)
+{
 	// Prepare replacements before committing. Failed allocations and unsupported
 	// encoder settings leave the active stream intact.
 	auto replacement = std::make_unique<stream_resources>(vk, cmd_pool, std::move(settings), extent);
 	replacement->foveation.update_foveation({.angles = foveation_angles});
+	const auto previous_failure = decoder_failed;
+	decoder_failed = false;
 	auto previous_state = video_state;
 	video_state.replace();
 	for (auto & encoder: replacement->encoders)
@@ -945,10 +1012,12 @@ void compositor::reconfigure(const from_headset::headset_info_packet & info)
 	{
 		video.swap(replacement);
 		video_state = previous_state;
+		decoder_failed = previous_failure;
 		throw;
 	}
-	render_size = uint32_t(info.render_eye_width) << 16 | info.render_eye_height;
+	render_size = uint32_t(extent.width) << 16 | extent.height;
 	previous_video = std::move(replacement);
+	rebuild_encoder_pending = false;
 	video_change_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
 	U_LOG_I("Video stream reconfigured, generation %lu; waiting for client decoders", video_state.generation());
 	print_encoders(video->settings);
@@ -980,8 +1049,14 @@ void compositor::restore_previous_stream()
 	for (auto & encoder: video->encoders)
 	{
 		encoder->set_generation(video_state.generation());
-		encoder->set_bitrate(settings.bitrate_bps);
-		encoder->set_framerate(frame_rate);
+		if (video->settings[encoder->stream_idx].encoder_name != encoder_vaapi)
+		{
+			const auto bitrate = requested_bitrate.value_or(settings.bitrate_bps);
+			encoder->set_bitrate(bitrate);
+			encoder->set_framerate(frame_rate);
+			video->settings[encoder->stream_idx].bitrate = bitrate * encoder->bitrate_multiplier;
+			video->settings[encoder->stream_idx].fps = frame_rate;
+		}
 		encoder->reset();
 	}
 	render_size = uint32_t(video->render_extent.width) << 16 | video->render_extent.height;
@@ -991,6 +1066,30 @@ void compositor::restore_previous_stream()
 void compositor::check_stream_timeout()
 {
 	std::unique_lock lock(video_mutex);
+	if (rebuild_encoder_pending and not previous_video and video_state.ready())
+	{
+		rebuild_encoder_pending = false;
+		try
+		{
+			auto settings = video->settings;
+			for (auto & encoder: settings)
+			{
+				encoder.fps = frame_rate;
+				if (requested_bitrate)
+					encoder.bitrate = *requested_bitrate * encoder.bitrate_multiplier;
+			}
+			drain_video();
+			replace_video(std::move(settings), video->render_extent);
+		}
+		catch (const std::exception & e)
+		{
+			U_LOG_W("Could not rebuild video encoders: %s", e.what());
+			session.send_control(to_headset::server_message{
+			        .kind = to_headset::server_message::kind::toast_urgent,
+			        .msg = std::format("Could not apply encoder rate settings: {}", e.what()),
+			});
+		}
+	}
 	if (previous_video and std::chrono::steady_clock::now() >= video_change_deadline)
 	{
 		U_LOG_W("Video stream replacement timed out; restoring previous stream");

@@ -20,6 +20,7 @@
 
 #include "wivrn_packets.h"
 
+#include <chrono>
 #include <cstdint>
 #include <mutex>
 #include <variant>
@@ -47,13 +48,14 @@ class default_idr_handler : public idr_handler
 	struct wait_idr_feedback
 	{
 		uint64_t idr_id;
+		std::chrono::steady_clock::time_point sent = std::chrono::steady_clock::now();
 	};
 	struct running
 	{
 		uint64_t last_ack;
 	};
 	std::variant<need_idr, wait_idr_feedback, running> state;
-	std::vector<uint64_t> non_ref_frames{512, uint64_t(-1)};
+	std::vector<uint64_t> non_ref_frames = std::vector<uint64_t>(512, uint64_t(-1));
 
 public:
 	enum class frame_type

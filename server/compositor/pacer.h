@@ -40,9 +40,10 @@ class pacer
 public:
 	struct frame_info
 	{
-		int64_t frame_id;
-		int64_t present_ns;
-		int64_t predicted_display_time;
+		int64_t frame_id = -1;
+		int64_t present_ns = 0;
+		int64_t predicted_display_time = 0;
+		uint64_t epoch = uint64_t(-1);
 	};
 
 private:
@@ -70,9 +71,14 @@ private:
 	std::mutex compute_mutex;
 	std::condition_variable compute_cv;
 	std::vector<frame_time> frame_times_compute;
+	uint64_t epoch = 0;         // protected by mutex
+	uint64_t compute_epoch = 0; // protected by compute_mutex
+	bool compute_pending = false;
+	void reset_locked();
 	std::jthread worker;
 
-	std::array<frame_info, 8> in_flight_frames;
+	// Keep delayed Wi-Fi feedback long enough to train latency and phase.
+	std::array<frame_info, 256> in_flight_frames{};
 
 public:
 	pacer(uint64_t frame_duration);

@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "nvenc_options.h"
 #include "utils/gpu_timestamp_pool.h"
 #include "video_encoder.h"
 #include "video_encoder_nvenc_shared_state.h"
@@ -56,6 +57,7 @@ private:
 
 	gpu_timestamp_pool ts_pool;
 
+	nvenc_options options;
 	float fps;
 	uint64_t bitrate;
 	int bytesPerPixel = 1;

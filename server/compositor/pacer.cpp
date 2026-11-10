@@ -18,6 +18,7 @@
  */
 
 #include "pacer.h"
+#include "frame_timing.h"
 
 #include "driver/clock_offset.h"
 
@@ -51,9 +52,14 @@ pacer::pacer(uint64_t frame_duration) :
 	        while (not t.stop_requested())
 	        {
 		        samples.clear();
+		        uint64_t sample_epoch;
 		        {
 			        std::unique_lock lock(compute_mutex);
-			        compute_cv.wait(lock);
+			        compute_cv.wait(lock, [&] { return compute_pending or t.stop_requested(); });
+			        if (t.stop_requested())
+				        return;
+			        compute_pending = false;
+			        sample_epoch = compute_epoch;
 			        for (const auto & time: frame_times_compute)
 			        {
 				        if (time.decoded > time.present)
@@ -66,7 +72,8 @@ pacer::pacer(uint64_t frame_duration) :
 		        std::ranges::nth_element(samples, it);
 
 		        std::unique_lock lock(mutex);
-		        safe_present_to_decoded_ns = *it + client_margin_ms.val * U_TIME_1MS_IN_NS;
+		        if (sample_epoch == epoch)
+			        safe_present_to_decoded_ns = std::min<int64_t>(*it + client_margin_ms.val * U_TIME_1MS_IN_NS, 3 * frame_duration_ns);
 	        }
         })
 {
@@ -77,7 +84,10 @@ pacer::pacer(uint64_t frame_duration) :
 pacer::~pacer()
 {
 	u_var_remove_root(this);
-	worker.request_stop();
+	{
+		std::lock_guard lock(compute_mutex);
+		worker.request_stop();
+	}
 	compute_cv.notify_all();
 }
 
@@ -90,7 +100,11 @@ uint64_t pacer::get_frame_duration() const
 void pacer::set_frame_duration(uint64_t frame_duration_ns)
 {
 	std::lock_guard lock(mutex);
-	this->frame_duration_ns = frame_duration_ns;
+	if (this->frame_duration_ns != int64_t(frame_duration_ns))
+	{
+		this->frame_duration_ns = frame_duration_ns;
+		reset_locked();
+	}
 }
 
 void pacer::predict(
@@ -104,10 +118,10 @@ void pacer::predict(
 	frame_id = this->frame_id++;
 	auto now = os_monotonic_get_ns();
 
-	int64_t predicted_client_render = last_ns + frame_duration_ns;
-
-	if (now + mean_wake_up_to_present_ns + safe_present_to_decoded_ns > predicted_client_render)
-		predicted_client_render += frame_duration_ns * ((now + mean_wake_up_to_present_ns + safe_present_to_decoded_ns - predicted_client_render) / frame_duration_ns);
+	int64_t predicted_client_render = next_frame_deadline(
+	        last_ns + frame_duration_ns,
+	        now + mean_wake_up_to_present_ns + safe_present_to_decoded_ns,
+	        frame_duration_ns);
 
 	out_predicted_display_time_ns = predicted_client_render + mean_render_to_display_ns;
 	out_desired_present_time_ns = predicted_client_render - safe_present_to_decoded_ns;
@@ -120,6 +134,7 @@ void pacer::predict(
 	        .frame_id = frame_id,
 	        .present_ns = out_desired_present_time_ns,
 	        .predicted_display_time = out_predicted_display_time_ns,
+	        .epoch = epoch,
 	};
 
 	out_present_slop_ns = slop_ns;
@@ -132,7 +147,7 @@ void pacer::on_feedback(const wivrn::from_headset::feedback & feedback, const cl
 
 	std::lock_guard lock(mutex);
 	auto & when = in_flight_frames[feedback.frame_index % in_flight_frames.size()];
-	if (when.frame_id != feedback.frame_index)
+	if (when.frame_id != feedback.frame_index or when.epoch != epoch)
 		return;
 
 	auto & times = frame_times[feedback.frame_index % frame_times.size()];
@@ -150,6 +165,8 @@ void pacer::on_feedback(const wivrn::from_headset::feedback & feedback, const cl
 		{
 			std::unique_lock lock(compute_mutex);
 			std::swap(frame_times, frame_times_compute);
+			compute_epoch = epoch;
+			compute_pending = true;
 			compute_cv.notify_all();
 		}
 		// adjust phase
@@ -183,12 +200,13 @@ void pacer::mark_timing_point(
 			return;
 
 		//! Just after submitting work to the GPU.
-		case COMP_TARGET_TIMING_POINT_SUBMIT_END:
+		case COMP_TARGET_TIMING_POINT_SUBMIT_END: {
+			std::lock_guard lock(mutex);
 			if (when_ns > last_wake_up_ns and when_ns < last_wake_up_ns + 100'000'000)
 			{
-				std::lock_guard lock(mutex);
 				mean_wake_up_to_present_ns = std::lerp(mean_wake_up_to_present_ns, when_ns - last_wake_up_ns, 0.1);
 			}
+		}
 	}
 }
 
@@ -207,6 +225,20 @@ pacer::frame_info pacer::present_to_info(int64_t present)
 void pacer::reset()
 {
 	std::lock_guard lock(mutex);
+	reset_locked();
+}
+
+void pacer::reset_locked()
+{
+	++epoch;
+	last_ns = 0;
+	last_wake_up_ns = 0;
+	mean_wake_up_to_present_ns = 1'000'000;
+	safe_present_to_decoded_ns = 0;
+	mean_render_to_display_ns = 0;
 	std::ranges::fill(frame_times, frame_time{});
+	std::lock_guard lock(compute_mutex);
+	std::ranges::fill(frame_times_compute, frame_time{});
+	compute_pending = false;
 }
 } // namespace wivrn

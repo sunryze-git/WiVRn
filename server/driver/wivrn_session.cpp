@@ -54,6 +54,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <magic_enum.hpp>
 #include <multi/comp_multi_interface.h>
 #include <stdexcept>
@@ -488,9 +489,11 @@ bool wivrn_session::connected()
 float wivrn_session::default_fps()
 {
 	auto s = settings.lock();
+	if (headset_info.refresh_rate_external)
+		return observed_refresh_rate / s->fps_divider;
 	if (s->preferred_refresh_rate)
 		return s->preferred_refresh_rate / s->fps_divider;
-	return headset_info.available_refresh_rates.back();
+	return headset_info.available_refresh_rates.back() / s->fps_divider;
 }
 
 void wivrn_session::add_tracking_request(device_id device, int64_t at_ns, int64_t produced_ns, int64_t now)
@@ -533,8 +536,10 @@ void wivrn_session::operator()(const from_headset::settings_changed & settings)
 	if (settings.bitrate_bps != 0)
 		compositor.set_bitrate(settings.bitrate_bps);
 
-	if (settings.preferred_refresh_rate != 0)
+	if (settings.preferred_refresh_rate != 0 and not headset_info.refresh_rate_external)
 		compositor.set_framerate(settings.preferred_refresh_rate / settings.fps_divider);
+	else
+		compositor.set_framerate(observed_refresh_rate / settings.fps_divider);
 
 	if (not settings.mirror_gamepad and uinput_handler)
 		uinput_handler->destroy_gamepad();
@@ -705,6 +710,7 @@ void wivrn_session::operator()(const from_headset::tracking & tracking)
 void wivrn_session::operator()(const from_headset::foveation & packet)
 {
 	compositor.update_foveation(packet);
+	hmd.update_foveation(packet);
 }
 
 void wivrn_session::operator()(from_headset::derived_pose && derived)
@@ -890,6 +896,9 @@ void wivrn_session::operator()(from_headset::user_presence_changed && event)
 
 void wivrn_session::operator()(from_headset::refresh_rate_changed && event)
 {
+	if (not std::isfinite(event.to) or event.to < 30 or event.to > 300)
+		return;
+	observed_refresh_rate = event.to;
 	const auto divider = settings.lock()->fps_divider;
 	compositor.set_framerate(event.to / divider);
 	push_event(
@@ -1055,7 +1064,7 @@ struct refresh_rate_adjuster
 	void adjust(wivrn_connection & cnx)
 	{
 		auto locked = settings.lock();
-		if (locked->preferred_refresh_rate != 0 or info.available_refresh_rates.size() < 2)
+		if (info.refresh_rate_external or locked->preferred_refresh_rate != 0 or info.available_refresh_rates.size() < 2)
 			return;
 
 		// Maximum refresh rate the application can reach
@@ -1251,7 +1260,8 @@ std::pair<bool, std::optional<std::string>> wivrn_session::validate_headset_info
 		refuse |= prev_info.passthrough != info.passthrough;
 		refuse |= prev_info.body_tracking != info.body_tracking;
 
-		refuse |= prev_info.available_refresh_rates != info.available_refresh_rates;
+		// Refresh capabilities remain fixed for the server OpenXR session.
+		// An externally changed physical mode must not lock out this headset.
 
 		if (refuse)
 		{
@@ -1322,6 +1332,8 @@ void wivrn_session::reconnect(std::stop_token stop)
 			(*this)(from_headset::headset_info_packet{info});
 
 			headset_info.settings = info.settings;
+			if (std::isfinite(info.current_refresh_rate) and info.current_refresh_rate >= 30 and info.current_refresh_rate <= 300)
+				observed_refresh_rate = info.current_refresh_rate;
 			(*this)(headset_info.settings);
 
 			headset_info.language = info.language;

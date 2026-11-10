@@ -28,6 +28,7 @@
 #include "foveation.h"
 #include "layer_squasher.h"
 #include "pacer.h"
+#include "stream_recovery.h"
 #include "utils/wivrn_vk_bundle.h"
 #include "video_stream_state.h"
 
@@ -168,6 +169,11 @@ private:
 	void encode_image(int index);
 	void drain_video();
 	void restore_previous_stream();
+	void replace_video(std::array<encoder_settings, 3>, vk::Extent3D);
+	bool rebuild_encoder_pending = false;
+	bool decoder_failed = false;
+	decoder_recovery_budget decoder_recovery;
+	std::optional<uint32_t> requested_bitrate;
 
 	void send_video_stream_description();
 

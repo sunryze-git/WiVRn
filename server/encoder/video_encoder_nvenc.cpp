@@ -19,6 +19,7 @@
 
 #include "video_encoder_nvenc.h"
 #include "encoder_settings.h"
+#include "nvenc_rate_control.h"
 
 #include "os/os_time.h"
 #include "util/u_logging.h"
@@ -34,6 +35,7 @@ bool operator==(const GUID & l, const GUID & r)
 }
 
 #include <algorithm>
+#include <cmath>
 #include <stdexcept>
 
 #define NVENC_CHECK_NOENCODER(x)                                          \
@@ -134,22 +136,13 @@ static void check_profile_guid_supported(std::shared_ptr<video_encoder_nvenc_sha
 
 NV_ENC_RC_PARAMS video_encoder_nvenc::get_rc_params(uint64_t bitrate, float framerate)
 {
-	return {
-	        .rateControlMode = NV_ENC_PARAMS_RC_CBR,
-	        .averageBitRate = static_cast<uint32_t>(bitrate),
-	        .vbvBufferSize = static_cast<uint32_t>(bitrate / framerate * 2.0f),
-	        .vbvInitialDelay = static_cast<uint32_t>(bitrate / framerate),
-	        .enableAQ = 1,
-	        .enableLookahead = 0,
-	        .enableNonRefP = 1,
-	        .lowDelayKeyFrameScale = 1,
-	        .multiPass = NV_ENC_TWO_PASS_QUARTER_RESOLUTION};
+	return nvenc_rate_control(options, bitrate, framerate);
 }
 
 void video_encoder_nvenc::set_init_params_fps(float framerate)
 {
-	init_params.frameRateNum = framerate;
-	init_params.frameRateDen = 1;
+	init_params.frameRateNum = std::lround(framerate * 1000);
+	init_params.frameRateDen = 1000;
 }
 
 static vk::raii::CommandPool make_cmd_pool(wivrn::vk_bundle & vk, uint8_t stream_idx)
@@ -171,6 +164,7 @@ video_encoder_nvenc::video_encoder_nvenc(
         vk(vk),
         cmd_pool{make_cmd_pool(vk, stream_idx)},
         shared_state(video_encoder_nvenc_shared_state::get()),
+        options(settings.options),
         fps(settings.fps),
         bitrate(settings.bitrate)
 {
@@ -197,16 +191,28 @@ video_encoder_nvenc::video_encoder_nvenc(
 	        .apiVersion = NVENCAPI_VERSION,
 	};
 	NVENC_CHECK_NOENCODER(shared_state->fn.nvEncOpenEncodeSessionEx(&session_params, &session_handle));
+	auto close_on_failure = [this](void * handle) { shared_state->fn.nvEncDestroyEncoder(handle); };
+	std::unique_ptr<void, decltype(close_on_failure)> session_guard(session_handle, close_on_failure);
 
 	auto encodeGUID = encode_guid(settings.codec);
 	check_encode_guid_supported(shared_state, session_handle, encodeGUID);
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-	GUID presetGUID = NV_ENC_PRESET_P4_GUID;
+	const std::array presets{NV_ENC_PRESET_P1_GUID, NV_ENC_PRESET_P2_GUID, NV_ENC_PRESET_P3_GUID, NV_ENC_PRESET_P4_GUID, NV_ENC_PRESET_P5_GUID, NV_ENC_PRESET_P6_GUID, NV_ENC_PRESET_P7_GUID};
+	GUID presetGUID = presets[options.preset - 1];
 	check_preset_guid_supported(shared_state, session_handle, encodeGUID, presetGUID);
 
-	NV_ENC_TUNING_INFO tuningInfo = NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY;
+	NV_ENC_TUNING_INFO tuningInfo = options.tuning == nvenc_options::tuning::high_quality ? NV_ENC_TUNING_INFO_HIGH_QUALITY : options.tuning == nvenc_options::tuning::low_latency ? NV_ENC_TUNING_INFO_LOW_LATENCY
+	                                                                                                                                                                               : NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY;
+	if (options.temporal_aq)
+	{
+		NV_ENC_CAPS_PARAM cap{.version = NV_ENC_CAPS_PARAM_VER, .capsToQuery = NV_ENC_CAPS_SUPPORT_TEMPORAL_AQ};
+		int supported = 0;
+		NVENC_CHECK(shared_state->fn.nvEncGetEncodeCaps(session_handle, encodeGUID, &cap, &supported));
+		if (not supported)
+			throw std::runtime_error("nvenc: temporal AQ requested but unsupported by GPU");
+	}
 #pragma GCC diagnostic pop
 	NV_ENC_PRESET_CONFIG preset_config{
 	        .version = NV_ENC_PRESET_CONFIG_VER,
@@ -219,9 +225,8 @@ video_encoder_nvenc::video_encoder_nvenc(
 
 	// Bitrate control
 	config.rcParams = get_rc_params(bitrate, fps);
-	config.rcParams.enableTemporalAQ = 0;
 
-	config.gopLength = NVENC_INFINITE_GOPLENGTH;
+	config.gopLength = options.gop;
 	config.frameIntervalP = 1;
 
 	NV_ENC_BIT_DEPTH bitDepth = NV_ENC_BIT_DEPTH_8;
@@ -246,9 +251,12 @@ video_encoder_nvenc::video_encoder_nvenc(
 		}
 	}
 
-	const uint32_t intra_refresh_period = 100;
-	const uint32_t intra_refresh_cnt = 50;
+	const uint32_t intra_refresh_period = options.intra_refresh_period;
+	const uint32_t intra_refresh_cnt = options.intra_refresh_count;
 	auto set_intra_refresh = [&](auto & codec_config) {
+		codec_config.enableIntraRefresh = 0;
+		if (not intra_refresh_period)
+			return;
 		NV_ENC_CAPS_PARAM cap_param{
 		        .version = NV_ENC_CAPS_PARAM_VER,
 		        .capsToQuery = NV_ENC_CAPS_SUPPORT_INTRA_REFRESH,
@@ -275,7 +283,7 @@ video_encoder_nvenc::video_encoder_nvenc(
 			config.encodeCodecConfig.h264Config.repeatSPSPPS = 1;
 			config.encodeCodecConfig.h264Config.maxNumRefFrames = 0;
 			config.encodeCodecConfig.h264Config.h264VUIParameters.videoFullRangeFlag = 1;
-			config.encodeCodecConfig.h264Config.idrPeriod = NVENC_INFINITE_GOPLENGTH;
+			config.encodeCodecConfig.h264Config.idrPeriod = options.gop;
 			set_intra_refresh(config.encodeCodecConfig.h264Config);
 
 			break;
@@ -292,7 +300,7 @@ video_encoder_nvenc::video_encoder_nvenc(
 			config.encodeCodecConfig.hevcConfig.repeatSPSPPS = 1;
 			config.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB = 0;
 			config.encodeCodecConfig.hevcConfig.hevcVUIParameters.videoFullRangeFlag = 1;
-			config.encodeCodecConfig.hevcConfig.idrPeriod = NVENC_INFINITE_GOPLENGTH;
+			config.encodeCodecConfig.hevcConfig.idrPeriod = options.gop;
 			set_intra_refresh(config.encodeCodecConfig.hevcConfig);
 
 			break;
@@ -308,7 +316,7 @@ video_encoder_nvenc::video_encoder_nvenc(
 
 			config.encodeCodecConfig.av1Config.repeatSeqHdr = 1;
 			config.encodeCodecConfig.av1Config.maxNumRefFramesInDPB = 0;
-			config.encodeCodecConfig.av1Config.idrPeriod = NVENC_INFINITE_GOPLENGTH;
+			config.encodeCodecConfig.av1Config.idrPeriod = options.gop;
 			set_intra_refresh(config.encodeCodecConfig.av1Config);
 
 			break;
@@ -414,6 +422,7 @@ video_encoder_nvenc::video_encoder_nvenc(
 	CU_CHECK(shared_state->cuda_fn->cuCtxPopCurrent(NULL));
 
 	ts_pool = gpu_timestamp_pool(vk, vk.queue.family_index, num_slots, std::format("nvenc encoder {} pixel copy", stream_idx));
+	session_guard.release();
 }
 
 video_encoder_nvenc::~video_encoder_nvenc()

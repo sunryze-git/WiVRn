@@ -19,6 +19,7 @@
 
 #include "wivrn_hmd.h"
 #include "os/os_time.h"
+#include "quad_view.h"
 #include "wivrn_config.h"
 #include "wivrn_session.h"
 
@@ -82,6 +83,7 @@ wivrn_hmd::wivrn_hmd(wivrn::wivrn_session * cnx,
                         .position_tracking = true,
                         .presence = info.user_presence,
                         .battery_status = true,
+                        .get_views_quad = true,
                 },
                 .update_inputs = method_pointer<&wivrn_hmd::update_inputs>,
                 .get_tracked_pose = method_pointer<&wivrn_hmd::get_tracked_pose>,
@@ -200,13 +202,33 @@ xrt_result_t wivrn_hmd::get_view_poses(const xrt_vec3 * default_eye_relation,
 
 	assert((out_head_relation->relation_flags & XRT_SPACE_RELATION_ORIENTATION_VALID_BIT) == 0 or math_quat_ensure_normalized(&out_head_relation->pose.orientation));
 
-	assert(view_count == 2);
+	if (not((view_type == XRT_VIEW_TYPE_STEREO and view_count == 2) or
+	        (view_type == XRT_VIEW_TYPE_QUAD and view_count == 4)))
+		return XRT_ERROR_UNSUPPORTED_VIEW_TYPE;
 	for (size_t eye = 0; eye < 2; ++eye)
 	{
 		out_fovs[eye] = view.fovs[eye];
 		out_poses[eye] = view.poses[eye];
 	}
+	if (view_count == 4)
+	{
+		const auto center = *quad_center.lock();
+		const bool recent = now - center.timestamp < 500'000'000;
+		for (size_t eye = 0; eye < 2; ++eye)
+		{
+			const auto & fov = view.fovs[eye];
+			auto [left, right] = inset_angles(fov.angle_left, fov.angle_right, recent ? center.angles[eye].x : 0);
+			auto [down, up] = inset_angles(fov.angle_down, fov.angle_up, recent ? center.angles[eye].y : 0);
+			out_fovs[eye + 2] = {.angle_left = left, .angle_right = right, .angle_up = up, .angle_down = down};
+			out_poses[eye + 2] = view.poses[eye];
+		}
+	}
 	return XRT_SUCCESS;
+}
+
+void wivrn_hmd::update_foveation(const from_headset::foveation & packet)
+{
+	*quad_center.lock() = {.angles = packet.angles, .timestamp = os_monotonic_get_ns()};
 }
 
 xrt_result_t wivrn_hmd::get_battery_status(bool * out_present,

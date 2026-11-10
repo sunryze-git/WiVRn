@@ -233,7 +233,9 @@ stream_defoveator::stream_defoveator(
 
 	vk::DescriptorPoolSize pool_size{
 	        .type = vk::DescriptorType::eCombinedImageSampler,
-	        .descriptorCount = view_count * 4,
+	        // RGB and RGB+alpha layouts may each consume up to three descriptors
+	        // per immutable YCbCr sampler, including on Frame.
+	        .descriptorCount = view_count * 9,
 	};
 
 	ds_pool = device.createDescriptorPool(vk::DescriptorPoolCreateInfo{
@@ -289,6 +291,10 @@ void stream_defoveator::reset_pipelines()
 		p = {};
 	for (auto & p: pipeline_a)
 		p = {};
+	// Descriptor sets are pool-owned. Dropping their raw handles did not free
+	// them, so repeated same-size codec changes exhausted maxSets.
+	// The caller has already waited for the device to become idle.
+	ds_pool.reset();
 }
 
 static size_t required_vertices(const wivrn::to_headset::foveation_parameter & p)

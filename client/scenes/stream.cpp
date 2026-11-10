@@ -263,7 +263,23 @@ from_headset::headset_info_packet scenes::stream::headset_info(float guessed_fps
 
 	if (instance.has_extension(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME))
 	{
-		info.available_refresh_rates = session.get_refresh_rates();
+		if (not stable_refresh_rates)
+		{
+			stable_refresh_rates = session.get_refresh_rates();
+			const auto & panel_rates = application::get_hmd_traits().panel_refresh_rates;
+			stable_refresh_rates->insert(stable_refresh_rates->end(), panel_rates.begin(), panel_rates.end());
+			std::ranges::sort(*stable_refresh_rates);
+			stable_refresh_rates->erase(std::unique(stable_refresh_rates->begin(), stable_refresh_rates->end()), stable_refresh_rates->end());
+		}
+		info.available_refresh_rates = *stable_refresh_rates;
+		try
+		{
+			info.current_refresh_rate = session.get_current_refresh_rate();
+		}
+		catch (...)
+		{ /* Older runtimes may fail the query. */
+		}
+		info.refresh_rate_external = not application::get_hmd_traits().panel_refresh_rates.empty();
 		info.settings.preferred_refresh_rate = config.preferred_refresh_rate;
 		info.settings.minimum_refresh_rate = config.minimum_refresh_rate.value_or(0);
 	}
@@ -276,6 +292,9 @@ from_headset::headset_info_packet scenes::stream::headset_info(float guessed_fps
 		info.settings.preferred_refresh_rate = guessed_fps;
 	}
 
+	if (not std::isfinite(info.current_refresh_rate) or info.current_refresh_rate < 30 or info.current_refresh_rate > 300)
+		info.current_refresh_rate = guessed_fps;
+	observed_refresh_rate = info.current_refresh_rate;
 	info.settings.bitrate_bps = config.bitrate_bps;
 	info.settings.mirror_gamepad = config.forward_gamepad;
 	info.settings.enabled_body_parts = config.body_part_mask;
@@ -366,7 +385,9 @@ std::shared_ptr<scenes::stream> scenes::stream::create(std::unique_ptr<wivrn_ses
 	std::shared_ptr<stream> self{new stream{std::move(server_name), parent_scene}};
 	self->network_session = std::move(network_session);
 
-	self->network_session->send_control(self->headset_info(guessed_fps));
+	auto info = self->headset_info(guessed_fps);
+	self->refresh_rate_external = info.refresh_rate_external;
+	self->network_session->send_control(std::move(info));
 
 	self->network_session->send_control(from_headset::session_state_changed{
 	        .state = application::get_session_state(),
@@ -615,7 +636,19 @@ void scenes::stream::push_blit_handle(shard_accumulator * decoder, std::shared_p
 {
 	assert(handle);
 	if (!application::is_visible())
+	{
+		// Decoder readiness is independent of visibility. In particular, a
+		// headset removed during a handoff must still confirm decoded frames.
+		std::shared_lock lock(decoder_mutex);
+		const auto stream = handle->feedback.stream_index;
+		if (stream >= decoders.size() or decoder != decoders[stream].decoder.get() or
+		    handle->feedback.generation != stream_generation)
+			return;
+		handle->feedback.received_from_decoder = instance.now();
+		lock.unlock();
+		send_feedback(handle->feedback);
 		return;
+	}
 
 	{
 		std::shared_lock lock(decoder_mutex);
@@ -828,16 +861,8 @@ bool scenes::stream::is_gui_interactable() const
 	return is_interactable(gui_status);
 }
 
-void scenes::stream::render(const XrFrameState & frame_state)
+void scenes::stream::prepare_video_stream()
 {
-	if (state_ == state::shutdown)
-		application::pop_scene();
-
-	display_time_phase = frame_state.predictedDisplayPeriod ? frame_state.predictedDisplayTime % frame_state.predictedDisplayPeriod : 0;
-	display_time_period = frame_state.predictedDisplayPeriod;
-	real_display_period = last_display_time ? frame_state.predictedDisplayTime - last_display_time : frame_state.predictedDisplayPeriod;
-	last_display_time = frame_state.predictedDisplayTime;
-
 	std::optional<to_headset::video_stream_description> pending;
 	{
 		auto locked = pending_video_description.lock();
@@ -859,6 +884,39 @@ void scenes::stream::render(const XrFrameState & frame_state)
 			video_stream_failed(pending->generation, e.what());
 		}
 	}
+}
+
+void scenes::stream::render(const XrFrameState & frame_state)
+{
+	if (state_ == state::shutdown)
+		application::pop_scene();
+
+	display_time_phase = frame_state.predictedDisplayPeriod ? frame_state.predictedDisplayTime % frame_state.predictedDisplayPeriod : 0;
+	display_time_period = frame_state.predictedDisplayPeriod;
+	real_display_period = last_display_time ? frame_state.predictedDisplayTime - last_display_time : frame_state.predictedDisplayPeriod;
+	last_display_time = frame_state.predictedDisplayTime;
+
+	// Frame can change modes in SteamOS without sending an OpenXR event.
+	// Query the current rate, never re-enumerate a session's advertised list.
+	if (refresh_rate_external and std::chrono::steady_clock::now() >= refresh_rate_poll)
+	{
+		refresh_rate_poll = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+		try
+		{
+			const auto rate = session.get_current_refresh_rate();
+			if (std::isfinite(rate) and rate >= 30 and rate <= 300 and std::abs(rate - observed_refresh_rate) > 0.1f)
+			{
+				network_session->send_control(from_headset::refresh_rate_changed{.from = observed_refresh_rate, .to = rate});
+				observed_refresh_rate = rate;
+			}
+		}
+		catch (const std::exception & e)
+		{
+			spdlog::debug("Refresh rate query failed: {}", e.what());
+		}
+	}
+
+	prepare_video_stream();
 	if (video_settings_changed and std::chrono::steady_clock::now() - *video_settings_changed >= std::chrono::milliseconds(300))
 	{
 		video_settings_changed.reset();
@@ -1331,14 +1389,16 @@ void scenes::stream::setup(const to_headset::video_stream_description & descript
 	                              previous->width != description.width or
 	                              previous->height != description.height or
 	                              previous->codec != description.codec or
-	                              previous->bit_depth != description.bit_depth;
+	                              previous->bit_depth != description.bit_depth or
+	                              failed_generation.load() >= previous->generation;
 	std::array<accumulator_images, decoder_count> replacement{};
 	if (replace_decoders)
 	{
 		for (size_t i = 0; i < decoder_count; ++i)
 			replacement[i].decoder = std::make_unique<shard_accumulator>(device, physical_device, instance, queue_family_index, description, weak_from_this(), i);
 	}
-	session.set_refresh_rate(description.refresh_rate);
+	if (not refresh_rate_external)
+		session.set_refresh_rate(description.refresh_rate);
 	{
 		std::unique_lock lock(decoder_mutex);
 		std::unique_lock frame_lock(frames_mutex);
@@ -1366,7 +1426,8 @@ void scenes::stream::setup_reprojection_swapchain(uint32_t swapchain_width, uint
 	assert(swapchain_height);
 	device.waitIdle();
 	spdlog::info("swapchain setup, refresh rate {}", video_stream_description->refresh_rate);
-	session.set_refresh_rate(video_stream_description->refresh_rate);
+	if (not refresh_rate_external)
+		session.set_refresh_rate(video_stream_description->refresh_rate);
 
 	auto views = system.view_configuration_views(viewconfig);
 
@@ -1517,6 +1578,7 @@ void scenes::stream::on_xr_event(const xr::event & event)
 				recenter_requested = true;
 			break;
 		case XR_TYPE_EVENT_DATA_DISPLAY_REFRESH_RATE_CHANGED_FB:
+			observed_refresh_rate = event.refresh_rate_changed.toDisplayRefreshRate;
 			network_session->send_control(from_headset::refresh_rate_changed{
 			        .from = event.refresh_rate_changed.fromDisplayRefreshRate,
 			        .to = event.refresh_rate_changed.toDisplayRefreshRate,

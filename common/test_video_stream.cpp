@@ -32,6 +32,13 @@ static T roundtrip(const T & value)
 
 int main()
 {
+	from_headset::headset_info_packet info{};
+	info.available_refresh_rates = {72, 90, 120};
+	info.current_refresh_rate = 119.88f;
+	info.refresh_rate_external = true;
+	const auto decoded_info = roundtrip(info);
+	check(decoded_info.available_refresh_rates == info.available_refresh_rates);
+	check(decoded_info.current_refresh_rate == info.current_refresh_rate and decoded_info.refresh_rate_external);
 	video_stream_state stream;
 	check(not stream.ready());
 	stream.acknowledge(0);

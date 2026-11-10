@@ -19,6 +19,9 @@ foveated encoding, codec, and color bit depth without restarting WiVRn or closin
 the running game. Slider changes are applied after a short pause in adjustment.
 Video can pause briefly while the encoder and decoder resources are replaced;
 audio and tracking remain connected. Bitrate and refresh rate also update live.
+VAAPI rate changes rebuild the encoder context because changing its FFmpeg fields
+does not reliably update the hardware rate control. Rapid changes are coalesced
+while a previous handoff is still awaiting decoded frames.
 
 The server retains the previous stream until both eyes decode its replacement.
 Unsupported settings or failed resource allocations leave the previous stream
@@ -35,9 +38,65 @@ Changes to the audio or tracking devices exposed to OpenXR applications can stil
 require recreating the OpenXR system. Both client and server must use this version
 of the streaming protocol; existing running installations are not upgraded in place.
 
+On the tested Steam Frame driver, the hardware decoder advertises NV12 output
+and does not advertise P010. WiVRn therefore negotiates 8-bit video even when
+10-bit is selected. It keeps the capability check rather than forcing an
+unadvertised decoder format.
+
 SolarXR uses the SolarXR driver protocol for SlimeVR, including reconnect and
 battery-status support. The `SLIMEVR_SOCKET_DIR` environment variable can override
 the default IPC socket directory.
+
+## Steam Frame refresh changes
+
+On Linux headsets reporting native panel modes such as `2*2160x2160_120`, WiVRn
+collects all advertised modes and freezes that capability list for the client
+session. The current physical rate is reported separately. Frame's current-rate
+query is polled once per second as a fallback when its runtime omits a refresh
+change event. SteamOS remains responsible for externally managed physical modes.
+Changing a mode no longer makes a reconnect incompatible. The server keeps its
+OpenXR enumeration stable, resets pacing history on rate changes, and applies the
+half-rate switch against the observed physical rate.
+
+These changes address WiVRn's stale mode and pacing paths. They do not establish
+that all jitter reported in [#1173](https://github.com/WiVRn/WiVRn/issues/1173)
+is fixed; that still requires measurement on a Frame and its runtime.
+
+## `video-pacing`
+
+Default value: `1.25`. Set to `0` to disable; otherwise use a value from `1` to `4`.
+This multiplies the configured aggregate video bitrate to set the packet send
+budget, with an 8 KiB burst allowance. Both eyes, alpha, UDP frames and TCP
+keyframes share the budget. Video is fragmented into small shards on both
+transports. Audio and other control traffic do not consume this budget.
+
+This smooths bursts; it does not measure available Wi-Fi capacity or adapt the
+encoder bitrate to congestion. Leave room for keyframes, protocol overhead and
+other traffic. Constant-QP NVENC output is variable and may exceed this budget.
+Lost keyframes or acknowledgments are retried after 200 ms, including with the
+Vulkan encoder. Terminal decoder failures trigger at most three fresh decoder
+attempts per 30 seconds, then display an error; changing codec or resolution can
+initiate another handoff.
+
+## `quad-views`
+
+Default value: `true`. Exposes `XR_VARJO_quad_views` and the corresponding OpenXR
+four-view configuration to applications that support it. The two peripheral views
+recommend half the stereo width and height; the two inset views recommend
+three quarters. Insets cover half the tangent-space span of their corresponding
+peripheral view, so their recommended pixel density is higher.
+
+WiVRn supplies identical poses for each eye's peripheral and inset view and keeps
+the inset entirely within the peripheral FOV. Insets follow the headset's per-eye
+foveation centers, including eye tracking when enabled. Missing or stale centers
+fall back to centered insets after 500 ms. Monado splits the application layer and
+its existing shader blends each inset into its peripheral image before WiVRn's
+normal foveation and two-eye encoding. No extra decoder streams are required.
+
+Applications must select the four-view configuration and handle mutable FOVs.
+This does not add quad views to games that only render stereo. It does not expose
+`XR_VARJO_foveated_rendering`; applications requiring that separate extension
+need additional support. Disable `quad-views` for application compatibility.
 
 ## `bit-depth`
 Default value: 10-bit if supported by the selected codec, encoder and decoder. 8-bit otherwise.
@@ -111,10 +170,10 @@ Default value: unset
 Manually specify the device for encoding, can be used to offload encode to an iGPU. Device shall be in the form "/dev/dri/renderD128".
 
 
-### `options` (very advanced), only for vaapi
+### `options` (very advanced), for vaapi and nvenc
 Default value: unset
 
-Json object of additional options to pass directly to ffmpeg `avcodec_open2`'s `option` parameter.
+For VAAPI, a JSON object of additional options passed directly to ffmpeg `avcodec_open2`'s `option` parameter. For NVENC, see the [validated quality options](nvenc.md#quality-options). Options are strings. Server encoder configuration is read when video settings are renegotiated, including on reconnect; changed options trigger the same encoder handoff as codec changes.
 
 ## `application`
 Default value: unset

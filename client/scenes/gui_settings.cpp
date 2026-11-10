@@ -282,7 +282,7 @@ void settings_video(const settings_context & ctx)
 		});
 	}
 
-	if (rates.size() > 1 && ctx.instance.has_extension(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME))
+	if (not rates.empty() && ctx.instance.has_extension(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME))
 	{
 		list.push_back({
 		        .id = "##spacewarp",
@@ -292,7 +292,7 @@ void settings_video(const settings_context & ctx)
 		        .get_bool = [&config] { return config.fps_divider == 2; },
 		        .set_bool = [&ctx, &config](bool v) { config.fps_divider = v ? 2 : 1; config.save(); if (ctx.on_streaming_changed) ctx.on_streaming_changed(); },
 		        .default_bool = default_config.fps_divider == 2,
-		        .enabled = [&config] { return config.preferred_refresh_rate != 0; },
+		        .enabled = [&config] { return config.preferred_refresh_rate != 0 or not application::get_hmd_traits().panel_refresh_rates.empty(); },
 		        .disabled_tooltip = _("Set a refresh rate other than auto to enable this setting."),
 		});
 	}

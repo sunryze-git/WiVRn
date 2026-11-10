@@ -21,6 +21,7 @@
 
 #include "utils/handle.h"
 #include "utils/thread_safe.h"
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -42,6 +43,7 @@ class session : public utils::handle<XrSession, xrDestroySession>
 	xr::passthrough passthrough;
 	thread_safe<vk::raii::Queue> * queue = nullptr;
 
+	std::optional<std::vector<float>> cached_refresh_rates;
 	PFN_xrGetDisplayRefreshRateFB xrGetDisplayRefreshRateFB = nullptr;
 	PFN_xrEnumerateDisplayRefreshRatesFB xrEnumerateDisplayRefreshRatesFB = nullptr;
 	PFN_xrRequestDisplayRefreshRateFB xrRequestDisplayRefreshRateFB = nullptr;

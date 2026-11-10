@@ -62,3 +62,57 @@ To check whether your system is affected, monitor the GPU P-State using `watch n
 | `VKDirectGSYNCCompatibleAllowed` | Vulkan Direct Compatible G-SYNC | 0 | Allows VRR on validated or unvalidated G-SYNC compatible monitors for Vulkan Direct-to-Display applications. Set to value 0 to disable this feature. |
 | `GLShowGraphicsOSD` | Graphics API OSD | false | Control whether the graphics API visual indicator is rendered on top of OpenGL and Vulkan applications. Set to false to disable this feature. |
 -->
+
+## Quality options
+
+The NVENC backend accepts string options in the server configuration:
+
+```json
+{
+  "encoder": {
+    "encoder": "nvenc",
+    "codec": "h265",
+    "options": {
+      "preset": "P6",
+      "tuning": "ultra-low-latency",
+      "multipass": "full",
+      "aq": "true"
+    }
+  }
+}
+```
+
+This selects more encoding work than the defaults. Check that encoding still
+fits your frame budget. No quality gain or encode time is guaranteed across GPUs.
+The default settings remain P4, ultra-low-latency, quarter-resolution multipass
+and spatial AQ. Options persist across live bitrate and frame-rate updates.
+
+| Option | Values | Default |
+| --- | --- | --- |
+| `preset` | `P1` through `P7` | `P4` |
+| `tuning` | `ultra-low-latency`, `low-latency`, `high-quality` | `ultra-low-latency` |
+| `multipass` | `disabled`, `quarter`, `full` | `quarter` |
+| `rc` | `cbr`, `vbr`, `cqp` | `cbr` |
+| `aq` | `true`, `false` | `true` |
+| `temporal-aq` | `true`, `false`; GPU support checked | `false` |
+| `aq-strength` | `0` (automatic) through `15` | `0` |
+| `vbv-frames` | `1` through `16` | `2` |
+| `vbv-initial-frames` | `0` through buffer size | `1` |
+| `qp` | `0` through `51`, for constant QP | `23` |
+| `min-qp`, `max-qp` | `0` through `51`, minimum must not exceed maximum | unset |
+| `max-bitrate` | Peak bits per second; effective value is at least target bitrate | target bitrate |
+| `gop` | Positive frame count; `4294967295` means infinite | infinite |
+| `intra-refresh-period` | `0` (disabled) through `10000` frames | `100` |
+| `intra-refresh-count` | `1` through period, when enabled | `50` |
+
+Unknown options and invalid ranges are rejected. Lookahead and B-frames remain
+disabled: buffering them is incompatible with the current synchronous streaming
+pipeline. Explicit nonzero values are rejected. The preset is queried before
+WiVRn applies its streaming constraints. Intra refresh remains capability checked.
+See NVIDIA's [NVENC programming guide](https://docs.nvidia.com/video-technologies/video-codec-sdk/13.0/nvenc-video-encoder-api-prog-guide/index.html)
+for the underlying quality and rate-control behavior.
+
+Editing these server options does not replace the encoder immediately. Reconnect
+the headset or apply a video setting on the headset to renegotiate them. Existing
+client and server processes can remain running; both must already be builds that
+support live stream handoff.

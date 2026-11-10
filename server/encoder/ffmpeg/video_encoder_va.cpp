@@ -28,6 +28,7 @@
 #include "utils/wivrn_trace.h"
 #include "utils/wivrn_vk_bundle.h"
 
+#include <cmath>
 #include <drm_fourcc.h>
 #include <filesystem>
 #include <libavutil/pixfmt.h>
@@ -271,7 +272,7 @@ video_encoder_va::video_encoder_va(wivrn::vk_bundle & vk,
 	encoder_ctx->height = extent.height;
 	encoder_ctx->time_base = {std::chrono::steady_clock::duration::period::num,
 	                          std::chrono::steady_clock::duration::period::den};
-	encoder_ctx->framerate = AVRational{(int)settings.fps * 1000, 1000};
+	encoder_ctx->framerate = AVRational{int(std::lround(settings.fps * 1000)), 1000};
 	encoder_ctx->sample_aspect_ratio = AVRational{1, 1};
 	encoder_ctx->pix_fmt = AV_PIX_FMT_VAAPI;
 	encoder_ctx->color_range = AVCOL_RANGE_JPEG;

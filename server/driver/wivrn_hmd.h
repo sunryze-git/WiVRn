@@ -54,6 +54,12 @@ class wivrn_hmd : public xrt_device
 	};
 
 	view_list views;
+	struct inset_center
+	{
+		std::array<XrVector2f, 2> angles{};
+		int64_t timestamp = 0;
+	};
+	thread_safe<inset_center> quad_center;
 	thread_safe<from_headset::battery> battery{};
 
 	thread_safe<wivrn_hmd_presence_data> presence;
@@ -83,6 +89,7 @@ public:
 	                                bool * out_charging,
 	                                float * out_charge);
 
+	void update_foveation(const from_headset::foveation &);
 	void update_battery(const from_headset::battery &);
 	void update_tracking(const from_headset::tracking &, const clock_offset &);
 	void update_visibility_mask(const from_headset::visibility_mask_changed &);
