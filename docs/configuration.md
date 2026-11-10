@@ -58,6 +58,12 @@ Changing a mode no longer makes a reconnect incompatible. The server keeps its
 OpenXR enumeration stable, resets pacing history on rate changes, and applies the
 half-rate switch against the observed physical rate.
 
+SteamVR stores per-application display settings under a different profile for
+Wyrm (`system.generated.openxr.wyrm.wyrm`) than for WiVRn. Existing refresh-rate
+overrides do not carry over. If Frame starts at 72 Hz despite a higher saved
+Wyrm preference, select the desired rate in Frame's SteamVR settings for Wyrm.
+The physical mode takes precedence over Wyrm's saved preference on this device.
+
 These changes address Wyrm's stale mode and pacing paths. They do not establish
 that all jitter reported in [#1173](https://github.com/WiVRn/WiVRn/issues/1173)
 is fixed; that still requires measurement on a Frame and its runtime.

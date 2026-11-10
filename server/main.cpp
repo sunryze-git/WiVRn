@@ -166,6 +166,15 @@ static std::filesystem::path find_dir(const std::filesystem::path & d, const std
 static std::string steam_command()
 {
 	std::string command;
+	auto quote = [](std::string_view value) {
+		std::string result = "'";
+		for (char c: value)
+			result += c == '\'' ? "'\\''" : std::string(1, c);
+		return result + "'";
+	};
+	// Steam's automatic OpenXR import knows the upstream socket name. Share
+	// Wyrm's socket explicitly, including with Steam versions that import XR.
+	std::string filesystems = socket_path().parent_path().string();
 
 	if (not pressure_vessel_openxr_support())
 		command = "PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES=1 ";
@@ -178,10 +187,11 @@ static std::string steam_command()
 	{
 		// /usr cannot be shared in pressure vessel container
 		if (p.starts_with("/usr"))
-			command += "VR_OVERRIDE=/run/host" + p + ' ';
+			command += "VR_OVERRIDE=" + quote("/run/host" + p) + ' ';
 		else if (p.starts_with("/var") and not p.starts_with(home))
-			command += "PRESSURE_VESSEL_FILESYSTEMS_RW=" + find_dir(p, "org.wyrmvr.wyrm").string() + ' ';
+			filesystems += ':' + find_dir(p, "org.wyrmvr.wyrm").string();
 	}
+	command += "PRESSURE_VESSEL_FILESYSTEMS_RW=" + quote(filesystems) + "\"${PRESSURE_VESSEL_FILESYSTEMS_RW:+:$PRESSURE_VESSEL_FILESYSTEMS_RW}\" ";
 
 	if (not command.empty())
 		command += "%command%";
