@@ -12,6 +12,33 @@ If you installed WiVRn from a flatpack, the config is in `$HOME/.var/app/io.gith
 
 All elements are optional and have default values.
 
+## Changing video settings while streaming
+
+The headset's in-stream Video and Streaming pages allow changing resolution,
+foveated encoding, codec, and color bit depth without restarting WiVRn or closing
+the running game. Slider changes are applied after a short pause in adjustment.
+Video can pause briefly while the encoder and decoder resources are replaced;
+audio and tracking remain connected. Bitrate and refresh rate also update live.
+
+The server retains the previous stream until both eyes decode its replacement.
+Unsupported settings or failed resource allocations leave the previous stream
+available and display an error. Server configuration still takes precedence over
+headset codec and bit-depth preferences.
+
+Resolution changes update the compositor target and the recommendation for new
+applications. Running games can keep their existing render targets; increasing
+the stream resolution cannot add detail that the game has not rendered. Adjust
+the game's own resolution setting when available.
+
+Video settings are also renegotiated when reconnecting to a running server.
+Changes to the audio or tracking devices exposed to OpenXR applications can still
+require recreating the OpenXR system. Both client and server must use this version
+of the streaming protocol; existing running installations are not upgraded in place.
+
+SolarXR uses the SolarXR driver protocol for SlimeVR, including reconnect and
+battery-status support. The `SLIMEVR_SOCKET_DIR` environment variable can override
+the default IPC socket directory.
+
 ## `bit-depth`
 Default value: 10-bit if supported by the selected codec, encoder and decoder. 8-bit otherwise.
 

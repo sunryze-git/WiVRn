@@ -13,6 +13,7 @@
 #include "decoder/decoder.h"
 #include "wivrn_sockets.h"
 
+#include <atomic>
 #include <cstdint>
 #include <deque>
 #include <exception>
@@ -132,6 +133,7 @@ private:
 	shard_accumulator * accumulator;
 	const vk::Extent2D extent;
 	const wivrn::video_codec codec_type;
+	std::atomic<uint64_t> generation;
 	const uint32_t vk_queue_family_index;
 
 	void setup_device(wivrn::fd_base device_fd);

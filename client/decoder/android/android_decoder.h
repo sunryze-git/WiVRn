@@ -22,6 +22,7 @@
 #include "decoder/decoder.h"
 #include "utils/sync_queue.h"
 #include "wivrn_packets.h"
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <span>
@@ -67,6 +68,7 @@ public:
 
 private:
 	uint8_t stream_index;
+	std::atomic<uint64_t> generation;
 
 	vk::raii::Device & device;
 

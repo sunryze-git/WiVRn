@@ -503,9 +503,27 @@ void wivrn_session::add_tracking_request(device_id device, int64_t at_ns, int64_
 	control.add_request(device, os_monotonic_get_ns(), at_ns, produced_ns);
 }
 
-void wivrn_session::operator()(from_headset::headset_info_packet &&)
+void wivrn_session::operator()(from_headset::headset_info_packet && info)
 {
-	U_LOG_W("unexpected headset info packet, ignoring");
+	try
+	{
+		compositor.reconfigure(info);
+	}
+	catch (const std::exception & e)
+	{
+		U_LOG_W("Video settings rejected: %s", e.what());
+		send_control(to_headset::server_message{
+		        .kind = to_headset::server_message::kind::toast_urgent,
+		        .msg = std::format("Could not apply video settings: {}. The previous stream is retained.", e.what()),
+		});
+		compositor.describe_stream();
+	}
+}
+
+void wivrn_session::operator()(const from_headset::video_stream_ready & ready)
+{
+	if (auto pending = compositor.acknowledge_stream(ready))
+		(*this)(std::move(*pending));
 }
 
 void wivrn_session::operator()(const from_headset::settings_changed & settings)
@@ -803,7 +821,8 @@ void wivrn_session::operator()(from_headset::feedback && feedback)
 	clock_offset o = offset_est.get_offset();
 	if (not o)
 		return;
-	compositor.on_feedback(feedback, o);
+	if (auto pending = compositor.on_feedback(feedback, o))
+		(*this)(std::move(*pending));
 
 	if (feedback.received_first_packet)
 		trace::instant_feedback("receive_begin", o.from_headset(feedback.received_first_packet), feedback.frame_index, feedback.stream_index);
@@ -871,8 +890,8 @@ void wivrn_session::operator()(from_headset::user_presence_changed && event)
 
 void wivrn_session::operator()(from_headset::refresh_rate_changed && event)
 {
-	auto locked = settings.lock();
-	compositor.set_framerate(event.to / locked->fps_divider);
+	const auto divider = settings.lock()->fps_divider;
+	compositor.set_framerate(event.to / divider);
 	push_event(
 	        {
 	                .display = {
@@ -1139,6 +1158,7 @@ void wivrn_session::run_worker(std::stop_token stop)
 				if (do_control)
 					control.resolve(compositor.get_frame_duration(), tracking_latency);
 			}
+			compositor.check_stream_timeout();
 			poll_session_loss();
 		}
 		catch (const std::exception & e)
@@ -1198,21 +1218,8 @@ std::pair<bool, std::optional<std::string>> wivrn_session::validate_headset_info
 	bool refuse = false; // refuse to connect headset outright
 	bool warn = false;   // allow headset but display a pop-up warning about outdated settings
 
-	// stream settings
-	{
-		warn |= prev_info.render_eye_width != info.render_eye_width;
-		warn |= prev_info.render_eye_height != info.render_eye_height;
-		warn |= prev_info.stream_eye_width != info.stream_eye_width;
-		warn |= prev_info.stream_eye_height != info.stream_eye_height;
-
-		refuse |= prev_info.supported_codecs != info.supported_codecs;
-		refuse |= prev_info.bit_depth != info.bit_depth;
-
-		if (refuse)
-		{
-			return std::make_pair(false, "video codec mismatch.");
-		}
-	}
+	// Video resources are renegotiated on reconnect without recreating the
+	// OpenXR system or disconnecting its applications.
 
 	// audio settings
 	{
@@ -1296,17 +1303,23 @@ void wivrn_session::reconnect(std::stop_token stop)
 				throw std::runtime_error("headset config incompatible with current session");
 			}
 
-			if (warn_conn)
+			const std::array<uint32_t, 6> capabilities{
+			        bool(info.speaker), bool(info.microphone), info.hand_tracking, uint32_t(info.face_tracking), info.eye_gaze, info.num_generic_trackers};
+			if (warn_conn and last_warned_capabilities != capabilities)
 			{
+				last_warned_capabilities = capabilities;
 				send_control(to_headset::server_message{
 				        .kind = to_headset::server_message::kind::toast_urgent,
-				        .msg = "Stream resumed with outdated settings. Restart the server for settings to apply.",
+				        .msg = "Audio or tracking device changes need a new OpenXR session. Video settings are applied live.",
 				});
 
-				U_LOG_W("Session resumed with outdated settings. Restart the server for settings to apply.");
+				U_LOG_W("Audio/tracking capabilities differ from the existing OpenXR system; video settings are renegotiated live.");
 			}
+			if (not warn_conn)
+				last_warned_capabilities.reset();
 
 			// update headset info
+			(*this)(from_headset::headset_info_packet{info});
 
 			headset_info.settings = info.settings;
 			(*this)(headset_info.settings);

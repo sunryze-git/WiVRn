@@ -63,7 +63,14 @@
                 separateDebugInfo = false;
 
                 monado = pkgs.applyPatches {
-                  inherit (oldAttrs.monado) patches postPatch;
+                  inherit (oldAttrs.monado) postPatch;
+                  patches = oldAttrs.monado.patches ++ (
+                    map (name: ./patches/monado + "/${name}") (
+                      lib.filter (name: lib.hasPrefix "002" name) (
+                        builtins.attrNames (builtins.readDir ./patches/monado)
+                      )
+                    )
+                  );
                   # Force a refetch when the monado rev changes.
                   src = pkgs.testers.invalidateFetcherByDrvHash pkgs.fetchFromGitLab {
                     inherit (oldAttrs.monado.src) owner repo;

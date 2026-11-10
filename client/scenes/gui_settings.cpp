@@ -220,7 +220,6 @@ void settings_video(const settings_context & ctx)
 {
 	auto & config = ctx.config;
 	auto & default_config = ctx.default_config;
-	const std::string disconnect_tip = ctx.in_game ? _C("tooltip for disabled settings", "Disconnect to change this setting.") : std::string{};
 	std::vector<setting> list;
 	const auto rates = ctx.session.get_refresh_rates();
 
@@ -275,13 +274,11 @@ void settings_video(const settings_context & ctx)
 		        .description = fmt::format(_cF("render resolution", "Pixels rendered per eye ({}x{}). Lower to gain performance."), int(width * config.resolution_scale), int(height * config.resolution_scale)),
 		        .ui = ui_kind::slider,
 		        .get_int = [&config] { return int(std::lround(config.resolution_scale * 100)); },
-		        .set_int = [&config](int v) { config.resolution_scale = v / 100.0; config.save(); },
+		        .set_int = [&ctx, &config](int v) { config.resolution_scale = v / 100.0; config.save(); if (ctx.on_video_changed) ctx.on_video_changed(); },
 		        .v_min = 50,
 		        .v_max = config.extended_config ? 350 : 150,
 		        .fmt = "%d%%",
 		        .default_int = int(std::lround(default_config.resolution_scale * 100)),
-		        .enabled = [&ctx] { return not ctx.in_game; },
-		        .disabled_tooltip = disconnect_tip,
 		});
 	}
 
@@ -308,7 +305,6 @@ void settings_streaming(const settings_context & ctx)
 {
 	auto & config = ctx.config;
 	auto & default_config = ctx.default_config;
-	const std::string disconnect_tip = ctx.in_game ? _C("tooltip for disabled settings", "Disconnect to change this setting.") : std::string{};
 	std::vector<setting> list;
 
 	list.push_back({
@@ -319,17 +315,15 @@ void settings_streaming(const settings_context & ctx)
 	                               : _("Higher values focus image quality at the center, improving latency, power efficiency and quality."),
 	        .ui = ui_kind::slider,
 	        .get_int = [&config] { return int(std::lround((1 - config.get_stream_scale()) * 100)); },
-	        .set_int = [&config](int v) {
+	        .set_int = [&ctx, &config](int v) {
 		        if (not config.extended_config)
 			        v = std::clamp(v, 30, 80);
 		        config.set_stream_scale(1 - v * 0.01);
-		        config.save(); },
+		        config.save(); if (ctx.on_video_changed) ctx.on_video_changed(); },
 	        .v_min = 0,
 	        .v_max = 80,
 	        .fmt = "%d%%",
 	        .default_int = int(std::lround((1 - default_config.get_stream_scale()) * 100)),
-	        .enabled = [&ctx] { return not ctx.in_game; },
-	        .disabled_tooltip = disconnect_tip,
 	});
 
 	auto codec_name = [](std::optional<wivrn::video_codec> codec) -> std::string {
@@ -360,9 +354,9 @@ void settings_streaming(const settings_context & ctx)
 	        .description = _("How video is compressed before it is sent to the headset."),
 	        .ui = ui_kind::combo,
 	        .get_int = [&config, codecs] { return config.codec ? index(codecs, *config.codec).value_or(-1) + 1 : 0; },
-	        .set_int = [&config, codecs](int v) {
+	        .set_int = [&ctx, &config, codecs](int v) {
 		        config.codec = v == 0 ? std::nullopt : std::optional(codecs[v - 1]);
-		        config.save(); },
+		        config.save(); if (ctx.on_video_changed) ctx.on_video_changed(); },
 	        .options = [codecs, codec_name] {
 		        std::vector<std::string> opts;
 		        opts.push_back(codec_name(std::nullopt));
@@ -371,8 +365,6 @@ void settings_streaming(const settings_context & ctx)
 		        return opts; },
 	        .title = _C("setting name", "Video codec"),
 	        .default_int = default_config.codec ? index(codecs, *default_config.codec).value_or(-1) + 1 : 0,
-	        .enabled = [&ctx] { return not ctx.in_game; },
-	        .disabled_tooltip = disconnect_tip,
 	});
 
 	if (config.codec && wivrn::decoder::supports_10bit(*config.codec))
@@ -383,10 +375,8 @@ void settings_streaming(const settings_context & ctx)
 		        .description = _("Higher color precision, supported by HEVC and AV1."),
 		        .ui = ui_kind::toggle,
 		        .get_bool = [&config] { return config.bit_depth == 10; },
-		        .set_bool = [&config](bool v) { config.bit_depth = v ? 10 : 8; config.save(); },
+		        .set_bool = [&ctx, &config](bool v) { config.bit_depth = v ? 10 : 8; config.save(); if (ctx.on_video_changed) ctx.on_video_changed(); },
 		        .default_bool = default_config.bit_depth == 10,
-		        .enabled = [&ctx] { return not ctx.in_game; },
-		        .disabled_tooltip = disconnect_tip,
 		});
 	}
 

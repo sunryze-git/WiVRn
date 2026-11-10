@@ -93,6 +93,11 @@ private:
 
 	std::shared_mutex decoder_mutex;
 	std::optional<to_headset::video_stream_description> video_stream_description;
+	thread_safe<std::optional<to_headset::video_stream_description>> pending_video_description;
+	std::atomic<uint64_t> stream_generation = 0;
+	std::atomic<uint64_t> failed_generation = 0;
+	std::optional<std::chrono::steady_clock::time_point> video_settings_changed;
+	std::chrono::steady_clock::time_point video_change_grace_until;
 	std::array<accumulator_images, decoder_count> decoders; // Locked by decoder_mutex
 
 	std::optional<stream_defoveator> defoveator;
@@ -249,6 +254,7 @@ public:
 	void push_blit_handle(wivrn::shard_accumulator * decoder, std::shared_ptr<wivrn::shard_accumulator::blit_handle> handle);
 
 	void send_feedback(const wivrn::from_headset::feedback & feedback);
+	void video_stream_failed(uint64_t generation, const std::string & error);
 
 	state current_state() const
 	{
@@ -277,6 +283,7 @@ private:
 	void send_derived_pose();
 
 	void setup(const to_headset::video_stream_description &);
+	from_headset::headset_info_packet headset_info(float guessed_fps) const;
 	void setup_reprojection_swapchain(uint32_t width, uint32_t height, bool foveation);
 	void ensure_foveation_mode(bool cropped, uint32_t width, uint32_t height);
 

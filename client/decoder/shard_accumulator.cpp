@@ -65,6 +65,7 @@ static bool is_complete(const shard_set & shards)
 
 std::optional<uint16_t> shard_set::insert(data_shard && shard, xr::instance & instance)
 {
+	feedback.generation = shard.generation;
 	if (empty())
 		feedback.received_first_packet = instance.now();
 

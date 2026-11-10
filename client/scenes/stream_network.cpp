@@ -71,12 +71,20 @@ void scenes::stream::operator()(to_headset::video_stream_data_shard && shard)
 {
 	std::shared_lock lock(decoder_mutex);
 	uint8_t idx = shard.stream_item_idx;
-	if (idx >= decoders.size())
+	if (idx >= decoders.size() or not video_stream_description or shard.generation != stream_generation)
 	{
 		// We don't know (yet?) about this stream, ignore packet
 		return;
 	}
-	decoders[idx].decoder->push_shard(std::move(shard));
+	const auto generation = shard.generation;
+	try
+	{
+		decoders[idx].decoder->push_shard(std::move(shard));
+	}
+	catch (const std::exception & e)
+	{
+		video_stream_failed(generation, e.what());
+	}
 }
 
 void scenes::stream::operator()(to_headset::feature_control && control)
@@ -106,19 +114,14 @@ void scenes::stream::operator()(to_headset::audio_stream_description && desc)
 
 void scenes::stream::operator()(to_headset::video_stream_description && desc)
 {
-	setup(desc);
-
-	if (not tracking_thread)
-	{
-		tracking_thread = utils::named_thread("tracking_thread", &stream::tracking, this);
-	}
+	*pending_video_description.lock() = std::move(desc);
 }
 
 void scenes::stream::operator()(to_headset::refresh_rate_change && rate)
 {
 	spdlog::info("refresh rate change request: {}", rate.hz);
 	session.set_refresh_rate(rate.hz);
-	std::shared_lock lock(decoder_mutex);
+	std::unique_lock lock(decoder_mutex);
 	if (video_stream_description)
 		video_stream_description->refresh_rate = rate.hz;
 }
@@ -146,11 +149,33 @@ void scenes::stream::send_feedback(const wivrn::from_headset::feedback & feedbac
 {
 	try
 	{
-		network_session->send_control(wivrn::from_headset::feedback{feedback});
+		auto packet = feedback;
+		if (packet.generation == 0)
+			packet.generation = stream_generation;
+		network_session->send_control(std::move(packet));
 	}
 	catch (std::exception & e)
 	{
 		spdlog::warn("Exception while sending feedback packet: {}", e.what());
+	}
+}
+
+void scenes::stream::video_stream_failed(uint64_t generation, const std::string & error)
+{
+	auto previous = failed_generation.load();
+	do
+	{
+		if (previous >= generation)
+			return;
+	} while (not failed_generation.compare_exchange_weak(previous, generation));
+	try
+	{
+		network_session->send_control(from_headset::video_stream_ready{.generation = generation, .accepted = false, .error = error});
+		gui_toast.lock()->emplace(std::string("Video decoder failed: ") + error, true);
+	}
+	catch (const std::exception & e)
+	{
+		spdlog::warn("Could not report decoder failure: {}", e.what());
 	}
 }
 

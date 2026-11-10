@@ -46,6 +46,7 @@ struct encoder_settings
 };
 
 std::array<encoder_settings, 3> get_encoder_settings(wivrn::vk_bundle &, wivrn_session &);
+std::array<encoder_settings, 3> get_encoder_settings(wivrn::vk_bundle &, wivrn_session &, const from_headset::headset_info_packet &);
 
 void print_encoders(const std::array<wivrn::encoder_settings, 3> & encoders);
 

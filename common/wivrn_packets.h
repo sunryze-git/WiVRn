@@ -370,6 +370,14 @@ struct handshake
 	// Sending this on TCP means connection will be TCP only
 };
 
+// Sent after the client has installed the decoders for this stream generation.
+struct video_stream_ready
+{
+	uint64_t generation;
+	bool accepted = true;
+	std::string error;
+};
+
 enum pose_flags : uint8_t
 {
 	orientation_valid = 1 << 0,
@@ -648,6 +656,7 @@ struct timesync_response
 
 struct feedback
 {
+	uint64_t generation = 0;
 	uint64_t frame_index;
 	uint8_t stream_index;
 
@@ -751,7 +760,8 @@ using packets = std::variant<
         set_active_application,
         hid::input,
         stop_application,
-        foveation>;
+        foveation,
+        video_stream_ready>;
 } // namespace from_headset
 
 namespace to_headset
@@ -833,6 +843,7 @@ struct audio_stream_description
 
 struct video_stream_description
 {
+	uint64_t generation = 1;
 	// dimensions of the video stream per eye
 	// alpha is half resolution
 	uint16_t width;
@@ -840,6 +851,7 @@ struct video_stream_description
 	std::array<video_codec, 3> codec; // left, right, alpha
 	float frame_rate;
 	float refresh_rate;
+	uint8_t bit_depth = 8;
 
 	bool operator==(const video_stream_description &) const = default;
 };
@@ -848,6 +860,7 @@ class video_stream_data_shard
 {
 public:
 	inline static const size_t max_payload_size = 1400;
+	uint64_t generation = 1;
 	// Identifier of stream:
 	// 0 left
 	// 1 right

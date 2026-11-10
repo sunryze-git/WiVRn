@@ -399,6 +399,7 @@ static void send_settings_changed_packet(xr::session & session, wivrn_session * 
 
 void scenes::stream::gui_settings(float)
 {
+	const auto panel_width = application::get_hmd_traits().panel_width_override;
 	// same pages as the lobby, with in_game enabling the in-stream controls
 	wivrn::gui::settings_context ctx{
 	        .config = application::get_config(),
@@ -407,11 +408,12 @@ void scenes::stream::gui_settings(float)
 	        .session = session,
 	        .system = system,
 	        .imgui_ctx = *imgui_ctx,
-	        .recommended_width = width,
-	        .recommended_height = height,
+	        .recommended_width = panel_width ? panel_width : width,
+	        .recommended_height = panel_width ? uint32_t(uint64_t(height) * panel_width / width) : height,
 	        .in_game = true,
 	        .server_hid_forwarding = hid_forwarding_enabled(),
 	        .on_streaming_changed = [this] { send_settings_changed_packet(session, network_session.get(), application::get_config()); },
+	        .on_video_changed = [this] { video_settings_changed = std::chrono::steady_clock::now(); },
 	        .enter_foveation_adjust = [this] { next_gui_status = stream_tab::foveation_settings; },
 	        .on_foveation_override_changed = [this] {
 		        const auto & config = application::get_config();

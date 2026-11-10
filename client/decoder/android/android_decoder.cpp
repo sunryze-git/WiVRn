@@ -109,7 +109,7 @@ decoder::decoder(
         uint8_t stream_index,
         std::weak_ptr<scenes::stream> weak_scene,
         shard_accumulator * accumulator) :
-        stream_index(stream_index), device(device), weak_scene(weak_scene), accumulator(accumulator)
+        stream_index(stream_index), generation(description.generation), device(device), weak_scene(weak_scene), accumulator(accumulator)
 {
 	spdlog::info("hbm_mutex.native_handle() = {}", (void *)hbm_mutex.native_handle());
 
@@ -253,6 +253,7 @@ void decoder::push_data(std::span<std::span<const uint8_t>> data, uint64_t frame
 
 void decoder::frame_completed(const wivrn::from_headset::feedback & feedback, const wivrn::to_headset::video_stream_data_shard::view_info_t & view_info)
 {
+	generation = feedback.generation;
 	if (not media_codec)
 	{
 		// If media_codec is not initialized, frame processing ends here
@@ -513,6 +514,7 @@ void decoder::on_media_error(AMediaCodec *, void * userdata, media_status_t erro
 		if (auto scene = self->weak_scene.lock())
 			scene->send_feedback(
 			        wivrn::from_headset::feedback{
+			                .generation = self->generation.load(),
 			                .stream_index = self->stream_index});
 	}
 }

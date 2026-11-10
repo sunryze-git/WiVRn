@@ -66,6 +66,7 @@ class wivrn_session : public xrt_system_devices
 {
 	std::unique_ptr<wivrn_connection> connection;
 	from_headset::headset_info_packet headset_info;
+	std::optional<std::array<uint32_t, 6>> last_warned_capabilities;
 	// run-time editable settings
 	thread_safe<from_headset::settings_changed> settings;
 
@@ -163,6 +164,7 @@ public:
 	void operator()(from_headset::pin_check_1 &&) {}
 	void operator()(from_headset::pin_check_3 &&) {}
 	void operator()(from_headset::headset_info_packet &&);
+	void operator()(const from_headset::video_stream_ready &);
 	void operator()(const from_headset::settings_changed &);
 	void operator()(from_headset::handshake &&) {}
 	void operator()(const from_headset::tracking &);

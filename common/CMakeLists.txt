@@ -8,6 +8,12 @@ endif()
 
 configure_file(wivrn_config.h.in wivrn_config.h)
 
+if(WIVRN_BUILD_TEST)
+    add_executable(test-video-stream test_video_stream.cpp)
+    target_link_libraries(test-video-stream PRIVATE wivrn-common)
+    add_test(NAME video-stream COMMAND test-video-stream)
+endif()
+
 add_library(wivrn-common-base STATIC EXCLUDE_FROM_ALL
     utils/strings.cpp
     utils/xdg_base_directory.cpp

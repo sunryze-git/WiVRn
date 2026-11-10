@@ -223,6 +223,12 @@ void video_encoder::reset()
 	idr->reset();
 }
 
+void video_encoder::wait_idle()
+{
+	if (shared_sender)
+		shared_sender->wait_idle(this);
+}
+
 void video_encoder::set_bitrate(uint32_t bitrate_bps)
 {
 	pending_bitrate = bitrate_bps * bitrate_multiplier;

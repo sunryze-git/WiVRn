@@ -286,10 +286,14 @@ static uint16_t align(uint16_t value, uint16_t alignment)
 
 std::array<encoder_settings, 3> get_encoder_settings(wivrn::vk_bundle & bundle, wivrn_session & session)
 {
+	return get_encoder_settings(bundle, session, session.get_info());
+}
+
+std::array<encoder_settings, 3> get_encoder_settings(wivrn::vk_bundle & bundle, wivrn_session & session, const from_headset::headset_info_packet & info)
+{
 	configuration config;
 
 	std::array<wivrn::encoder_settings, 3> res;
-	const auto & info = session.get_info();
 	const auto settings = *session.get_settings();
 
 	prober prober{bundle, info};

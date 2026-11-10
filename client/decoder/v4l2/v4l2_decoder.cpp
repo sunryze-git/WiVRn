@@ -247,6 +247,7 @@ decoder::decoder(vk::raii::Device & device,
         accumulator(accumulator),
         extent{description.width, description.height / (stream_index == 2 ? 2u : 1u)},
         codec_type(description.codec[stream_index]),
+        generation(description.generation),
         vk_queue_family_index(vk_queue_family_index)
 {
 	require_dmabuf_extensions();
@@ -865,6 +866,8 @@ void decoder::worker_loop(std::stop_token stop_token)
 		catch (const std::exception & e)
 		{
 			spdlog::error("V4L2 iris decoder worker failed: {}", e.what());
+			if (auto scene = weak_scene.lock())
+				scene->video_stream_failed(generation.load(), e.what());
 		}
 	}
 }
@@ -982,6 +985,7 @@ void decoder::abandon_assembling_frame()
 void decoder::frame_completed(const wivrn::from_headset::feedback & feedback,
                               const wivrn::to_headset::video_stream_data_shard::view_info_t & view_info)
 {
+	generation = feedback.generation;
 	rethrow_worker_exception();
 	if (dropped_frame_index && *dropped_frame_index == feedback.frame_index)
 	{

@@ -29,12 +29,14 @@
 #include "layer_squasher.h"
 #include "pacer.h"
 #include "utils/wivrn_vk_bundle.h"
+#include "video_stream_state.h"
 
 #include "main/comp_compositor.h"
 
 #include <array>
 #include <atomic>
 #include <memory>
+#include <shared_mutex>
 #include <thread>
 
 namespace wivrn
@@ -83,9 +85,14 @@ private:
 	vk::raii::CommandPool cmd_pool;
 	vk::raii::QueryPool query_pool;
 
-	std::array<encoder_settings, 3> settings;
-
-	std::array<image, 2> images;
+	struct stream_resources;
+	std::unique_ptr<stream_resources> video;
+	std::unique_ptr<stream_resources> previous_video;
+	std::optional<from_headset::headset_info_packet> pending_video_info;
+	mutable std::shared_mutex video_mutex;
+	video_stream_state video_state;
+	std::chrono::steady_clock::time_point video_change_deadline;
+	std::atomic<uint32_t> render_size;
 	vk::raii::CommandBuffer cmd;
 	vk::raii::Semaphore sem;
 	uint64_t sem_value = 0;
@@ -94,10 +101,7 @@ private:
 	std::atomic<float> frame_rate;
 	wivrn::pacer pacer;
 
-	layer_squasher squasher;
-	wivrn::foveation foveation;
-
-	std::array<std::unique_ptr<video_encoder>, 3> encoders;
+	std::array<XrVector2f, 2> foveation_angles{};
 
 #ifdef __cpp_lib_atomic_lock_free_type_aliases
 	using status_type = std::atomic_signed_lock_free;
@@ -161,6 +165,9 @@ private:
 	int acquire_image();
 
 	void encoder_work(std::stop_token);
+	void encode_image(int index);
+	void drain_video();
+	void restore_previous_stream();
 
 	void send_video_stream_description();
 
@@ -191,8 +198,12 @@ public:
 	void update_foveation(const from_headset::foveation &);
 
 	void resume();
+	void reconfigure(const from_headset::headset_info_packet &);
+	std::optional<from_headset::headset_info_packet> acknowledge_stream(const from_headset::video_stream_ready &);
+	void check_stream_timeout();
+	void describe_stream();
 
-	void on_feedback(const from_headset::feedback &, const clock_offset &);
+	std::optional<from_headset::headset_info_packet> on_feedback(const from_headset::feedback &, const clock_offset &);
 };
 
 } // namespace wivrn
