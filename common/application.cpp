@@ -142,7 +142,7 @@ std::optional<application> do_desktop_entry(const std::filesystem::path & filena
 		std::string_view line(bounds.begin(), bounds.end());
 		key_value item(line);
 		if (item.key == "Categories")
-			vr = contains(item.value, "X-Wyrm-VR");
+			vr = contains(item.value, "X-Wyrm-VR") or contains(item.value, "X-WiVRn-VR");
 	}
 	if (not vr)
 		return res;
