@@ -29,6 +29,7 @@
 #include "protocol_version.h"
 #include "render/animation.h"
 #include "render/scene_components.h"
+#include "server_list.h"
 #include "stream.h"
 #include "utils/files.h"
 #include "utils/glm_cast.h"
@@ -238,6 +239,7 @@ std::unique_ptr<wyrm_session> scenes::lobby::connect_to_session(wyrm_discover::s
 	// Only the automatically discovered servers already have their IP addresses available
 	if (manual_connection)
 	{
+		service.addresses.clear();
 		addrinfo hint{
 		        .ai_flags = AI_ADDRCONFIG,
 		        .ai_family = AF_UNSPEC,
@@ -366,58 +368,76 @@ void scenes::lobby::update_server_list()
 		discover.emplace();
 #endif
 
-	std::vector<wyrm_discover::service> discovered_services = discover->get_services();
-
-	// TODO: only if discovered_services changed
 	auto & servers = application::get_config().servers;
+	std::vector<wyrm_discover::service> manual;
 	for (auto & [cookie, data]: servers)
 	{
 		data.visible = false;
+		if (data.manual)
+		{
+			auto service = data.service;
+			service.txt["cookie"] = cookie;
+			manual.push_back(std::move(service));
+		}
 	}
-
-	char protocol_string[17];
-	sprintf(protocol_string, "%016lx", wyrm::protocol_version);
-
-	for (auto & service: discovered_services)
+	discover->set_manual_services(std::move(manual));
+	const auto discovered = discover->get_services();
+	const auto groups = wyrm::server_group_keys(servers, discovered);
+	const auto group_key = [&groups](const auto & service) {
+		const auto cookie = service.txt.find("cookie");
+		const std::string id = cookie == service.txt.end() ? service.hostname : cookie->second;
+		if (not service.manual)
+			if (auto group = groups.find(id); group != groups.end())
+				return group->second;
+		return id;
+	};
+	grouped_server_ids.clear();
+	for (const auto & service: discovered)
 	{
-		std::string cookie;
-		bool compatible = true;
-
-		auto it = service.txt.find("cookie");
-		if (it == service.txt.end())
+		if (service.manual)
+			continue;
+		const auto id = group_key(service);
+		if (const auto cookie = service.txt.find("cookie"); cookie != service.txt.end() and cookie->second != id)
+			grouped_server_ids.insert(cookie->second);
+		for (const auto & [key, saved]: servers)
+			if (saved.manual and key != id and wyrm::same_server_endpoint(saved.service, service))
+				grouped_server_ids.insert(key);
+	}
+	const auto protocol_string = fmt::format("{:016x}", wyrm::protocol_version);
+	for (const auto & service: discovered)
+	{
+		const auto cookie = service.txt.find("cookie");
+		const std::string id = group_key(service);
+		if (grouped_server_ids.contains(id))
+			continue;
+		if (service.manual and (not servers.contains(id) or not servers.at(id).manual))
+			continue;
+		const auto protocol = service.txt.find("protocol");
+		const bool compatible = service.manual or (cookie != service.txt.end() and protocol != service.txt.end() and protocol->second == protocol_string);
+		auto [it, inserted] = servers.try_emplace(id, configuration::server_data{.autoconnect = false, .manual = service.manual, .visible = false, .compatible = compatible, .service = service});
+		auto & data = it->second;
+		if (not data.visible)
+			data.service.addresses.clear();
+		if (not data.manual)
 		{
-			cookie = service.hostname;
-			compatible = false;
+			data.service.name = service.name;
+			data.service.hostname = service.hostname;
+			data.service.port = service.port;
 		}
-		else
-			cookie = it->second;
-
-		auto protocol = service.txt.find("protocol");
-		if (protocol == service.txt.end())
-			compatible = false;
-
-		if (protocol->second != protocol_string)
-			compatible = false;
-
-		auto server = servers.find(cookie);
-		if (server == servers.end())
+		if (not service.manual)
+			data.service.txt = service.txt;
+		data.visible = true;
+		data.compatible = compatible;
+		for (const auto & address: service.addresses)
 		{
-			// Newly discovered server: add it to the list
-			servers.emplace(
-			        cookie,
-			        configuration::server_data{
-			                .autoconnect = false,
-			                .manual = false,
-			                .visible = true,
-			                .compatible = compatible,
-			                .service = service,
-			        });
-		}
-		else
-		{
-			server->second.visible = true;
-			server->second.service = service;
-			server->second.compatible = compatible;
+			const auto endpoint = std::visit([](const auto & a) { return wyrm::describe_endpoint(reinterpret_cast<const sockaddr *>(&a)); }, address.address);
+			auto existing = std::ranges::find_if(data.service.addresses, [&](const auto & candidate) {
+				return candidate.interface == address.interface and endpoint == std::visit([](const auto & a) { return wyrm::describe_endpoint(reinterpret_cast<const sockaddr *>(&a)); }, candidate.address);
+			});
+			if (existing == data.service.addresses.end())
+				data.service.addresses.push_back(address);
+			else
+				*existing = address;
 		}
 	}
 }
@@ -425,6 +445,10 @@ void scenes::lobby::update_server_list()
 void scenes::lobby::connect(const configuration::server_data & data)
 {
 	server_name = data.service.name;
+	connecting_cookie.clear();
+	for (const auto & [cookie, server]: application::get_config().servers)
+		if (&server == &data)
+			connecting_cookie = cookie;
 	async_error.reset();
 
 	async_session = utils::async<std::unique_ptr<wyrm_session>, std::string>(
@@ -873,7 +897,27 @@ void scenes::lobby::render(const XrFrameState & frame_state)
 		{
 			auto session = async_session.get();
 			if (session)
+			{
+				auto & config = application::get_config();
+				if (not connecting_cookie.empty() and not session->server_id().empty() and session->server_id() != connecting_cookie)
+				{
+					auto node = config.servers.extract(connecting_cookie);
+					if (not node.empty())
+					{
+						node.key() = session->server_id();
+						node.mapped().service.txt["cookie"] = session->server_id();
+						if (auto existing = config.servers.find(node.key()); existing != config.servers.end())
+						{
+							node.mapped().autoconnect |= existing->second.autoconnect;
+							existing->second = std::move(node.mapped());
+						}
+						else
+							config.servers.insert(std::move(node));
+						config.save();
+					}
+				}
 				next_scene = stream::create(std::move(session), 1'000'000'000.f / frame_state.predictedDisplayPeriod, server_name, *this);
+			}
 
 			async_session.reset();
 		}

@@ -124,6 +124,14 @@ both directions. Usable paths share one streaming session. IPv4 and IPv6
 addresses between the same client and server interfaces are alternatives for
 one link.
 
+In the headset client's **Computers** screen, each computer has one card and one
+Connect button. Its reachable IP addresses appear on one line, with connected
+interfaces and approximate round-trip latency under **Links**. Interfaces without
+a successful probe are hidden. On Steam Frame, the regular network is labelled
+**Wi-Fi** and the direct connection is labelled **Dongle**.
+
+Manual and discovered entries for the same address share a card. After the first
+connection, automatic discovery continues to use the saved computer entry.
 Video traffic is distributed using per-path capacity estimates and frame
 deadlines. Tracking and audio take priority over queued video. Control messages
 are delivered reliably and in order over surviving paths. Missing video packets

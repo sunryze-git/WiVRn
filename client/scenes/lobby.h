@@ -35,6 +35,7 @@
 
 #include <compare>
 #include <optional>
+#include <set>
 #include <uni_algo/case.h>
 #include <vector>
 
@@ -50,6 +51,7 @@ class stream;
 class lobby : public scene_impl<lobby>
 {
 	std::optional<wyrm_discover> discover;
+	std::set<std::string> grouped_server_ids;
 
 	std::string add_server_window_prettyname;
 	std::string add_server_window_hostname;
@@ -62,6 +64,7 @@ class lobby : public scene_impl<lobby>
 	std::optional<std::string> async_error;
 	std::shared_ptr<stream> next_scene;
 	std::string server_name;
+	std::string connecting_cookie;
 	bool autoconnect_enabled = true;
 
 	// Last known uinput forwarding state of the connected server, kept after disconnection so the
