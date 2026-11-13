@@ -922,13 +922,14 @@ void decoder::drain_capture()
 		}
 		else
 		{
-			spdlog::warn("iris decoder returned CAPTURE buffer {} with V4L2_BUF_FLAG_ERROR", buf.index);
-			if (timestamp)
+			auto it = timestamp ? std::ranges::find(pending_frames, timestamp, &pending_frame::timestamp) : pending_frames.end();
+			if (it != pending_frames.end())
 			{
-				auto it = std::ranges::find(pending_frames, timestamp, &pending_frame::timestamp);
-				if (it != pending_frames.end())
-					pending_frames.erase(it);
+				spdlog::warn("iris decoder returned CAPTURE buffer {} with V4L2_BUF_FLAG_ERROR for frame {}", buf.index, it->feedback.frame_index);
+				pending_frames.erase(it);
 			}
+			else
+				spdlog::warn("iris decoder returned CAPTURE buffer {} with V4L2_BUF_FLAG_ERROR", buf.index);
 			queue_capture_buffer(buf.index);
 		}
 	}
