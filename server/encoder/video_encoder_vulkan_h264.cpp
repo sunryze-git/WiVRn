@@ -90,7 +90,8 @@ wyrm::video_encoder_vulkan_h264::video_encoder_vulkan_h264(
                                 .frame_mbs_only_flag = 1,
                                 .delta_pic_order_always_zero_flag = 1,
                                 .separate_colour_plane_flag = 0,
-                                .gaps_in_frame_num_value_allowed_flag = 0,
+                                // Frames lost in transit leave frame_num gaps; references only use acknowledged frames.
+                                .gaps_in_frame_num_value_allowed_flag = 1,
                                 .qpprime_y_zero_transform_bypass_flag = 0,
                                 .frame_cropping_flag = (extent.width % 16) || (extent.height) % 16,
                                 .seq_scaling_matrix_present_flag = 0,
