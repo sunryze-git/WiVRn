@@ -22,6 +22,8 @@
 #include "spdlog/spdlog.h"
 #include "xr/instance.h"
 
+#include <cstdlib>
+
 namespace wyrm
 {
 
@@ -160,6 +162,17 @@ void shard_accumulator::push_shard(video_stream_data_shard && shard)
 	}
 }
 
+void shard_accumulator::open_video_dump(const wyrm::to_headset::video_stream_description & description, uint8_t stream_index)
+{
+	const char * path = std::getenv("WYRM_DUMP_VIDEO");
+	if (not path)
+		return;
+	const std::string file = std::string(path) + "-g" + std::to_string(description.generation) + "-" + std::to_string(stream_index) + ".bin";
+	video_dump.open(file, std::ios::binary);
+	video_dump_index.open(file + ".idx");
+	spdlog::info("Dumping stream {} video to {}", stream_index, file);
+}
+
 void shard_accumulator::try_submit_frame(std::optional<uint16_t> shard_idx)
 {
 	if (shard_idx)
@@ -191,6 +204,14 @@ void shard_accumulator::try_submit_frame(uint16_t shard_idx)
 
 	if (not frame_complete)
 		return;
+
+	if (video_dump)
+	{
+		const auto offset = video_dump.tellp();
+		for (const auto & shard: data_shards)
+			video_dump.write(reinterpret_cast<const char *>(shard->payload.data()), shard->payload.size());
+		video_dump_index << current.frame_index() << ' ' << offset << ' ' << video_dump.tellp() - offset << '\n';
+	}
 
 	current.feedback.received_last_packet = instance.now();
 	current.feedback.sent_to_decoder = current.feedback.received_last_packet;

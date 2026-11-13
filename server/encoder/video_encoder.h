@@ -114,6 +114,8 @@ private:
 	uint64_t feedback_generation = 0, feedback_frame = 0;
 
 	std::ofstream video_dump;
+	std::ofstream video_dump_index; // "frame offset size" per encoded frame
+	std::streamoff video_dump_frame_start = 0;
 
 	std::shared_ptr<sender> shared_sender;
 

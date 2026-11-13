@@ -326,7 +326,7 @@ The log is located at `$XDG_STATE_HOME/xrizer/xrizer.txt`, or `$HOME/.local/stat
 
 | Variable | Description |
 |----------|-------------|
-| `WYRM_DUMP_VIDEO` | Path to dump video frames (e.g., `/tmp/video-dump`) |
+| `WYRM_DUMP_VIDEO` | Path to dump video frames (e.g., `/tmp/video-dump`); on the headset client it dumps complete frames as handed to the decoder. Each dump has a `.idx` file with `frame offset size` lines |
 | `WYRM_MULTILINK_INTERFACES` | Comma separated interface names that multi-link may use (e.g., `wlp9s0`); unset uses every interface |
 | `WYRM_LOGLEVEL` | Log level for the native client |
 | `WYRM_AUTOCONNECT` | Auto-connect to the first discovered server |

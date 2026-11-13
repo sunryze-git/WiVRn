@@ -182,6 +182,7 @@ std::unique_ptr<video_encoder> video_encoder::create(
 				break;
 		}
 		res->video_dump.open(file);
+		res->video_dump_index.open(file + ".idx");
 	}
 	return res;
 }
@@ -334,7 +335,13 @@ void video_encoder::SendData(std::span<uint8_t> data, bool end_of_frame, bool co
 			timing_info.encode_end = timing_info.send_end;
 	}
 	if (video_dump)
+	{
+		if (shard.shard_idx == 0)
+			video_dump_frame_start = video_dump.tellp();
 		video_dump.write((char *)data.data(), data.size());
+		if (end_of_frame)
+			video_dump_index << shard.frame_idx << ' ' << video_dump_frame_start << ' ' << video_dump.tellp() - video_dump_frame_start << '\n';
+	}
 
 	const ssize_t max_payload_size = to_headset::video_stream_data_shard::max_payload_size;
 
