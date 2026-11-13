@@ -137,6 +137,7 @@ private:
 
 	client_foveation::center foveation_center;
 	xr::swapchain swapchain;
+	uint64_t swapchain_generation = 0;
 
 	std::optional<audio> audio_handle;
 

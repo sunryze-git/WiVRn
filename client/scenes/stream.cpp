@@ -1425,7 +1425,7 @@ void scenes::stream::setup_reprojection_swapchain(uint32_t swapchain_width, uint
 	assert(swapchain_width);
 	assert(swapchain_height);
 	device.waitIdle();
-	spdlog::info("swapchain setup, refresh rate {}", video_stream_description->refresh_rate);
+	spdlog::info("swapchain setup {}x{}, foveation {}, refresh rate {}", swapchain_width, swapchain_height, foveation, video_stream_description->refresh_rate);
 	if (not refresh_rate_external)
 		session.set_refresh_rate(video_stream_description->refresh_rate);
 
@@ -1465,10 +1465,19 @@ void scenes::stream::setup_reprojection_swapchain(uint32_t swapchain_width, uint
 
 void scenes::stream::ensure_foveation_mode(bool cropped, uint32_t width, uint32_t height)
 {
+	// Foveation rounding moves the defoveated size by a pixel between frames, and rendering
+	// clamps to the swapchain, so within one stream generation the swapchain only grows.
+	const uint64_t generation = stream_generation;
+	if (swapchain and swapchain_generation == generation)
+	{
+		width = std::max<uint32_t>(width, swapchain.width());
+		height = std::max<uint32_t>(height, swapchain.height());
+	}
 	if (!swapchain or swapchain.width() != width or swapchain.height() != height or foveation_center.needs_swapchain_recreation(cropped))
 	{
 		setup_reprojection_swapchain(width, height, foveation_center.use_meta_swapchain(cropped));
 		foveation_center.on_swapchain_recreated(cropped);
+		swapchain_generation = generation;
 	}
 	else
 	{
