@@ -132,6 +132,9 @@ a successful probe are hidden. On Steam Frame, the regular network is labelled
 
 Manual and discovered entries for the same address share a card. After the first
 connection, automatic discovery continues to use the saved computer entry.
+**Statistics > Network links** shows connected interfaces and traffic rates
+during streaming.
+
 Video traffic is distributed using per-path capacity estimates and frame
 deadlines. Tracking and audio take priority over queued video. Control messages
 are delivered reliably and in order over surviving paths. Missing video packets

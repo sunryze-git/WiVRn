@@ -27,6 +27,7 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "implot.h"
+#include "network_interface.h"
 #include "render/ui_theme.h"
 #include "render/ui_widgets.h"
 #include "utils/i18n.h"
@@ -359,6 +360,164 @@ void scenes::stream::gui_performance_metrics()
 		else
 			ImGui::Text("%s", _S("Press both thumbsticks to display the Wyrm window"));
 	}
+}
+
+void scenes::stream::gui_network_links()
+{
+	if (not ImGui::CollapsingHeader(_S("Network links"), ImGuiTreeNodeFlags_DefaultOpen))
+		return;
+
+	const wyrm::ui::theme & t = wyrm::ui::current();
+	const auto links = network_session->links();
+	const auto server_report = *network_report.lock();
+	const auto report_age = server_report ? std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - server_report->received).count() : -1;
+	const bool report_fresh = report_age >= 0 and report_age <= 1500;
+	const auto now = instance.now();
+	double video_age_ms = -1;
+	for (const auto & frame: std::span(current_blit_handles).first<2>())
+		if (frame and frame->feedback.received_from_decoder)
+			video_age_ms = std::max(video_age_ms, (now - frame->feedback.received_from_decoder) / 1e6);
+	const auto active = server_report and not server_report->data.multilink ? 1 : std::ranges::count_if(links, [](const auto & link) { return link.active; });
+	const double tracking_age_ms = server_report and server_report->data.tracking_age_ms >= 0 ? server_report->data.tracking_age_ms : -1;
+
+	auto [health, health_style] =
+	        not active                                                           ? std::pair{_("Reconnecting"), wyrm::ui::chip_style::danger}
+	        : video_age_ms < 0                                                   ? std::pair{_("Waiting for video"), wyrm::ui::chip_style::muted}
+	        : not report_fresh                                                   ? std::pair{_("Waiting for server statistics"), wyrm::ui::chip_style::muted}
+	        : video_age_ms > 100 or tracking_age_ms < 0 or tracking_age_ms > 100 ? std::pair{_("Degraded"), wyrm::ui::chip_style::warning}
+	                                                                             : std::pair{_("Healthy"), wyrm::ui::chip_style::success};
+	wyrm::ui::chip(health, health_style, true);
+	if (report_fresh)
+	{
+		const auto & report = server_report->data;
+		ImGui::SameLine();
+		ImGui::AlignTextToFramePadding();
+		ImGui::PushStyleColor(ImGuiCol_Text, t.text_muted);
+		ImGui::TextUnformatted(fmt::format(_F("{:.0f} Mbit/s video, {:.1f}% of frames decoded"), report.effective_bitrate / 1e6, report.submitted_frames ? report.decoded_frames * 100.0 / report.submitted_frames : 100.0).c_str());
+		ImGui::PopStyleColor();
+	}
+
+	// One row per interface pair, preferring the active and busiest address family.
+	std::map<std::pair<std::string, std::string>, link_statistics> displayed;
+	for (const auto & link: links)
+	{
+		if (not link.ever_active or link.remote.interface.empty())
+			continue;
+		auto [it, inserted] = displayed.emplace(std::pair{link.local.interface, link.remote.interface}, link);
+		if (not inserted and (link.active > it->second.active or (link.active == it->second.active and link.received_bps + link.sent_bps > it->second.received_bps + it->second.sent_bps)))
+			it->second = link;
+	}
+	double total_download = 0;
+	for (const auto & [_, link]: displayed)
+		total_download += link.received_bps;
+
+	const auto right_aligned = [](const std::string & text) {
+		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(text.c_str()).x);
+		ImGui::TextUnformatted(text.c_str());
+	};
+
+	ImGui::Dummy({0, 6});
+	if (not displayed.empty() and ImGui::BeginTable("links", 5, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_PadOuterX))
+	{
+		ImGui::TableSetupColumn(_S("Link"), ImGuiTableColumnFlags_WidthStretch, 2.2f);
+		ImGui::TableSetupColumn(_S("Latency"), ImGuiTableColumnFlags_WidthStretch, 1.4f);
+		ImGui::TableSetupColumn(_S("Download"), ImGuiTableColumnFlags_WidthStretch, 1.4f);
+		ImGui::TableSetupColumn(_S("Share"), ImGuiTableColumnFlags_WidthStretch, 0.8f);
+		ImGui::TableSetupColumn(_S("Video gaps"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
+		ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+		ImGui::PushStyleColor(ImGuiCol_Text, t.text_muted);
+		for (int column = 0; column < 5; ++column)
+		{
+			ImGui::TableSetColumnIndex(column);
+			const char * name = ImGui::TableGetColumnName(column);
+			if (column == 0)
+				ImGui::TextUnformatted(name);
+			else
+				right_aligned(name);
+		}
+		ImGui::PopStyleColor();
+
+		for (const auto & [_, link]: displayed)
+		{
+			ImGui::TableNextRow(ImGuiTableRowFlags_None, ImGui::GetFrameHeight() * 1.2f);
+			ImGui::TableNextColumn();
+			ImGui::AlignTextToFramePadding();
+			ImGui::TextUnformatted(wyrm::interface_display_name(link.local.interface).c_str());
+			if (not link.active)
+			{
+				ImGui::SameLine();
+				wyrm::ui::chip(_("Reconnecting"), wyrm::ui::chip_style::warning);
+			}
+			ImGui::TableNextColumn();
+			ImGui::AlignTextToFramePadding();
+			right_aligned(fmt::format("{:.1f} ms", link.rtt_ms));
+			ImGui::TableNextColumn();
+			ImGui::AlignTextToFramePadding();
+			right_aligned(fmt::format("{:.1f} Mbit/s", link.received_bps / 1e6));
+			ImGui::TableNextColumn();
+			ImGui::AlignTextToFramePadding();
+			right_aligned(fmt::format("{:.0f}%", total_download ? link.received_bps * 100.0 / total_download : 0));
+			ImGui::TableNextColumn();
+			ImGui::AlignTextToFramePadding();
+			right_aligned(link.received_video_packets ? fmt::format("{:.2f}%", link.incoming_loss * 100) : std::string{"-"});
+		}
+		ImGui::EndTable();
+	}
+
+	if (not ImGui::TreeNode(_S("Details")))
+	{
+		ImGui::Dummy({0, 10});
+		return;
+	}
+	if (ImGui::BeginTable("details", 2, ImGuiTableFlags_SizingStretchProp))
+	{
+		const auto row = [&](const std::string & label, const std::string & value) {
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::PushStyleColor(ImGuiCol_Text, t.text_muted);
+			ImGui::TextUnformatted(label.c_str());
+			ImGui::PopStyleColor();
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(value.c_str());
+		};
+		if (video_age_ms >= 0)
+			row(_("Last decoded video"), fmt::format(_F("{:.1f} ms ago"), video_age_ms));
+		if (tracking_age_ms >= 0)
+			row(_("Tracking age on the server"), fmt::format("{:.1f} ms", tracking_age_ms));
+		if (report_fresh)
+		{
+			const auto & report = server_report->data;
+			row(_("Frames decoded"), fmt::format(_F("{} of {}, {} late"), report.decoded_frames, report.submitted_frames, report.late_frames));
+			row(_("Decode allowance"), fmt::format("{:.1f} ms", report.decode_budget_ms));
+			row(_("Expired video messages"), fmt::format("{}", report.expired_video));
+			row(_("Repair packets"), fmt::format("{}", report.repairs_sent));
+			row(_("Server queues"), fmt::format(_F("{} controls, {} bulk, {} keyframe shards, {:.1f} KiB"), report.reliable_messages, report.bulk_messages, report.protected_video_messages, report.queued_bytes / 1024.0));
+			row(_("Oldest queued control"), fmt::format("{:.1f} ms", report.oldest_control_ms));
+		}
+		for (const auto & [_, link]: displayed)
+		{
+			const auto name = wyrm::interface_display_name(link.local.interface);
+			row(fmt::format(_F("{}: jitter"), name), fmt::format("{:.1f} ms", link.jitter_ms));
+			row(fmt::format(_F("{}: upload"), name), fmt::format("{:.1f} Mbit/s", link.sent_bps / 1e6));
+			if (link.received_video_packets)
+				row(fmt::format(_F("{}: recovered fragments"), name), fmt::format("{}", link.recovered_fragments));
+			row(fmt::format(_F("{}: acknowledgement loss"), name), fmt::format("{:.2f}%", link.loss * 100));
+			if (report_fresh)
+				for (const auto & peer: server_report->data.links)
+					if (peer.local_interface == link.remote.interface and peer.remote_interface == link.local.interface)
+					{
+						row(fmt::format(_F("{}: server capacity estimate"), name), fmt::format("{:.1f} Mbit/s", peer.capacity_bps / 1e6));
+						row(fmt::format(_F("{}: server acknowledgement loss"), name), fmt::format("{:.2f}%", peer.acknowledgement_loss * 100));
+						break;
+					}
+		}
+		ImGui::EndTable();
+	}
+	ImGui::PushStyleColor(ImGuiCol_Text, t.text_muted);
+	ImGui::TextWrapped("%s", _S("Video gaps include packets still being reordered. Acknowledgement loss also counts missing return acknowledgements."));
+	ImGui::PopStyleColor();
+	ImGui::TreePop();
+	ImGui::Dummy({0, 10});
 }
 
 void scenes::stream::gui_compact_view()
@@ -873,9 +1032,11 @@ void scenes::stream::draw_gui(XrTime predicted_display_time, XrDuration predicte
 			ImGui::BeginChild("Main", ImVec2(ImGui::GetWindowSize().x - ImGui::GetCursorPosX() - content_margin, 0));
 			ImGui::SetCursorPosY(20);
 			wyrm::ui::page_header(_S("Statistics"), _S("Live streaming performance."));
-			ImGui::BeginChild("plots", {0, 0});
+			gui_network_links();
+			// Graphs size from the visible page and the page scrolls. A child window taller than
+			// the page would overlap another GUI layer's texture region and make it visible.
 			gui_performance_metrics();
-			ImGui::EndChild();
+			ScrollWhenDragging();
 			ImGui::EndChild();
 			ImGui::PopStyleVar();
 			break;
