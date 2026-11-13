@@ -112,6 +112,11 @@ private:
 	std::atomic<int64_t> decode_reserve_ns = 2'000'000;
 	std::atomic<uint64_t> submitted_frames = 0, decoded_frames = 0, late_frames = 0;
 	uint64_t feedback_generation = 0, feedback_frame = 0;
+	// Encode start to display time of recent frames, for WYRM_NETWORK_DIAGNOSTICS
+	mutable std::mutex latency_mutex;
+	std::vector<int64_t> latency_ns;
+	size_t latency_next = 0;
+	uint64_t latency_frame = 0;
 
 	std::ofstream video_dump;
 	std::ofstream video_dump_index; // "frame offset size" per encoded frame
@@ -126,6 +131,9 @@ protected:
 	const vk::Extent2D extent;
 
 public:
+	// Median and 95th percentile in milliseconds, zero without samples
+	std::pair<double, double> frame_latency_ms() const;
+
 	void network_statistics(to_headset::network_report & report) const
 	{
 		report.submitted_frames += submitted_frames.load();

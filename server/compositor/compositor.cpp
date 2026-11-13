@@ -846,6 +846,23 @@ void compositor::adapt_bitrate(uint64_t capacity_bps)
 		apply_bitrate(target);
 }
 
+std::pair<double, double> compositor::frame_latency_ms() const
+{
+	std::shared_lock lock(video_mutex);
+	std::pair<double, double> result;
+	for (size_t i = 0; i < std::min<size_t>(2, video->encoders.size()); ++i)
+	{
+		const auto [median, p95] = video->encoders[i]->frame_latency_ms();
+		result = {std::max(result.first, median), std::max(result.second, p95)};
+	}
+	return result;
+}
+
+double compositor::pacer_margin_ms() const
+{
+	return pacer.present_to_decoded_ns() / 1e6;
+}
+
 void compositor::network_statistics(to_headset::network_report & report) const
 {
 	std::shared_lock lock(video_mutex);

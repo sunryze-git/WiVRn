@@ -229,7 +229,37 @@ void video_encoder::on_feedback(const from_headset::feedback & feedback)
 				++late_frames;
 		}
 	}
+	if (feedback.encode_begin > 0 and feedback.displayed > feedback.encode_begin)
+	{
+		std::lock_guard lock(latency_mutex);
+		if (feedback.frame_index != latency_frame)
+		{
+			latency_frame = feedback.frame_index;
+			if (latency_ns.size() < 512)
+				latency_ns.push_back(feedback.displayed - feedback.encode_begin);
+			else
+				latency_ns[latency_next] = feedback.displayed - feedback.encode_begin;
+			latency_next = (latency_next + 1) % 512;
+		}
+	}
 	idr->on_feedback(feedback);
+}
+
+std::pair<double, double> video_encoder::frame_latency_ms() const
+{
+	std::vector<int64_t> samples;
+	{
+		std::lock_guard lock(latency_mutex);
+		samples = latency_ns;
+	}
+	if (samples.empty())
+		return {0, 0};
+	const auto percentile = [&](double p) {
+		auto it = samples.begin() + size_t(p * (samples.size() - 1));
+		std::ranges::nth_element(samples, it);
+		return *it / 1e6;
+	};
+	return {percentile(0.5), percentile(0.95)};
 }
 
 void video_encoder::reset()

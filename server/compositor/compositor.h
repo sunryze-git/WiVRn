@@ -205,6 +205,9 @@ public:
 	void set_bitrate(uint32_t);
 	void adapt_bitrate(uint64_t capacity_bps);
 	void network_statistics(to_headset::network_report &) const;
+	// Worst eye stream: median and 95th percentile encode start to display time
+	std::pair<double, double> frame_latency_ms() const;
+	double pacer_margin_ms() const;
 	void update_foveation(const from_headset::foveation &);
 
 	void resume();

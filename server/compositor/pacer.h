@@ -103,6 +103,9 @@ public:
 
 	frame_info present_to_info(int64_t present);
 
+	// Current present to decoded margin, for WYRM_NETWORK_DIAGNOSTICS
+	int64_t present_to_decoded_ns() const;
+
 	void reset();
 };
 } // namespace wyrm

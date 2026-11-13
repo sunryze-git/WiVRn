@@ -91,6 +91,12 @@ pacer::~pacer()
 	compute_cv.notify_all();
 }
 
+int64_t pacer::present_to_decoded_ns() const
+{
+	std::lock_guard lock(mutex);
+	return safe_present_to_decoded_ns;
+}
+
 uint64_t pacer::get_frame_duration() const
 {
 	std::lock_guard lock(mutex);

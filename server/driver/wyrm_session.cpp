@@ -1110,7 +1110,12 @@ void wyrm_session::run_net(std::stop_token stop)
 				if (const auto tracking = last_tracking_received.load())
 					report.tracking_age_ms = (os_monotonic_get_ns() - tracking) / 1e6;
 				if (std::getenv("WYRM_NETWORK_DIAGNOSTICS"))
-					U_LOG_I("Network: bitrate=%u submitted=%lu decoded=%lu late=%lu expired=%lu repairs=%lu control=%u bulk=%u queued=%lu decode_budget_ms=%.2f tracking_age_ms=%.2f", report.effective_bitrate, report.submitted_frames, report.decoded_frames, report.late_frames, report.expired_video, report.repairs_sent, report.reliable_messages, report.bulk_messages, report.queued_bytes, report.decode_budget_ms, report.tracking_age_ms);
+				{
+					const auto [latency_median, latency_p95] = compositor.frame_latency_ms();
+					U_LOG_I("Network: bitrate=%u submitted=%lu decoded=%lu late=%lu expired=%lu repairs=%lu control=%u bulk=%u queued=%lu decode_budget_ms=%.2f tracking_age_ms=%.2f latency_median_ms=%.2f latency_p95_ms=%.2f pacer_margin_ms=%.2f", report.effective_bitrate, report.submitted_frames, report.decoded_frames, report.late_frames, report.expired_video, report.repairs_sent, report.reliable_messages, report.bulk_messages, report.queued_bytes, report.decode_budget_ms, report.tracking_age_ms, latency_median, latency_p95, compositor.pacer_margin_ms());
+					for (const auto & link: report.links)
+						U_LOG_I("Network link: %s->%s capacity=%.1f sent=%.1f loss=%.3f", link.local_interface.c_str(), link.remote_interface.c_str(), link.capacity_bps / 1e6, link.sent_bps / 1e6, link.acknowledgement_loss);
+				}
 				send_stream(std::move(report));
 				last_bitrate_update = now;
 			}
