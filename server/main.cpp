@@ -36,6 +36,7 @@
 #include "driver/wyrm_connection.h"
 #include "exit_codes.h"
 #include "ipc_server_cb.h"
+#include "link_probe.h"
 #include "protocol_version.h"
 #include "start_application.h"
 #include "start_systemd_unit.h"
@@ -223,6 +224,7 @@ bool show_debug_gui;
 wyrm::service_publication publication;
 
 guint listener_watch;
+std::unique_ptr<wyrm::link_probe_responder> probe_responder;
 
 wyrm_connection::encryption_state enc_state = wyrm_connection::encryption_state::enabled;
 guint pairing_timeout;
@@ -267,15 +269,20 @@ void update_fsm();
 
 void start_server(configuration config)
 {
+	if (do_fork)
+		connection->prepare_fork();
 	server_pid = do_fork ? fork() : 0;
 
 	if (server_pid < 0)
 	{
+		connection->resume_after_fork();
 		perror("fork");
 		g_main_loop_quit(main_loop);
 	}
 	else if (server_pid == 0)
 	{
+		if (do_fork)
+			connection->resume_after_fork();
 		if (do_fork and discord)
 			discord->after_fork_child();
 		if (do_fork)
@@ -358,6 +365,7 @@ void start_listening()
 	assert(listener_watch == 0);
 
 	listener = std::make_unique<TCPListener>(configuration().port);
+	probe_responder = std::make_unique<wyrm::link_probe_responder>(configuration().port);
 	auto source_listener = g_unix_fd_source_new(listener->get_fd(), GIOCondition::G_IO_IN);
 	g_source_set_callback(source_listener, G_SOURCE_FUNC(&headset_connected), nullptr, nullptr);
 	listener_watch = g_source_attach(source_listener, nullptr);
@@ -366,6 +374,7 @@ void start_listening()
 
 void stop_listening()
 {
+	probe_responder.reset();
 	if (!listener)
 		return;
 

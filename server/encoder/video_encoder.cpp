@@ -215,6 +215,19 @@ video_encoder::~video_encoder()
 void video_encoder::on_feedback(const from_headset::feedback & feedback)
 {
 	assert(feedback.stream_index == stream_idx);
+	if (feedback.received_last_packet > 0 and feedback.received_from_decoder > feedback.received_last_packet)
+	{
+		std::lock_guard lock(feedback_mutex);
+		decode_reserve_ns = decode_timing.observe(feedback.generation, feedback.frame_index, feedback.received_from_decoder - feedback.received_last_packet);
+		if (not decoded_frames.load() or feedback.generation != feedback_generation or feedback.frame_index > feedback_frame)
+		{
+			feedback_generation = feedback.generation;
+			feedback_frame = feedback.frame_index;
+			++decoded_frames;
+			if (feedback.display_deadline > 0 and feedback.received_from_decoder > feedback.display_deadline)
+				++late_frames;
+		}
+	}
 	idr->on_feedback(feedback);
 }
 
@@ -277,7 +290,11 @@ void video_encoder::encode(wyrm_session & cnx,
 	if (shared_sender)
 		shared_sender->wait_idle(this);
 	this->cnx = &cnx;
+	++submitted_frames;
 	clock = cnx.get_offset();
+	network_deadline = clock and view_info.display_time > 0
+	                           ? std::chrono::steady_clock::time_point(std::chrono::nanoseconds(clock.from_headset(view_info.display_time))) - std::chrono::nanoseconds(decode_reserve_ns.load())
+	                           : std::chrono::steady_clock::now() + std::chrono::milliseconds(25);
 
 	wyrm::trace::scope trace_encode(wyrm::trace::cpu_track::encoder, stream_idx, frame_index, "encode");
 	auto encode_begin = os_monotonic_get_ns();
@@ -348,10 +365,7 @@ void video_encoder::SendData(std::span<uint8_t> data, bool end_of_frame, bool co
 		}
 		try
 		{
-			if (control)
-				cnx->send_control(to_headset::video_stream_data_shard{shard});
-			else
-				cnx->send_stream(to_headset::video_stream_data_shard{shard});
+			cnx->send_stream(to_headset::video_stream_data_shard{shard}, network_deadline, control);
 		}
 		catch (...)
 		{

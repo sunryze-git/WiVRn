@@ -207,6 +207,7 @@ void shard_accumulator::try_submit_frame(uint16_t shard_idx)
 	}
 
 	// Try to extract a frame
+	current.feedback.display_deadline = data_shards.front()->view_info->display_time;
 	decoder_->frame_completed(current.feedback, *data_shards.front()->view_info);
 
 	send_feedback(current.feedback);

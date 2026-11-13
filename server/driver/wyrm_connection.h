@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "multilink.h"
 #include "wyrm_ipc.h"
 #include "wyrm_packets.h"
 #include "wyrm_sockets.h"
@@ -50,7 +51,7 @@ public:
 
 private:
 	typed_socket<TCP, from_headset::packets, to_headset::packets> control;
-	typed_socket<UDP, from_headset::packets, to_headset::packets> stream;
+	typed_socket<multilink, from_headset::packets, to_headset::packets> stream;
 	std::atomic<bool> active = false;
 	std::string pin;
 	encryption_state state;
@@ -66,7 +67,12 @@ public:
 
 	bool has_stream() const
 	{
-		return stream;
+		return bool(stream);
+	}
+
+	uint64_t capacity_bps() const
+	{
+		return stream.capacity_bps();
 	}
 
 	bool is_active()
@@ -75,6 +81,14 @@ public:
 	}
 	void reset(std::stop_token stop, TCP && tcp, std::function<void()> tick = {});
 	void shutdown();
+	void prepare_fork()
+	{
+		stream.prepare_fork();
+	}
+	void resume_after_fork()
+	{
+		stream.resume_after_fork();
+	}
 
 	template <typename T>
 	void send_control(T && packet)
@@ -82,7 +96,19 @@ public:
 		try
 		{
 			if (active)
-				control.send(std::forward<T>(packet));
+			{
+				if (stream)
+				{
+					if constexpr (std::is_same_v<std::decay_t<T>, to_headset::video_stream_data_shard>)
+						stream.send_protected_video(std::forward<T>(packet), std::chrono::steady_clock::now() + std::chrono::milliseconds(25));
+					else if constexpr (std::is_same_v<std::decay_t<T>, to_headset::application_icon>)
+						stream.send_bulk(std::forward<T>(packet));
+					else
+						stream.send_reliable(std::forward<T>(packet));
+				}
+				else
+					control.send(std::forward<T>(packet));
+			}
 		}
 		catch (...)
 		{
@@ -91,15 +117,40 @@ public:
 		}
 	}
 
+	to_headset::network_report network_statistics() const
+	{
+		to_headset::network_report result{.multilink = bool(stream)};
+		const auto queued = stream.diagnostics();
+		result.expired_video = queued.expired_video;
+		result.queued_bytes = queued.queued_bytes;
+		result.reliable_messages = queued.reliable_messages;
+		result.bulk_messages = queued.bulk_messages;
+		result.protected_video_messages = queued.protected_video_messages;
+		result.rejected_video = queued.rejected_video;
+		result.oldest_control_ms = queued.oldest_control_ms;
+		for (const auto & link: stream.statistics())
+		{
+			result.repairs_sent += link.repairs_sent;
+			if (link.ever_active)
+				result.links.push_back({link.local.interface, link.remote.interface, link.capacity_bps, link.sent_bps, float(link.loss)});
+		}
+		return result;
+	}
+
 	template <typename T>
-	void send_stream(T && packet)
+	void send_stream(T && packet, std::chrono::steady_clock::time_point deadline = {}, bool protect = false)
 	{
 		try
 		{
 			if (active)
 			{
 				if (stream)
-					stream.send(std::forward<T>(packet));
+				{
+					if constexpr (std::is_same_v<std::decay_t<T>, to_headset::video_stream_data_shard>)
+						stream.send_video(std::forward<T>(packet), deadline, protect);
+					else
+						stream.send(std::forward<T>(packet));
+				}
 				else
 					control.send(std::forward<T>(packet));
 			}
@@ -125,13 +176,13 @@ public:
 		fds[0].events = POLLIN;
 		fds[0].fd = stream.get_fd();
 		fds[1].events = POLLIN;
-		fds[1].fd = control.get_fd();
+		fds[1].fd = stream ? -1 : control.get_fd();
 		fds[2].fd = wyrm_ipc_socket_monado->get_fd();
 		fds[2].events = POLLIN;
 
 		while (auto packet = stream.receive_pending())
 			std::visit(std::forward<T>(visitor), std::move(*packet));
-		while (auto packet = control.receive_pending())
+		while (auto packet = stream ? std::nullopt : control.receive_pending())
 			std::visit(std::forward<T>(visitor), std::move(*packet));
 
 		int r = ::poll(fds, std::size(fds), timeout);

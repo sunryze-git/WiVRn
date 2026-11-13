@@ -20,6 +20,7 @@
 // Copyright 2025-2026, NVIDIA CORPORATION.
 
 #include "compositor.h"
+#include "adaptive_bitrate.h"
 #include <cmath>
 
 // Monado includes
@@ -830,6 +831,32 @@ void compositor::set_bitrate(uint32_t bitrate)
 		return;
 	std::unique_lock video_lock(video_mutex);
 	requested_bitrate = bitrate;
+	apply_bitrate(bitrate);
+}
+
+void compositor::adapt_bitrate(uint64_t capacity_bps)
+{
+	if (not capacity_bps)
+		return;
+	std::unique_lock video_lock(video_mutex);
+	const uint32_t desired = requested_bitrate.value_or(session.get_settings()->bitrate_bps);
+	const uint32_t current = effective_bitrate.value_or(desired);
+	const auto target = adapted_video_bitrate(desired, current, capacity_bps);
+	if (target != current)
+		apply_bitrate(target);
+}
+
+void compositor::network_statistics(to_headset::network_report & report) const
+{
+	std::shared_lock lock(video_mutex);
+	report.effective_bitrate = effective_bitrate.value_or(requested_bitrate.value_or(0));
+	for (const auto & encoder: video->encoders)
+		encoder->network_statistics(report);
+}
+
+void compositor::apply_bitrate(uint32_t bitrate)
+{
+	effective_bitrate = bitrate;
 	session.set_video_bitrate(bitrate);
 	for (size_t i = 0; i < video->encoders.size(); ++i)
 	{
@@ -974,8 +1001,8 @@ void compositor::reconfigure(const from_headset::headset_info_packet & info)
 	for (auto & encoder: settings)
 	{
 		encoder.fps = frame_rate;
-		if (requested_bitrate)
-			encoder.bitrate = *requested_bitrate * encoder.bitrate_multiplier;
+		if (effective_bitrate or requested_bitrate)
+			encoder.bitrate = effective_bitrate.value_or(requested_bitrate.value_or(0)) * encoder.bitrate_multiplier;
 	}
 	const auto extent = render_extent(info);
 	const bool unchanged = extent == video->render_extent and std::ranges::equal(settings, video->settings, [](const auto & a, const auto & b) {
@@ -1051,7 +1078,7 @@ void compositor::restore_previous_stream()
 		encoder->set_generation(video_state.generation());
 		if (video->settings[encoder->stream_idx].encoder_name != encoder_vaapi)
 		{
-			const auto bitrate = requested_bitrate.value_or(settings.bitrate_bps);
+			const auto bitrate = effective_bitrate.value_or(requested_bitrate.value_or(settings.bitrate_bps));
 			encoder->set_bitrate(bitrate);
 			encoder->set_framerate(frame_rate);
 			video->settings[encoder->stream_idx].bitrate = bitrate * encoder->bitrate_multiplier;
@@ -1075,8 +1102,8 @@ void compositor::check_stream_timeout()
 			for (auto & encoder: settings)
 			{
 				encoder.fps = frame_rate;
-				if (requested_bitrate)
-					encoder.bitrate = *requested_bitrate * encoder.bitrate_multiplier;
+				if (effective_bitrate or requested_bitrate)
+					encoder.bitrate = effective_bitrate.value_or(requested_bitrate.value_or(0)) * encoder.bitrate_multiplier;
 			}
 			drain_video();
 			replace_video(std::move(settings), video->render_extent);

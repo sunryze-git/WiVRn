@@ -78,6 +78,12 @@ private:
 	std::array<std::shared_ptr<wyrm::shard_accumulator::blit_handle>, decoder_count> common_frame(XrTime display_time);
 
 	std::unique_ptr<wyrm_session> network_session;
+	struct connection_report
+	{
+		to_headset::network_report data;
+		std::chrono::steady_clock::time_point received;
+	};
+	thread_safe<std::optional<connection_report>> network_report;
 	std::thread network_thread;
 	thread_safe<to_headset::tracking_control> tracking_control{};
 	std::array<std::atomic<interaction_profile>, 3> interaction_profiles; // left hand, right hand, gamepad
@@ -252,6 +258,7 @@ public:
 	void operator()(to_headset::refresh_rate_change &&);
 	void operator()(to_headset::stream_tab_change &&);
 	void operator()(to_headset::application_list &&);
+	void operator()(to_headset::network_report &&);
 	void operator()(to_headset::application_icon &&);
 	void operator()(to_headset::running_applications &&);
 	void operator()(audio_data &&);

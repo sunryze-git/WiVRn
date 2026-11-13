@@ -107,13 +107,39 @@ budget, with an 8 KiB burst allowance. Both eyes, alpha, UDP frames and TCP
 keyframes share the budget. Video is fragmented into small shards on both
 transports. Audio and other control traffic do not consume this budget.
 
-This smooths bursts; it does not measure available Wi-Fi capacity or adapt the
-encoder bitrate to congestion. Leave room for keyframes, protocol overhead and
-other traffic. Constant-QP NVENC output is variable and may exceed this budget.
+This smooths bursts. Multi-link sessions also use per-path pacing and congestion
+feedback to adjust the encoder bitrate. Leave room for keyframes, protocol
+overhead and other traffic. Constant-QP NVENC output is variable and may exceed
+this budget.
 Lost keyframes or acknowledgments are retried after 200 ms, including with the
 Vulkan encoder. Terminal decoder failures trigger at most three fresh decoder
 attempts per 30 seconds, then display an error; changing codec or resolution can
 initiate another handoff.
+
+## Multiple network links
+
+With `tcp-only` disabled, Wyrm automatically tests paths over the available IP interfaces.
+After pairing, the client and server exchange endpoints and validate paths in
+both directions. Usable paths share one streaming session. IPv4 and IPv6
+addresses between the same client and server interfaces are alternatives for
+one link.
+
+Video traffic is distributed using per-path capacity estimates and frame
+deadlines. Tracking and audio take priority over queued video. Control messages
+are delivered reliably and in order over surviving paths. Missing video packets
+can be repaired over another path when time remains before their deadline.
+
+The encoder bitrate decreases when estimated capacity cannot sustain the
+requested rate and increases toward that rate as capacity recovers. The requested
+bitrate remains the target. Links can share a radio or another bottleneck, so
+adding interfaces does not guarantee additional capacity. When interfaces share
+one radio, as on Steam Frame, only the lowest latency one carries traffic and the
+others are kept for failover.
+
+Build both client and server from the same revision. Interfaces must be exposed to the
+application by the operating system. `tcp-only` retains a single TCP connection;
+ADB TCP forwarding is not an additional UDP path. For USB to participate in
+multi-link streaming, it must provide an IP network interface.
 
 ## `quad-views`
 
@@ -230,6 +256,7 @@ Default value: `false`
 
 Only use TCP for communications with the client, this may have increased latency.
 If `false` or unset, Wyrm will use both TCP and UDP.
+Setting this to `true` disables [multi-link streaming](#multiple-network-links).
 
 ### Example
 ```json

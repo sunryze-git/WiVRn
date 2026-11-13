@@ -18,6 +18,7 @@
 
 #include "application.h"
 #include "jni.h"
+#include "network.h"
 
 #include <atomic>
 #include <spdlog/spdlog.h>
@@ -38,6 +39,24 @@ extern "C" void Java_org_wyrmvr_wyrm_NetworkInfoCallback_onCapabilitiesChanged(J
 }
 extern "C" void Java_org_wyrmvr_wyrm_NetworkInfoCallback_onLinkPropertiesChanged(JNIEnv * env, jobject instance, jobject network, jobject jprops)
 {
+	auto props_class = env->GetObjectClass(jprops);
+	auto name_method = env->GetMethodID(props_class, "getInterfaceName", "()Ljava/lang/String;");
+	auto name = static_cast<jstring>(env->CallObjectMethod(jprops, name_method));
+	auto network_class = env->GetObjectClass(network);
+	auto handle_method = env->GetMethodID(network_class, "getNetworkHandle", "()J");
+	const auto handle = env->CallLongMethod(network, handle_method);
+	if (name and not env->ExceptionCheck())
+	{
+		if (const char * interface = env->GetStringUTFChars(name, nullptr))
+		{
+			wyrm::set_network_handle(interface, handle);
+			env->ReleaseStringUTFChars(name, interface);
+		}
+	}
+	if (name)
+		env->DeleteLocalRef(name);
+	env->DeleteLocalRef(network_class);
+	env->DeleteLocalRef(props_class);
 	link_properties_changed = true;
 }
 extern "C" void Java_org_wyrmvr_wyrm_NetworkInfoCallback_onLosing(JNIEnv * env, jobject instance, jobject network, jint ms)
@@ -46,6 +65,12 @@ extern "C" void Java_org_wyrmvr_wyrm_NetworkInfoCallback_onLosing(JNIEnv * env, 
 }
 extern "C" void Java_org_wyrmvr_wyrm_NetworkInfoCallback_onLost(JNIEnv * env, jobject instance, jobject network)
 {
+	auto network_class = env->GetObjectClass(network);
+	auto handle_method = env->GetMethodID(network_class, "getNetworkHandle", "()J");
+	const auto handle = env->CallLongMethod(network, handle_method);
+	if (not env->ExceptionCheck())
+		wyrm::remove_network_handle(handle);
+	env->DeleteLocalRef(network_class);
 	spdlog::info("NetworkInfoCallback_onLost");
 	link_properties_changed = true;
 }

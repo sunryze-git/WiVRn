@@ -1322,7 +1322,7 @@ void scenes::stream::render(const XrFrameState & frame_state)
 		{
 			try
 			{
-				network_session->send_control(std::span(packets));
+				network_session->send_stream(std::span(packets));
 			}
 			catch (std::exception & e)
 			{

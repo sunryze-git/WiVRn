@@ -608,6 +608,7 @@ static xrt_device_name get_name(interaction_profile profile)
 
 void wyrm_session::operator()(const from_headset::tracking & tracking)
 {
+	last_tracking_received = os_monotonic_get_ns();
 	if (gamepad_device)
 	{
 		gamepad_connected = tracking.interaction_profiles[2] != interaction_profile::none;
@@ -1094,11 +1095,25 @@ struct refresh_rate_adjuster
 void wyrm_session::run_net(std::stop_token stop)
 {
 	resume_session();
+	auto last_bitrate_update = std::chrono::steady_clock::now();
 	while (not stop.stop_requested())
 	{
 		try
 		{
 			connection->poll(*this, 20);
+			const auto now = std::chrono::steady_clock::now();
+			if (now - last_bitrate_update >= std::chrono::milliseconds(500))
+			{
+				compositor.adapt_bitrate(connection->capacity_bps());
+				auto report = connection->network_statistics();
+				compositor.network_statistics(report);
+				if (const auto tracking = last_tracking_received.load())
+					report.tracking_age_ms = (os_monotonic_get_ns() - tracking) / 1e6;
+				if (std::getenv("WYRM_NETWORK_DIAGNOSTICS"))
+					U_LOG_I("Network: bitrate=%u submitted=%lu decoded=%lu late=%lu expired=%lu repairs=%lu control=%u bulk=%u queued=%lu decode_budget_ms=%.2f tracking_age_ms=%.2f", report.effective_bitrate, report.submitted_frames, report.decoded_frames, report.late_frames, report.expired_video, report.repairs_sent, report.reliable_messages, report.bulk_messages, report.queued_bytes, report.decode_budget_ms, report.tracking_age_ms);
+				send_stream(std::move(report));
+				last_bitrate_update = now;
+			}
 
 			if (uinput_handler)
 			{

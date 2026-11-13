@@ -20,6 +20,7 @@
 #pragma once
 
 #include "crypto.h"
+#include "multilink.h"
 #include "wyrm_packets.h"
 #include "wyrm_sockets.h"
 #include <chrono>
@@ -40,12 +41,13 @@ class wyrm_session
 {
 public:
 	using control_socket_t = typed_socket<TCP, to_headset::packets, from_headset::packets>;
-	using stream_socket_t = typed_socket<UDP, to_headset::packets, from_headset::packets>;
+	using stream_socket_t = typed_socket<multilink, to_headset::packets, from_headset::packets>;
 
 private:
 	control_socket_t control;
 	stream_socket_t stream;
 
+	std::string server_id_;
 	std::atomic<uint64_t> bytes_sent_ = 0;
 	std::atomic<uint64_t> bytes_received_ = 0;
 
@@ -63,7 +65,10 @@ public:
 	template <typename T>
 	void send_control(T && packet)
 	{
-		bytes_sent_ += control.send(std::forward<T>(packet));
+		if (stream)
+			bytes_sent_ += stream.send_reliable(std::forward<T>(packet));
+		else
+			bytes_sent_ += control.send(std::forward<T>(packet));
 	}
 
 	template <typename T>
@@ -76,17 +81,26 @@ public:
 	}
 
 	template <typename T>
+	void send_stream_reply(T && packet)
+	{
+		if (stream)
+			bytes_sent_ += stream.send_reply(std::forward<T>(packet));
+		else
+			bytes_sent_ += control.send(std::forward<T>(packet));
+	}
+
+	template <typename T>
 	int poll(T && visitor, std::chrono::milliseconds timeout)
 	{
 		pollfd fds[2] = {};
 		fds[0].events = POLLIN;
 		fds[0].fd = stream.get_fd();
 		fds[1].events = POLLIN;
-		fds[1].fd = control.get_fd();
+		fds[1].fd = stream ? -1 : control.get_fd();
 
 		while (auto packet = stream.receive_pending(&bytes_received_))
 			std::visit(std::forward<T>(visitor), std::move(*packet));
-		while (auto packet = control.receive_pending(&bytes_received_))
+		while (auto packet = stream ? std::nullopt : control.receive_pending(&bytes_received_))
 			std::visit(std::forward<T>(visitor), std::move(*packet));
 
 		int r = ::poll(fds, std::size(fds), timeout.count());
@@ -116,6 +130,19 @@ public:
 		}
 
 		return r;
+	}
+
+	const std::string & server_id() const
+	{
+		return server_id_;
+	}
+	std::vector<link_statistics> links() const
+	{
+		return stream.statistics();
+	}
+	multilink_diagnostics network_diagnostics() const
+	{
+		return stream.diagnostics();
 	}
 
 	uint64_t bytes_received() const

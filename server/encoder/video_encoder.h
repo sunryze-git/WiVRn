@@ -23,6 +23,8 @@
 #include "idr_handler.h"
 #include "wyrm_packets.h"
 
+#include "decode_budget.h"
+#include <algorithm>
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
@@ -54,7 +56,7 @@ protected:
 		video_encoder * encoder;
 		std::span<uint8_t> span;
 		std::shared_ptr<void> mem;
-		// true if data should be sent over reliable (TCP) socket
+		// Keyframes receive reliable delivery on a separate channel.
 		bool prefer_control = false;
 	};
 
@@ -104,6 +106,12 @@ private:
 
 	to_headset::video_stream_data_shard::timing_info_t timing_info;
 	clock_offset clock;
+	std::chrono::steady_clock::time_point network_deadline;
+	std::mutex feedback_mutex;
+	decode_budget decode_timing;
+	std::atomic<int64_t> decode_reserve_ns = 2'000'000;
+	std::atomic<uint64_t> submitted_frames = 0, decoded_frames = 0, late_frames = 0;
+	uint64_t feedback_generation = 0, feedback_frame = 0;
 
 	std::ofstream video_dump;
 
@@ -116,6 +124,13 @@ protected:
 	const vk::Extent2D extent;
 
 public:
+	void network_statistics(to_headset::network_report & report) const
+	{
+		report.submitted_frames += submitted_frames.load();
+		report.decoded_frames += decoded_frames.load();
+		report.late_frames += late_frames.load();
+		report.decode_budget_ms = std::max(report.decode_budget_ms, float(decode_reserve_ns.load() / 1e6));
+	}
 	static std::unique_ptr<video_encoder> create(
 	        wyrm::vk_bundle &,
 	        const encoder_settings & settings,

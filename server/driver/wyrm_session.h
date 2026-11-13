@@ -157,6 +157,7 @@ public:
 	{
 		video_pacer.pace(bytes);
 	}
+	std::atomic<int64_t> last_tracking_received = 0;
 	const from_headset::headset_info_packet & get_info() const
 	{
 		return headset_info;
@@ -219,11 +220,11 @@ public:
 		return connection->has_stream();
 	}
 	template <typename T>
-	void send_stream(T && packet)
+	void send_stream(T && packet, std::chrono::steady_clock::time_point deadline = {}, bool protect = false)
 	{
 		try
 		{
-			connection->send_stream(std::forward<T>(packet));
+			connection->send_stream(std::forward<T>(packet), deadline, protect);
 		}
 		catch (std::exception & e)
 		{

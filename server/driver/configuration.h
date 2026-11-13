@@ -61,6 +61,9 @@ struct configuration
 	std::optional<float> lh_stick_deadzone;
 	bool hid_forwarding = false;
 	bool tcp_only = false;
+	bool multilink_fec = false;
+	bool multilink_shared_bottleneck = false;
+	uint64_t multilink_rate_limit = 0;
 	bool quad_views = true;
 	bool discord_rich_presence = true;
 	std::string discord_application_id;

@@ -33,6 +33,7 @@
 #include <vector>
 #include <openxr/openxr.h>
 
+#include "network.h"
 #include "packed_quaternion.h"
 #include "smp.h"
 #include "wyrm_serialization_types.h"
@@ -673,6 +674,7 @@ struct feedback
 	XrTime received_from_decoder;
 	XrTime blitted;
 	XrTime displayed;
+	XrTime display_deadline = 0;
 
 	uint8_t times_displayed;
 };
@@ -798,6 +800,10 @@ struct handshake
 {
 	// -1 if stream socket should not be used
 	int stream_port;
+	std::array<uint8_t, 32> multilink_key{};
+	uint8_t multilink_version = 2;
+	std::vector<network_endpoint> endpoints;
+	std::string server_id;
 };
 
 struct server_message
@@ -968,6 +974,34 @@ struct application_icon
 	std::vector<std::byte> image; // In PNG
 };
 
+struct network_report
+{
+	struct link
+	{
+		std::string local_interface;
+		std::string remote_interface;
+		uint64_t capacity_bps = 0;
+		uint64_t sent_bps = 0;
+		float acknowledgement_loss = 0;
+	};
+	bool multilink = false;
+	uint32_t effective_bitrate = 0;
+	uint64_t submitted_frames = 0;
+	uint64_t decoded_frames = 0;
+	uint64_t late_frames = 0;
+	float decode_budget_ms = 0;
+	uint64_t expired_video = 0;
+	uint64_t repairs_sent = 0;
+	uint64_t queued_bytes = 0;
+	uint32_t reliable_messages = 0;
+	uint32_t bulk_messages = 0;
+	uint32_t protected_video_messages = 0;
+	uint64_t rejected_video = 0;
+	float oldest_control_ms = 0;
+	float tracking_age_ms = -1;
+	std::vector<link> links;
+};
+
 struct running_applications
 {
 	struct application
@@ -998,7 +1032,8 @@ using packets = std::variant<
         stream_tab_change,
         application_list,
         application_icon,
-        running_applications>;
+        running_applications,
+        network_report>;
 } // namespace to_headset
 } // namespace wyrm
 

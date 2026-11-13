@@ -174,6 +174,8 @@ private:
 	bool decoder_failed = false;
 	decoder_recovery_budget decoder_recovery;
 	std::optional<uint32_t> requested_bitrate;
+	std::optional<uint32_t> effective_bitrate;
+	void apply_bitrate(uint32_t);
 
 	void send_video_stream_description();
 
@@ -201,6 +203,8 @@ public:
 	void set_framerate(float hz);
 
 	void set_bitrate(uint32_t);
+	void adapt_bitrate(uint64_t capacity_bps);
+	void network_statistics(to_headset::network_report &) const;
 	void update_foveation(const from_headset::foveation &);
 
 	void resume();

@@ -9,6 +9,25 @@ endif()
 configure_file(wyrm_config.h.in wyrm_config.h)
 
 if(WYRM_BUILD_TEST)
+    add_executable(test-link-policy test_link_policy.cpp)
+    target_link_libraries(test-link-policy PRIVATE wyrm-common)
+    add_test(NAME link-policy COMMAND test-link-policy)
+    add_executable(benchmark-multilink benchmark_multilink.cpp)
+    target_link_libraries(benchmark-multilink PRIVATE wyrm-common)
+    add_test(NAME multilink-backlog COMMAND benchmark-multilink backlog multi 1 --verify)
+    add_test(NAME multilink-backlog-video COMMAND benchmark-multilink backlog video 1 --verify)
+    set_tests_properties(multilink-backlog multilink-backlog-video PROPERTIES TIMEOUT 20)
+    set(WYRM_MULTILINK_BASELINE_SOURCE "" CACHE FILEPATH "Transport source snapshot for comparison benchmarks")
+    if(WYRM_MULTILINK_BASELINE_SOURCE)
+        get_filename_component(WYRM_MULTILINK_BASELINE_DIR ${WYRM_MULTILINK_BASELINE_SOURCE} DIRECTORY)
+        add_executable(benchmark-multilink-baseline benchmark_multilink.cpp ${WYRM_MULTILINK_BASELINE_SOURCE})
+        target_compile_definitions(benchmark-multilink-baseline PRIVATE WYRM_BENCH_BASELINE WYRM_BENCH_BASELINE_HEADER="${WYRM_MULTILINK_BASELINE_DIR}/multilink.h")
+        target_link_libraries(benchmark-multilink-baseline PRIVATE wyrm-common)
+    endif()
+    add_executable(test-multilink test_multilink.cpp)
+    target_link_libraries(test-multilink PRIVATE wyrm-common)
+    add_test(NAME multilink COMMAND test-multilink)
+    set_tests_properties(multilink PROPERTIES TIMEOUT 45)
     add_executable(test-stream-features test_stream_features.cpp)
     target_link_libraries(test-stream-features PRIVATE wyrm-common)
     add_test(NAME stream-features COMMAND test-stream-features)
@@ -28,6 +47,9 @@ add_library(wyrm-common STATIC EXCLUDE_FROM_ALL
     crypto.cpp
     smp.cpp
     secrets.cpp
+    network.cpp
+    multilink.cpp
+    link_probe.cpp
     wyrm_sockets.cpp
     utils/strings.cpp
     vk/allocation.cpp

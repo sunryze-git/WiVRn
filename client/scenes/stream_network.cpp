@@ -135,7 +135,7 @@ void scenes::stream::operator()(to_headset::stream_tab_change && tab)
 
 void scenes::stream::operator()(to_headset::timesync_query && query)
 {
-	network_session->send_stream(from_headset::timesync_response{
+	network_session->send_stream_reply(from_headset::timesync_response{
 	        .query = query.query,
 	        .response = instance.now(),
 	});
@@ -154,7 +154,7 @@ void scenes::stream::send_feedback(const wyrm::from_headset::feedback & feedback
 		auto packet = feedback;
 		if (packet.generation == 0)
 			packet.generation = stream_generation;
-		network_session->send_control(std::move(packet));
+		network_session->send_stream(std::move(packet));
 	}
 	catch (std::exception & e)
 	{
@@ -184,6 +184,11 @@ void scenes::stream::video_stream_failed(uint64_t generation, const std::string 
 void scenes::stream::operator()(to_headset::application_list && l)
 {
 	apps(std::move(l));
+}
+
+void scenes::stream::operator()(to_headset::network_report && report)
+{
+	*network_report.lock() = connection_report{std::move(report), std::chrono::steady_clock::now()};
 }
 
 void scenes::stream::operator()(to_headset::application_icon && icon)
