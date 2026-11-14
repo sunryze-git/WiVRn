@@ -9,7 +9,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
-#include <filesystem>
 #include <ifaddrs.h>
 #include <map>
 #include <memory>
@@ -135,13 +134,6 @@ std::vector<network_endpoint> local_endpoints(uint16_t port, bool include_loopba
 			break;
 	}
 	return result;
-}
-
-std::string interface_radio(const std::string & interface)
-{
-	std::error_code error;
-	const auto target = std::filesystem::read_symlink("/sys/class/net/" + interface + "/phy80211", error);
-	return error ? std::string{} : target.filename().string();
 }
 
 int open_network_socket(const network_endpoint & local)

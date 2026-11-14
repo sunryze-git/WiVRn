@@ -29,8 +29,6 @@ struct socket_address
 socket_address parse_endpoint(const network_endpoint & endpoint);
 network_endpoint describe_endpoint(const sockaddr * address, std::string interface = {});
 std::vector<network_endpoint> local_endpoints(uint16_t port, bool include_loopback = false);
-// Name of the wireless radio behind an interface (for example phy0), empty when unknown
-std::string interface_radio(const std::string & interface);
 int open_network_socket(const network_endpoint & local);
 ssize_t send_network_packet(int fd, const network_endpoint & local, const socket_address & peer, std::span<const uint8_t> data);
 void set_network_handle(std::string interface, uint64_t handle);

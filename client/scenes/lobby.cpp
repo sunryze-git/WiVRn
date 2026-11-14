@@ -214,7 +214,7 @@ static std::string ip_address_to_string(const sockaddr_in6 & addr)
 	return ip_address_to_string(addr.sin6_addr);
 }
 
-std::unique_ptr<wyrm_session> scenes::lobby::connect_to_session(wyrm_discover::service service, bool manual_connection)
+std::unique_ptr<wyrm_session> scenes::lobby::connect_to_session(wyrm_discover::service service, bool manual_connection, bool multilink_enabled)
 {
 	if (!manual_connection)
 	{
@@ -274,6 +274,9 @@ std::unique_ptr<wyrm_session> scenes::lobby::connect_to_session(wyrm_discover::s
 		freeaddrinfo(addresses);
 	}
 
+	if (not multilink_enabled)
+		wyrm::prefer_low_latency(service.addresses);
+
 	std::string error;
 	for (const auto & entry: service.addresses)
 	{
@@ -289,8 +292,8 @@ std::unique_ptr<wyrm_session> scenes::lobby::connect_to_session(wyrm_discover::s
 		{
 			spdlog::info("Connection to {}", address_string);
 
-			return std::visit([this, &service](auto & address) {
-				return std::make_unique<wyrm_session>(address, service.tcp_only, keypair, [&](int fd) {
+			return std::visit([this, &service, multilink_enabled](auto & address) {
+				return std::make_unique<wyrm_session>(address, service.tcp_only, multilink_enabled, keypair, [&](int fd) {
 					auto request = pin_request.lock();
 					request->pin_requested = true;
 					request->pin_cancelled = false;
@@ -452,12 +455,13 @@ void scenes::lobby::connect(const configuration::server_data & data)
 	async_error.reset();
 
 	async_session = utils::async<std::unique_ptr<wyrm_session>, std::string>(
-	        [this](auto token, wyrm_discover::service service, bool manual) {
+	        [this](auto token, wyrm_discover::service service, bool manual, bool multilink_enabled) {
 		        token.set_progress(_("Waiting for connection"));
-		        return connect_to_session(service, manual);
+		        return connect_to_session(service, manual, multilink_enabled);
 	        },
 	        data.service,
-	        data.manual);
+	        data.manual,
+	        bool(application::get_config().multilink_enabled));
 }
 
 std::optional<glm::vec3> scenes::lobby::check_recenter_gesture(

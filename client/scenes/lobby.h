@@ -258,7 +258,7 @@ class lobby : public scene_impl<lobby>
 	void setup_passthrough();
 
 	void connect(const configuration::server_data & data);
-	std::unique_ptr<wyrm_session> connect_to_session(wyrm_discover::service service, bool manual_connection);
+	std::unique_ptr<wyrm_session> connect_to_session(wyrm_discover::service service, bool manual_connection, bool multilink_enabled);
 
 	std::optional<glm::vec3> check_recenter_gesture(xr::spaces space, const xr::hand_tracker::joint_array & joints, const std::pair<glm::vec3, glm::quat> & head_pose);
 	std::optional<glm::vec3> check_recenter_action(XrTime predicted_display_time, glm::vec3 head_position);

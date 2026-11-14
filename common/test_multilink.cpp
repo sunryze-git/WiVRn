@@ -59,6 +59,43 @@ static size_t active_links(const multilink & socket)
 int main(int argc, char ** argv)
 {
 	const bool single_link_control = argc == 2 and std::string_view(argv[1]) == "--single-link-control";
+	const bool discover_path_control = argc == 2 and std::string_view(argv[1]) == "--discover-path-control";
+	{
+		const auto key = multilink::random_key();
+		const int reserved = open_network_socket({"127.0.0.1", "lo"});
+		sockaddr_storage address{};
+		socklen_t size = sizeof(address);
+		check(getsockname(reserved, reinterpret_cast<sockaddr *>(&address), &size) == 0);
+		const auto local = describe_endpoint(reinterpret_cast<const sockaddr *>(&address), "lo");
+		multilink server(true, key, {{"127.0.0.30", "first"}, {"127.0.0.31", "second"}}, {local}, false);
+		close(reserved);
+		multilink client(false, key, {local}, {server.endpoints()[0]}, false, discover_path_control);
+		check(wait_for([&] { return active_links(client) >= 1; }));
+		std::this_thread::sleep_for(600ms);
+		// The other server socket probes the client with the same session key.
+		if (discover_path_control)
+			std::cout << "Discovery control: " << client.statistics().size() << " paths\n"
+			          << std::flush;
+		check(client.statistics().size() == 1 and active_links(client) == 1);
+		send(server, {0x31}, true);
+		check(wait_for([&] {
+			auto incoming = client.receive_raw();
+			return not incoming.empty() and incoming.deserialize<std::vector<uint8_t>>() == std::vector<uint8_t>{0x31};
+		}));
+		for (unsigned cycle = 0; cycle < 2; ++cycle)
+		{
+			check(client.set_multilink_enabled(true));
+			check(wait_for([&] { return active_links(client) >= 2; }));
+			check(client.set_multilink_enabled(false));
+			check(active_links(client) == 1);
+			check(wait_for([&] { return active_links(server) == 1; }));
+			send(server, {uint8_t(cycle)}, true);
+			check(wait_for([&] {
+				auto incoming = client.receive_raw();
+				return not incoming.empty() and incoming.deserialize<std::vector<uint8_t>>() == std::vector<uint8_t>{uint8_t(cycle)};
+			}));
+		}
+	}
 	const auto key = multilink::random_key();
 	multilink server(true, key, {{"127.0.0.1", "server-a"}, {"127.0.0.2", "server-b"}}, {}, false);
 	const auto endpoints = server.endpoints();

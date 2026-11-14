@@ -40,6 +40,7 @@
 #include <glm/gtc/matrix_access.hpp>
 #include <limits>
 #include <ranges>
+#include <set>
 #include <spdlog/spdlog.h>
 #include <openxr/openxr.h>
 
@@ -53,6 +54,8 @@ float compute_plot_max_value(float * data, int count, ptrdiff_t stride)
 	{
 		max = std::max(max, *(float *)(ptr + i * stride));
 	}
+	if (not std::isfinite(max) or max <= 0)
+		return 0;
 
 	// First power of 10 less than the max
 	float x = pow(10, floor(log10(max)));
@@ -172,6 +175,7 @@ void scenes::stream::gui_performance_metrics()
 	const wyrm::ui::theme & t = wyrm::ui::current();
 
 	ImVec2 window_size = ImGui::GetWindowSize() - ImVec2(2, 2) * style.WindowPadding;
+	window_size.x = ImGui::GetContentRegionAvail().x;
 
 	const std::array plots = {
 	        // clang-format off
@@ -187,12 +191,17 @@ void scenes::stream::gui_performance_metrics()
 	int n_plots = plots.size() + decoder_metrics.size();
 	axis_scale.resize(n_plots);
 
-	int n_cols = 2;
+	const bool statistics_page = gui_status == stream_tab::stats;
+	if (statistics_page)
+		ImGui::SeparatorText(_S("Performance history"));
+	int n_cols = statistics_page and window_size.x < ImGui::GetFontSize() * 26 ? 1 : 2;
 	int n_rows = ceil((float)n_plots / n_cols);
 
 	ImVec2 plot_size = ImVec2(
 	        window_size.x / n_cols - style.ItemSpacing.x * (n_cols - 1) / n_cols,
 	        (window_size.y - 2 * ImGui::GetCurrentContext()->FontSize - 2 * style.ItemSpacing.y) / n_rows - style.ItemSpacing.y * (n_rows - 1) / n_rows);
+	if (statistics_page)
+		plot_size.y = ImGui::GetFontSize() * 8;
 
 	ImPlot::PushStyleColor(ImPlotCol_PlotBg, ImVec4{t.background.x, t.background.y, t.background.z, 0.8f});
 	ImPlot::PushStyleColor(ImPlotCol_PlotBorder, t.border);
@@ -206,24 +215,34 @@ void scenes::stream::gui_performance_metrics()
 	int n = 0;
 	for (const auto & [title, subplots, unit]: plots)
 	{
-		if (ImPlot::BeginPlot(title.c_str(), plot_size, ImPlotFlags_NoTitle | ImPlotFlags_NoMenus | ImPlotFlags_NoBoxSelect | ImPlotFlags_NoMouseText))
+		const auto size = statistics_page and n == 2 ? ImVec2(window_size.x, plot_size.y) : plot_size;
+		const ImPlotFlags flags = ImPlotFlags_NoMenus | ImPlotFlags_NoBoxSelect | ImPlotFlags_NoMouseText | (subplots.size() == 1 ? ImPlotFlags_NoLegend : 0);
+		if (ImPlot::BeginPlot(title.c_str(), size, flags))
 		{
+			ImPlot::SetupLegend(ImPlotLocation_NorthWest, ImPlotLegendFlags_Horizontal);
 			float min_v = 0;
 			float max_v = 0;
 			for (const auto & [subtitle, data]: subplots)
 			{
 				max_v = std::max(max_v, compute_plot_max_value(&(global_metrics.data()->*data), global_metrics.size(), sizeof(global_metric)));
 			}
+			const bool timing = std::string_view(unit) == "s";
+			max_v = std::max(max_v, timing ? 0.001f : 1e6f);
 			auto [multiplier, prefix] = compute_plot_unit(max_v);
+			if (statistics_page)
+			{
+				multiplier = timing ? 1e3f : 1e-6f;
+				prefix = timing ? "m" : "M";
+			}
 
 			if (axis_scale[n] == 0 || std::isnan(axis_scale[n]))
 				axis_scale[n] = max_v;
 			else
 				axis_scale[n] = 0.99 * axis_scale[n] + 0.01 * max_v;
 
-			auto color = ImPlot::GetColormapColor(n);
+			auto color = n == 1 ? t.success : t.accent;
 
-			std::string title_with_units = std::string(title) + " [" + prefix + unit + "]";
+			std::string title_with_units = prefix + unit;
 			ImPlot::SetupAxes(nullptr, title_with_units.c_str(), ImPlotAxisFlags_NoDecorations, 0);
 			ImPlot::SetupAxesLimits(0, global_metrics.size() - 1, min_v * multiplier, axis_scale[n] * multiplier, ImGuiCond_Always);
 			ImPlotSpec spec;
@@ -234,33 +253,35 @@ void scenes::stream::gui_performance_metrics()
 
 			for (const auto & [subtitle, data]: subplots)
 			{
+				spec.LineColor = data == &global_metric::bandwidth_tx ? t.warning : color;
+				spec.FillColor = spec.LineColor;
 				getter_data gdata{
 				        .data = (uintptr_t)&(global_metrics.data()->*data),
 				        .stride = sizeof(global_metric),
 				        .multiplier = multiplier,
 				};
-				ImPlot::PlotLineG(subtitle.c_str(), getter, &gdata, global_metrics.size(), spec);
+				ImPlot::PlotLineG(subtitle.empty() ? title.c_str() : subtitle.c_str(), getter, &gdata, global_metrics.size(), spec);
 
 				double x[] = {double(metrics_offset), double(metrics_offset)};
 				double y[] = {0, axis_scale[n] * multiplier};
-				spec.LineColor = ImVec4(1, 1, 1, 1);
-				ImPlot::PlotLine("", x, y, 2, spec);
+				spec.LineColor = t.text_muted;
+				ImPlot::PlotLine("##cursor", x, y, 2, spec);
 			}
 			ImPlot::EndPlot();
 		}
 
-		if (++n % n_cols != 0)
+		if (++n % n_cols != 0 and (not statistics_page or n != 3))
 			ImGui::SameLine();
 	}
 
 	for (auto && [index, metrics]: utils::enumerate(decoder_metrics))
 	{
 		std::string title = fmt::format(_F("Decoder {}"), std::to_string(index));
-		if (ImPlot::BeginPlot(title.c_str(), plot_size, ImPlotFlags_NoTitle | ImPlotFlags_NoMenus | ImPlotFlags_NoBoxSelect | ImPlotFlags_NoMouseText))
+		if (ImPlot::BeginPlot(title.c_str(), plot_size, ImPlotFlags_NoMenus | ImPlotFlags_NoBoxSelect | ImPlotFlags_NoMouseText))
 		{
+			ImPlot::SetupLegend(ImPlotLocation_East, ImPlotLegendFlags_Outside);
 			float min_v = 0;
-			float max_v = compute_plot_max_value(&(metrics.data()->displayed), metrics.size(), sizeof(decoder_metric));
-			// auto [ multiplier, prefix ] = compute_plot_unit(max_v);
+			float max_v = std::max(0.001f, compute_plot_max_value(&(metrics.data()->displayed), metrics.size(), sizeof(decoder_metric)));
 
 			if (axis_scale[n] == 0)
 				axis_scale[n] = max_v;
@@ -338,16 +359,18 @@ void scenes::stream::gui_performance_metrics()
 
 			double x[] = {double(metrics_offset), double(metrics_offset)};
 			double y[] = {0, 1e9};
-			ImPlot::PlotLine("", x, y, 2, {ImPlotProp_LineColor, ImVec4(1, 1, 1, 1)});
+			ImPlot::PlotLine("##cursor", x, y, 2, {ImPlotProp_LineColor, t.text_muted});
 
 			ImPlot::EndPlot();
 		}
 
-		if (++n % n_cols != 0)
+		++n;
+		if ((statistics_page ? index + 1 : n) % n_cols != 0)
 			ImGui::SameLine();
 	}
 
 	ImPlot::PopStyleColor(8);
+	if (not statistics_page)
 	{
 		ImGui::TextUnformatted(
 		        fmt::format(
@@ -364,9 +387,6 @@ void scenes::stream::gui_performance_metrics()
 
 void scenes::stream::gui_network_links()
 {
-	if (not ImGui::CollapsingHeader(_S("Network links"), ImGuiTreeNodeFlags_DefaultOpen))
-		return;
-
 	const wyrm::ui::theme & t = wyrm::ui::current();
 	const auto links = network_session->links();
 	const auto server_report = *network_report.lock();
@@ -377,7 +397,11 @@ void scenes::stream::gui_network_links()
 	for (const auto & frame: std::span(current_blit_handles).first<2>())
 		if (frame and frame->feedback.received_from_decoder)
 			video_age_ms = std::max(video_age_ms, (now - frame->feedback.received_from_decoder) / 1e6);
-	const auto active = server_report and not server_report->data.multilink ? 1 : std::ranges::count_if(links, [](const auto & link) { return link.active; });
+	std::set<std::pair<std::string, std::string>> active_connections;
+	for (const auto & link: links)
+		if (link.active and not link.remote.interface.empty())
+			active_connections.emplace(link.local.interface, link.remote.interface);
+	const auto active = server_report and not server_report->data.multilink ? 1 : active_connections.size();
 	const double tracking_age_ms = server_report and server_report->data.tracking_age_ms >= 0 ? server_report->data.tracking_age_ms : -1;
 
 	auto [health, health_style] =
@@ -387,15 +411,35 @@ void scenes::stream::gui_network_links()
 	        : video_age_ms > 100 or tracking_age_ms < 0 or tracking_age_ms > 100 ? std::pair{_("Degraded"), wyrm::ui::chip_style::warning}
 	                                                                             : std::pair{_("Healthy"), wyrm::ui::chip_style::success};
 	wyrm::ui::chip(health, health_style, true);
-	if (report_fresh)
+	ImGui::SameLine();
+	wyrm::ui::chip(report_fresh and not server_report->data.multilink ? _("TCP") : network_session->multilink_enabled() ? _("Multi-Link")
+	                                                                                                                    : _("Single link"),
+	               wyrm::ui::chip_style::muted);
+	ImGui::SameLine();
+	ImGui::AlignTextToFramePadding();
+	ImGui::PushStyleColor(ImGuiCol_Text, t.text_muted);
+	ImGui::TextUnformatted(active == 1 ? _S("1 active connection") : fmt::format(_F("{} active connections"), active).c_str());
+	ImGui::PopStyleColor();
+	ImGui::Dummy({0, 10});
+	wyrm::ui::begin_card("##stream_summary");
+	if (ImGui::BeginTable("stream_summary", 3, ImGuiTableFlags_SizingStretchSame))
 	{
-		const auto & report = server_report->data;
-		ImGui::SameLine();
-		ImGui::AlignTextToFramePadding();
-		ImGui::PushStyleColor(ImGuiCol_Text, t.text_muted);
-		ImGui::TextUnformatted(fmt::format(_F("{:.0f} Mbit/s video, {:.1f}% of frames decoded"), report.effective_bitrate / 1e6, report.submitted_frames ? report.decoded_frames * 100.0 / report.submitted_frames : 100.0).c_str());
-		ImGui::PopStyleColor();
+		const auto metric = [&](const char * label, const std::string & value) {
+			ImGui::TableNextColumn();
+			ImGui::PushStyleColor(ImGuiCol_Text, t.text_muted);
+			ImGui::TextUnformatted(label);
+			ImGui::PopStyleColor();
+			ImGui::PushFont(nullptr, ImGui::GetStyle().FontSizeBase * 1.25f);
+			ImGui::TextUnformatted(value.c_str());
+			ImGui::PopFont();
+		};
+		const auto latency = tracking_control.lock()->motions_to_photons;
+		metric(_S("Video bitrate"), report_fresh ? fmt::format("{:.0f} Mbit/s", server_report->data.effective_bitrate / 1e6) : "-");
+		metric(_S("Estimated latency"), latency > 0 ? fmt::format("{:.1f} ms", latency / 1e6) : "-");
+		metric(_S("Frames decoded"), report_fresh and server_report->data.submitted_frames ? fmt::format("{:.1f}%", server_report->data.decoded_frames * 100.0 / server_report->data.submitted_frames) : "-");
+		ImGui::EndTable();
 	}
+	wyrm::ui::end_card();
 
 	// One row per interface pair, preferring the active and busiest address family.
 	std::map<std::pair<std::string, std::string>, link_statistics> displayed;
@@ -409,7 +453,8 @@ void scenes::stream::gui_network_links()
 	}
 	double total_download = 0;
 	for (const auto & [_, link]: displayed)
-		total_download += link.received_bps;
+		if (link.active)
+			total_download += link.received_bps;
 
 	const auto right_aligned = [](const std::string & text) {
 		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(text.c_str()).x);
@@ -417,16 +462,14 @@ void scenes::stream::gui_network_links()
 	};
 
 	ImGui::Dummy({0, 6});
-	if (not displayed.empty() and ImGui::BeginTable("links", 5, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_PadOuterX))
+	if (not displayed.empty() and ImGui::BeginTable("links", 3, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_PadOuterX))
 	{
 		ImGui::TableSetupColumn(_S("Link"), ImGuiTableColumnFlags_WidthStretch, 2.2f);
 		ImGui::TableSetupColumn(_S("Latency"), ImGuiTableColumnFlags_WidthStretch, 1.4f);
 		ImGui::TableSetupColumn(_S("Download"), ImGuiTableColumnFlags_WidthStretch, 1.4f);
-		ImGui::TableSetupColumn(_S("Share"), ImGuiTableColumnFlags_WidthStretch, 0.8f);
-		ImGui::TableSetupColumn(_S("Video gaps"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
 		ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
 		ImGui::PushStyleColor(ImGuiCol_Text, t.text_muted);
-		for (int column = 0; column < 5; ++column)
+		for (int column = 0; column < 3; ++column)
 		{
 			ImGui::TableSetColumnIndex(column);
 			const char * name = ImGui::TableGetColumnName(column);
@@ -446,20 +489,14 @@ void scenes::stream::gui_network_links()
 			if (not link.active)
 			{
 				ImGui::SameLine();
-				wyrm::ui::chip(_("Reconnecting"), wyrm::ui::chip_style::warning);
+				wyrm::ui::chip(network_session->multilink_enabled() ? _("Reconnecting") : _("Standby"), wyrm::ui::chip_style::muted);
 			}
 			ImGui::TableNextColumn();
 			ImGui::AlignTextToFramePadding();
-			right_aligned(fmt::format("{:.1f} ms", link.rtt_ms));
+			right_aligned(link.active ? fmt::format("{:.1f} ms", link.rtt_ms) : "-");
 			ImGui::TableNextColumn();
 			ImGui::AlignTextToFramePadding();
-			right_aligned(fmt::format("{:.1f} Mbit/s", link.received_bps / 1e6));
-			ImGui::TableNextColumn();
-			ImGui::AlignTextToFramePadding();
-			right_aligned(fmt::format("{:.0f}%", total_download ? link.received_bps * 100.0 / total_download : 0));
-			ImGui::TableNextColumn();
-			ImGui::AlignTextToFramePadding();
-			right_aligned(link.received_video_packets ? fmt::format("{:.2f}%", link.incoming_loss * 100) : std::string{"-"});
+			right_aligned(link.active ? fmt::format("{:.1f} Mbit/s", link.received_bps / 1e6) : "-");
 		}
 		ImGui::EndTable();
 	}
@@ -497,6 +534,9 @@ void scenes::stream::gui_network_links()
 		for (const auto & [_, link]: displayed)
 		{
 			const auto name = wyrm::interface_display_name(link.local.interface);
+			row(fmt::format(_F("{}: traffic share"), name), fmt::format("{:.0f}%", link.active and total_download ? link.received_bps * 100.0 / total_download : 0));
+			if (link.received_video_packets)
+				row(fmt::format(_F("{}: video gaps"), name), fmt::format("{:.2f}%", link.incoming_loss * 100));
 			row(fmt::format(_F("{}: jitter"), name), fmt::format("{:.1f} ms", link.jitter_ms));
 			row(fmt::format(_F("{}: upload"), name), fmt::format("{:.1f} Mbit/s", link.sent_bps / 1e6));
 			if (link.received_video_packets)
@@ -572,6 +612,18 @@ void scenes::stream::gui_settings(float)
 	        .in_game = true,
 	        .server_hid_forwarding = hid_forwarding_enabled(),
 	        .on_streaming_changed = [this] { send_settings_changed_packet(session, network_session.get(), application::get_config()); },
+	        .on_multilink_changed = [this](bool enabled) {
+		        try
+		        {
+			        if (network_session->set_multilink_enabled(enabled))
+				        return true;
+		        }
+		        catch (const std::exception & e)
+		        {
+			        spdlog::warn("Could not change Multi-Link mode: {}", e.what());
+		        }
+		        gui_toast.lock()->emplace(_("Could not change Multi-Link while the connection is unavailable."), true);
+		        return false; },
 	        .on_video_changed = [this] { video_settings_changed = std::chrono::steady_clock::now(); },
 	        .enter_foveation_adjust = [this] { next_gui_status = stream_tab::foveation_settings; },
 	        .on_foveation_override_changed = [this] {

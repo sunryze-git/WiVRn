@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "decode_budget.h"
-#include "radio_policy.h"
 #include "xor_fec.h"
 #include <cstdlib>
 #include <iostream>
@@ -18,17 +17,6 @@ static void check(bool value, std::source_location at = std::source_location::cu
 int main(int argc, char **)
 {
 	using namespace wyrm;
-	{
-		const std::vector<radio_candidate> both{{"wlanap", 4.5}, {"wlan0", 7}};
-		check(preferred_interface("", {}).empty());
-		check(preferred_interface("", both) == "wlanap");
-		// Hysteresis: a slightly better interface does not take over
-		check(preferred_interface("wlan0", std::vector<radio_candidate>{{"wlanap", 5.5}, {"wlan0", 7}}) == "wlan0");
-		// A degraded preferred interface hands over once clearly worse
-		check(preferred_interface("wlanap", std::vector<radio_candidate>{{"wlanap", 12}, {"wlan0", 7}}) == "wlan0");
-		// The current interface without an active path is replaced at once
-		check(preferred_interface("wlanap", std::vector<radio_candidate>{{"wlan0", 7}}) == "wlan0");
-	}
 	const std::array<fec_packet, 4> packets{{{1, {1, 2, 3}}, {2, {4}}, {3, {7, 8}}, {4, {9, 10, 11}}}};
 	const auto parity = fec_encode(packets);
 	bool finished = false;

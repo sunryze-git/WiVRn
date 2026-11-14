@@ -61,7 +61,8 @@ class multilink
 public:
 	using key_type = std::array<uint8_t, 32>;
 	multilink();
-	multilink(bool server, key_type key, std::vector<network_endpoint> local, std::vector<network_endpoint> remote = {}, bool refresh_interfaces = true);
+	// With discovery disabled, only the supplied peer paths are accepted.
+	multilink(bool server, key_type key, std::vector<network_endpoint> local, std::vector<network_endpoint> remote = {}, bool refresh_interfaces = true, bool discover_endpoints = true);
 	multilink(multilink &&) noexcept;
 	multilink & operator=(multilink &&) noexcept;
 	~multilink();
@@ -73,6 +74,7 @@ public:
 	uint64_t capacity_bps() const;
 	multilink_diagnostics diagnostics() const;
 	void set_options(multilink_options);
+	bool set_multilink_enabled(bool enabled);
 	void shutdown();
 	void prepare_fork();
 	void resume_after_fork();

@@ -103,7 +103,22 @@ void wyrm_session::handshake(T address, bool tcp_only, crypto::key & headset_key
 		primary.port = offer.stream_port;
 		if (std::ranges::none_of(remote, [&](const auto & endpoint) { return endpoint.address == primary.address; }))
 			remote.push_back(primary);
-		stream = stream_socket_t(false, offer.multilink_key, std::move(local), std::move(remote));
+		if (not multilink_enabled_)
+		{
+			sockaddr_storage source{};
+			socklen_t size = sizeof(source);
+			if (getsockname(control.get_fd(), reinterpret_cast<sockaddr *>(&source), &size) != 0)
+				throw std::system_error(errno, std::generic_category(), "Reading connection address");
+			const auto selected = describe_endpoint(reinterpret_cast<const sockaddr *>(&source));
+			const auto endpoint = std::ranges::find_if(local, [&](const auto & candidate) {
+				return candidate.address == selected.address and (not selected.scope or candidate.scope == selected.scope);
+			});
+			if (endpoint == local.end())
+				throw std::runtime_error(_("The selected network interface is unavailable"));
+			local = {*endpoint};
+			remote = {primary};
+		}
+		stream = stream_socket_t(false, offer.multilink_key, std::move(local), std::move(remote), multilink_enabled_, multilink_enabled_);
 	};
 
 	std::string pin = "000000";
@@ -182,8 +197,8 @@ void wyrm_session::handshake(T address, bool tcp_only, crypto::key & headset_key
 	(void)std::get<to_headset::handshake>(receive(10s));
 }
 
-wyrm_session::wyrm_session(sockaddr_in6 address, bool tcp_only, crypto::key & headset_keypair, std::function<std::string(int fd)> pin_enter) :
-        control(address), stream(), address(address.sin6_addr)
+wyrm_session::wyrm_session(sockaddr_in6 address, bool tcp_only, bool multilink_enabled, crypto::key & headset_keypair, std::function<std::string(int fd)> pin_enter) :
+        control(address), stream(), multilink_enabled_(multilink_enabled), address(address.sin6_addr)
 {
 	try
 	{
@@ -195,8 +210,8 @@ wyrm_session::wyrm_session(sockaddr_in6 address, bool tcp_only, crypto::key & he
 	}
 }
 
-wyrm_session::wyrm_session(sockaddr_in address, bool tcp_only, crypto::key & headset_keypair, std::function<std::string(int fd)> pin_enter) :
-        control(address), stream(), address(address.sin_addr)
+wyrm_session::wyrm_session(sockaddr_in address, bool tcp_only, bool multilink_enabled, crypto::key & headset_keypair, std::function<std::string(int fd)> pin_enter) :
+        control(address), stream(), multilink_enabled_(multilink_enabled), address(address.sin_addr)
 {
 	try
 	{

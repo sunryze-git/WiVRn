@@ -5,12 +5,20 @@
 #include "wyrm_discover.h"
 #include <algorithm>
 #include <cctype>
+#include <limits>
 #include <map>
 #include <string>
 #include <vector>
 
 namespace wyrm
 {
+inline void prefer_low_latency(std::vector<wyrm_discover::service::address> & addresses)
+{
+	std::stable_sort(addresses.begin(), addresses.end(), [](const auto & a, const auto & b) {
+		return a.latency_ms.value_or(std::numeric_limits<float>::infinity()) < b.latency_ms.value_or(std::numeric_limits<float>::infinity());
+	});
+}
+
 struct server_list_link
 {
 	std::string interface;

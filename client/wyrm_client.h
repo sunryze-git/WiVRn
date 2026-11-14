@@ -46,6 +46,7 @@ public:
 private:
 	control_socket_t control;
 	stream_socket_t stream;
+	bool multilink_enabled_;
 
 	std::string server_id_;
 	std::atomic<uint64_t> bytes_sent_ = 0;
@@ -57,8 +58,8 @@ private:
 public:
 	std::variant<in_addr, in6_addr> address;
 
-	wyrm_session(sockaddr_in6 address, bool tcp_only, crypto::key & headset_keypair, std::function<std::string(int fd)> pin_enter);
-	wyrm_session(sockaddr_in address, bool tcp_only, crypto::key & headset_keypair, std::function<std::string(int fd)> pin_enter);
+	wyrm_session(sockaddr_in6 address, bool tcp_only, bool multilink_enabled, crypto::key & headset_keypair, std::function<std::string(int fd)> pin_enter);
+	wyrm_session(sockaddr_in address, bool tcp_only, bool multilink_enabled, crypto::key & headset_keypair, std::function<std::string(int fd)> pin_enter);
 	wyrm_session(const wyrm_session &) = delete;
 	wyrm_session & operator=(const wyrm_session &) = delete;
 
@@ -139,6 +140,17 @@ public:
 	std::vector<link_statistics> links() const
 	{
 		return stream.statistics();
+	}
+	bool multilink_enabled() const
+	{
+		return multilink_enabled_ and bool(stream);
+	}
+	bool set_multilink_enabled(bool enabled)
+	{
+		if (not stream.set_multilink_enabled(enabled))
+			return false;
+		multilink_enabled_ = enabled;
+		return true;
 	}
 	multilink_diagnostics network_diagnostics() const
 	{

@@ -23,6 +23,17 @@ static wyrm_discover::service::address link(std::string interface, std::string i
 }
 int main()
 {
+	{
+		std::vector<wyrm_discover::service::address> addresses{
+		        link("wlan0", "10.26.0.56", 8),
+		        link("usb0", "10.86.200.1", {}),
+		        link("wlanap", "10.35.78.30", 2),
+		};
+		prefer_low_latency(addresses);
+		check(addresses[0].interface == "wlanap");
+		check(addresses[1].interface == "wlan0");
+		check(addresses[2].interface == "usb0");
+	}
 	wyrm_discover::service discovered{.name = "Polaris", .hostname = "polaris", .port = 9757, .addresses = {link("wlan0", "10.26.0.56", 9.2f), link("wlanap", "10.35.78.30", 94.2f), link("usb0", "10.86.200.1", {}), link("wlan0", "fd00::56", 8.0f)}, .txt = {{"cookie", "server-id"}}};
 	const auto links = connected_server_links(discovered);
 	check(links.size() == 2);

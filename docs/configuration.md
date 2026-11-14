@@ -118,6 +118,17 @@ initiate another handoff.
 
 ## Multiple network links
 
+The headset's **Settings > Streaming > Multi-Link** switch enables or disables
+using multiple connections. It is enabled by default and can be changed while
+streaming, without disconnecting.
+
+When disabled, the client prefers the discovered address with the lowest measured
+latency when connecting. Disabling it while streaming keeps the active path with
+the best measured delay and loss. Other paths remain on standby until Multi-Link
+is enabled again. Traffic can take a moment to move between paths. Streaming uses
+UDP when the server permits it. If the selected connection fails, enable
+Multi-Link or reconnect to use another one.
+
 With `tcp-only` disabled, Wyrm automatically tests paths over the available IP interfaces.
 After pairing, the client and server exchange endpoints and validate paths in
 both directions. Usable paths share one streaming session. IPv4 and IPv6
@@ -143,9 +154,10 @@ can be repaired over another path when time remains before their deadline.
 The encoder bitrate decreases when estimated capacity cannot sustain the
 requested rate and increases toward that rate as capacity recovers. The requested
 bitrate remains the target. Links can share a radio or another bottleneck, so
-adding interfaces does not guarantee additional capacity. When interfaces share
-one radio, as on Steam Frame, only the lowest latency one carries traffic and the
-others are kept for failover.
+adding interfaces does not guarantee additional capacity. Steam Frame supports
+concurrent 5 GHz Wi-Fi and 6 GHz direct-link traffic. Both interfaces can carry
+traffic even though Linux exposes them under the same wireless PHY. Path
+selection uses measured capacity, loss and delay rather than the PHY identifier.
 
 Build both client and server from the same revision. Interfaces must be exposed to the
 application by the operating system. `tcp-only` retains a single TCP connection;

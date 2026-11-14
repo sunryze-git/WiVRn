@@ -16,6 +16,7 @@ This guide covers debugging techniques for Wyrm, including log collection, crash
   - [Server Crashes](#server-crashes)
   - [HMD Client Crashes](#hmd-client-crashes)
 - [Performance Profiling](#performance-profiling)
+- [Testing two network links](#testing-two-network-links)
 - [USB Tunneling](#usb-tunneling)
 - [Game Debugging](#game-debugging)
 - [Environment Variables Reference](#environment-variables-reference)
@@ -260,6 +261,49 @@ timing data, profiling the HMD client and server, and comparing the Vulkan,
 NVENC, and VAAPI encoder paths.
 
 ---
+
+## Testing two network links
+
+With `WYRM_BUILD_TEST=ON`, build `test-multilink-live` on both Linux hosts.
+It uses the transport directly, without an XR runtime or decoder. Start the
+server first, then the client, using the same random key from `openssl rand -hex 32`:
+
+```text
+test-multilink-live server LOCAL1 IFACE1 LOCAL2 IFACE2 PEER1 PEER_IFACE1 PEER2 PEER_IFACE2 KEY_HEX
+test-multilink-live client LOCAL1 IFACE1 LOCAL2 IFACE2 PEER1 PEER_IFACE1 PEER2 PEER_IFACE2 KEY_HEX
+```
+
+Use each host's own addresses and interface names for `LOCAL` and `IFACE`, and
+the other host's for `PEER` and `PEER_IFACE`. UDP port 9757 must be available on
+the test server and reachable over both links. The server learns peer endpoints
+from the client. On Steam Frame, use `wlan0` and `wlanap` as the two local interfaces.
+
+The test requires both interfaces to remain active together for one second,
+then sends synthetic video payloads at a target of 32 Mbit/s in each direction
+for eight seconds. It checks payload integrity and requires at least 100 received
+video packets on each interface in at least five shared one-second windows.
+Probe traffic does not count. This tests concurrent transport delivery, not
+encoded video quality or decoder performance.
+
+For a matched comparison of complete frames, also build `benchmark-multilink-live`
+on both hosts. Run `python3 tools/benchmark_frame_links.py --help` for the host,
+binary and interface arguments. The runner compares Wi-Fi-only, direct-only and
+both-link modes in randomized order, with three trials per mode and bitrate.
+Both wireless associations remain connected; the mode selects transport endpoints.
+
+The default workload sends 720 measured frames at 90 Hz after two seconds of
+warmup, using fixed rates of 80 and 160 Mbit/s and a 20 ms completion deadline.
+Every shard must arrive for a frame to count. The logs retain clock-offset
+bounds measured before and after each run, and the results report a range for
+on-time frame counts when timing uncertainty crosses a deadline. The analysis
+assumes stable monotonic clock rates between those measurements. Sender scheduling
+delays count toward completion time. Automatic bitrate adaptation is disabled.
+
+Use `--omit-last-shard` to check the frame counter with an intentionally incomplete
+stream. No measured frame should complete. The runner also checks known missing,
+late and duplicate completion records. Traffic totals count transport UDP payloads
+in both directions, including warmup and control traffic, and exclude lower-layer
+headers. The benchmark does not measure encoding, decoding or headset presentation.
 
 ## USB Tunneling
 

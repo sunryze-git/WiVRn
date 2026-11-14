@@ -76,6 +76,7 @@ public:
 	std::optional<wyrm::video_codec> codec;
 	uint32_t bitrate_bps = 50'000'000;
 	uint8_t bit_depth = 10;
+	bool multilink_enabled = true;
 
 	bool passthrough_enabled = false;
 	// XR_META_boundary_visibility, the boundary is always shown outside passthrough

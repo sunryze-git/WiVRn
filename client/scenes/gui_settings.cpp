@@ -394,6 +394,20 @@ void settings_streaming(const settings_context & ctx)
 	        .default_int = int(default_config.bitrate_bps / mb),
 	});
 
+	list.push_back({
+	        .id = "##multilink",
+	        .label = _("Multi-Link"),
+	        .description = _("Use multiple network connections. When off, streaming stays on one connection."),
+	        .ui = ui_kind::toggle,
+	        .get_bool = [&config] { return config.multilink_enabled; },
+	        .set_bool = [&ctx, &config](bool value) {
+		        if (ctx.on_multilink_changed and not ctx.on_multilink_changed(value))
+			        return;
+		        config.multilink_enabled = value;
+		        config.save(); },
+	        .default_bool = default_config.multilink_enabled,
+	});
+
 	// in-stream: steer where foveation focuses quality
 	if (ctx.in_game)
 	{

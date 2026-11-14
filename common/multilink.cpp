@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "multilink.h"
-#include "radio_policy.h"
 #include "xor_fec.h"
 
 #include <algorithm>
@@ -131,7 +130,6 @@ struct multilink::implementation
 	{
 		int fd;
 		network_endpoint local;
-		std::string radio = interface_radio(local.interface);
 		socket(int fd, network_endpoint local) : fd(fd), local(std::move(local)) {}
 		socket(const socket &) = delete;
 		~socket()
@@ -212,6 +210,8 @@ struct multilink::implementation
 	bool server;
 	key_type key;
 	bool refresh;
+	bool discover;
+	std::optional<size_t> single_path;
 	uint16_t port;
 	bool include_loopback;
 	uint64_t generation = network_generation();
@@ -270,8 +270,8 @@ struct multilink::implementation
 	std::unique_ptr<EVP_CIPHER_CTX, decltype(&EVP_CIPHER_CTX_free)> decrypt{EVP_CIPHER_CTX_new(), EVP_CIPHER_CTX_free};
 	std::jthread worker;
 
-	implementation(bool server, key_type key, std::vector<network_endpoint> local, std::vector<network_endpoint> remote, bool refresh) :
-	        server(server), key(key), refresh(refresh), port(local.empty() ? 0 : local.front().port), include_loopback(false), remote_endpoints(std::move(remote))
+	implementation(bool server, key_type key, std::vector<network_endpoint> local, std::vector<network_endpoint> remote, bool refresh, bool discover) :
+	        server(server), key(key), refresh(refresh), discover(discover), port(local.empty() ? 0 : local.front().port), include_loopback(false), remote_endpoints(std::move(remote))
 	{
 		if (local.empty() or local.size() > 32 or remote_endpoints.size() > 32)
 			throw std::invalid_argument("Invalid multilink endpoints");
@@ -359,44 +359,7 @@ struct multilink::implementation
 
 	bool active(const path & p, clock::time_point now) const
 	{
-		return sockets[p.socket_index]->fd >= 0 and p.validated and now - p.confirmed < 500ms;
-	}
-
-	// Interfaces on one radio (Steam Frame Wi-Fi and dongle) take turns on different channels, so
-	// traffic on one costs the other airtime. Only the preferred interface carries traffic; the
-	// others stop answering probes, which makes the peer drop them until the preference changes.
-	std::map<std::string, std::string> radio_preference;
-
-	void update_radio_preference(clock::time_point now)
-	{
-		std::map<std::string, std::map<std::string, double>> scores;
-		for (const auto & p: paths)
-		{
-			const auto & radio = sockets[p.socket_index]->radio;
-			if (radio.empty() or not active(p, now))
-				continue;
-			const double score = arrival_delay_ms(p) + 50 * p.stats.loss;
-			auto [it, inserted] = scores[radio].emplace(p.stats.local.interface, score);
-			if (not inserted)
-				it->second = std::min(it->second, score);
-		}
-		std::map<std::string, std::string> preference;
-		for (const auto & [radio, interfaces]: scores)
-		{
-			std::vector<radio_candidate> candidates;
-			for (const auto & [interface, score]: interfaces)
-				candidates.push_back({interface, score});
-			const auto previous = radio_preference.find(radio);
-			preference[radio] = preferred_interface(previous == radio_preference.end() ? std::string{} : previous->second, candidates);
-		}
-		radio_preference = std::move(preference);
-	}
-
-	bool suppressed(size_t index) const
-	{
-		const auto & p = paths[index];
-		const auto preferred = radio_preference.find(sockets[p.socket_index]->radio);
-		return preferred != radio_preference.end() and preferred->second != p.stats.local.interface;
+		return (not single_path or &p == &paths[*single_path]) and sockets[p.socket_index]->fd >= 0 and p.validated and now - p.confirmed < 500ms;
 	}
 
 	void add_candidates()
@@ -452,7 +415,7 @@ struct multilink::implementation
 		for (size_t i = 0; i < paths.size(); ++i)
 		{
 			const auto & p = paths[i];
-			if (not active(p, now) or suppressed(i))
+			if (not active(p, now))
 				continue;
 			auto group = std::make_pair(p.stats.local.interface, p.stats.remote.interface);
 			auto [it, inserted] = groups.emplace(group, i);
@@ -552,7 +515,7 @@ struct multilink::implementation
 			{
 				const auto parity = fec_encode(p.fec_out);
 				p.fec_out.clear();
-				if (now + std::chrono::duration<double, std::milli>(p.stats.rtt_ms / 2 + 2 * p.stats.jitter_ms) < p.fec_deadline and transmit(index, kind::parity, 0, 0, 0, parity))
+				if (now + std::chrono::duration<double, std::milli>(earliest_arrival_delay_ms(p)) < p.fec_deadline and transmit(index, kind::parity, 0, 0, 0, parity))
 				{
 					const auto duration = std::chrono::nanoseconds(uint64_t((parity.size() + 41) * 8e9 / p.stats.capacity_bps));
 					p.next_send += duration;
@@ -669,6 +632,10 @@ struct multilink::implementation
 				break;
 			if (length < 41 or size_t(length) > wire.size() or not std::equal(magic.begin(), magic.end(), wire.begin()))
 				continue;
+			if (not discover and std::ranges::none_of(paths, [&](const auto & path) { return path.socket_index == socket_index and path.peer == peer; }))
+				continue;
+			if (single_path and (paths[*single_path].socket_index != socket_index or not(paths[*single_path].peer == peer)))
+				continue;
 			std::span<const uint8_t> header(wire.data() + 4, 8);
 			const auto nonce_counter = read(header, 8);
 			if (replay.contains(nonce_counter))
@@ -706,8 +673,6 @@ struct multilink::implementation
 				p.stats.remote.interface.assign(reinterpret_cast<const char *>(data.data()), data.size());
 				if (type == kind::ping)
 				{
-					if (suppressed(index))
-						continue;
 					const auto & name = p.stats.local.interface;
 					transmit(index, kind::pong, id, 0, 0, {reinterpret_cast<const uint8_t *>(name.data()), name.size()});
 				}
@@ -811,7 +776,7 @@ struct multilink::implementation
 					reliable.erase(it);
 				}
 			}
-			else if (type == kind::endpoint)
+			else if (type == kind::endpoint and discover)
 			{
 				try
 				{
@@ -856,6 +821,12 @@ struct multilink::implementation
 	double arrival_delay_ms(const path & p) const
 	{
 		return p.stats.rtt_ms / 2 + (options.arrival_scheduling ? 2 * p.stats.jitter_ms + 1 : 0);
+	}
+
+	double earliest_arrival_delay_ms(const path & p) const
+	{
+		// Jitter can rank paths, but cannot prove that a fresh packet will be late.
+		return (p.rtt_window.empty() ? p.stats.rtt_ms : p.rtt_window.front().second) / 2;
 	}
 
 	// Paths that may carry video: shards sent over a much slower path complete their frame after
@@ -955,7 +926,6 @@ struct multilink::implementation
 
 	void tick(clock::time_point now)
 	{
-		update_radio_preference(now);
 		if (refresh and now - last_refresh >= 1s)
 		{
 			last_refresh = now;
@@ -1010,6 +980,8 @@ struct multilink::implementation
 		for (size_t i = 0; i < paths.size(); ++i)
 		{
 			auto & p = paths[i];
+			if (single_path and i != *single_path)
+				continue;
 			if (now - p.probe >= 100ms)
 			{
 				p.probe = now;
@@ -1135,7 +1107,7 @@ struct multilink::implementation
 			for (size_t i: order)
 			{
 				auto & path = paths[i];
-				if (aggregate_next_send > now or path.next_send > now or now + std::chrono::duration<double, std::milli>(arrival_delay_ms(path)) >= repair.deadline)
+				if (aggregate_next_send > now or path.next_send > now or now + std::chrono::duration<double, std::milli>(earliest_arrival_delay_ms(path)) >= repair.deadline)
 					continue;
 				if (not transmit(i, repair.video ? kind::video : kind::data, repair.message, repair.fragment, repair.count, repair.payload, repair.deadline))
 					continue;
@@ -1187,7 +1159,7 @@ struct multilink::implementation
 			auto & m = queue.front();
 			const bool impossible = not candidates.empty() and std::ranges::none_of(m.video ? video_candidates : candidates, [&](size_t i) {
 				const auto earliest = std::max(now, std::max(paths[i].next_send, aggregate_next_send));
-				return earliest + std::chrono::duration<double, std::milli>(arrival_delay_ms(paths[i])) < m.deadline;
+				return earliest + std::chrono::duration<double, std::milli>(earliest_arrival_delay_ms(paths[i])) < m.deadline;
 			});
 			if (now >= m.deadline or impossible)
 			{
@@ -1201,7 +1173,7 @@ struct multilink::implementation
 			}
 			if (aggregate_next_send > now)
 				break;
-			const auto arrival = [&](size_t i) { return now + std::chrono::duration<double, std::milli>(arrival_delay_ms(paths[i])); };
+			const auto arrival = [&](size_t i) { return now + std::chrono::duration<double, std::milli>(earliest_arrival_delay_ms(paths[i])); };
 			std::vector<size_t> idle;
 			for (size_t i: candidates)
 				if (paths[i].next_send <= now)
@@ -1350,8 +1322,8 @@ struct multilink::implementation
 };
 
 multilink::multilink() = default;
-multilink::multilink(bool server, key_type key, std::vector<network_endpoint> local, std::vector<network_endpoint> remote, bool refresh_interfaces) :
-        impl(std::make_unique<implementation>(server, key, std::move(local), std::move(remote), refresh_interfaces)) {}
+multilink::multilink(bool server, key_type key, std::vector<network_endpoint> local, std::vector<network_endpoint> remote, bool refresh_interfaces, bool discover_endpoints) :
+        impl(std::make_unique<implementation>(server, key, std::move(local), std::move(remote), refresh_interfaces, discover_endpoints)) {}
 multilink::multilink(multilink &&) noexcept = default;
 multilink & multilink::operator=(multilink &&) noexcept = default;
 multilink::~multilink() = default;
@@ -1479,6 +1451,31 @@ void multilink::set_options(multilink_options options)
 	if (not options.shared_bottleneck)
 		impl->coupled_capacity_bps = 0;
 }
+bool multilink::set_multilink_enabled(bool enabled)
+{
+	if (not impl)
+		return false;
+	std::lock_guard lock(impl->mutex);
+	if (enabled)
+	{
+		impl->single_path.reset();
+		impl->refresh = impl->discover = true;
+		impl->last_refresh = impl->last_advertisement = {};
+	}
+	else
+	{
+		const auto candidates = impl->usable(clock::now());
+		if (candidates.empty())
+			return false;
+		impl->single_path = *std::ranges::min_element(candidates, {}, [&](size_t i) {
+			return impl->arrival_delay_ms(impl->paths[i]) + 50 * impl->paths[i].stats.loss;
+		});
+		impl->refresh = impl->discover = false;
+	}
+	implementation::signal(impl->wake);
+	return true;
+}
+
 multilink_diagnostics multilink::diagnostics() const
 {
 	if (not impl)
