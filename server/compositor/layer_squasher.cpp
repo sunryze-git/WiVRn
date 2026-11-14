@@ -554,6 +554,7 @@ layer_squasher::do_layers(
 				        .angle_down = std::min(layer_fov.angle_down, all_layers_fov.angle_down),
 				};
 			ubo.layers[cur_layer].layer_data.unpremultiplied_alpha = is_layer_unpremultiplied(&layer.data);
+			ubo.layers[cur_layer].layer_data.inverted_alpha = is_layer_alpha_inverted(&layer.data);
 			apply_bias_and_scale_from_layer(
 			        &data,
 			        &ubo.layers[cur_layer].color_scale,
