@@ -925,7 +925,11 @@ void decoder::drain_capture()
 			auto it = timestamp ? std::ranges::find(pending_frames, timestamp, &pending_frame::timestamp) : pending_frames.end();
 			if (it != pending_frames.end())
 			{
-				spdlog::warn("iris decoder returned CAPTURE buffer {} with V4L2_BUF_FLAG_ERROR for frame {}", buf.index, it->feedback.frame_index);
+				spdlog::warn("iris decoder returned CAPTURE buffer {} with V4L2_BUF_FLAG_ERROR for frame {}, stream {}, generation {}",
+				             buf.index,
+				             it->feedback.frame_index,
+				             it->feedback.stream_index,
+				             it->feedback.generation);
 				pending_frames.erase(it);
 			}
 			else
