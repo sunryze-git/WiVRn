@@ -52,18 +52,10 @@ public:
 
 	void on_feedback(const wyrm::from_headset::feedback & feedback) override
 	{
-		if (feedback.sent_to_decoder)
-		{
-			std::unique_lock lock(mutex);
-			for (auto & item: items)
-			{
-				if (item.frame_index == feedback.frame_index)
-				{
-					item.acked = true;
-					return;
-				}
-			}
-		}
+		if (not feedback.received_from_decoder)
+			return;
+		std::unique_lock lock(mutex);
+		wyrm::acknowledge_decoded_reference(items, feedback);
 	}
 
 	void reset() override
@@ -255,11 +247,11 @@ wyrm::video_encoder_vulkan::video_encoder_vulkan(
 
 void wyrm::video_encoder_vulkan::init(const vk::VideoCapabilitiesKHR & video_caps,
 #ifdef VK_KHR_video_encode_intra_refresh
-                                       vk::VideoEncodeIntraRefreshCapabilitiesKHR intra_caps,
+                                      vk::VideoEncodeIntraRefreshCapabilitiesKHR intra_caps,
 #endif
-                                       const vk::VideoProfileInfoKHR & video_profile,
-                                       void * video_session_create_next,
-                                       void * session_params_next)
+                                      const vk::VideoProfileInfoKHR & video_profile,
+                                      void * video_session_create_next,
+                                      void * session_params_next)
 {
 	vk::VideoProfileListInfoKHR video_profile_list{
 	        .profileCount = 1,
@@ -1083,29 +1075,29 @@ std::optional<wyrm::video_encoder::data> wyrm::video_encoder_vulkan::encode(uint
 	if (auto s = ts_pool.collect(encode_slot))
 	{
 		wyrm::trace::gpu_slice(wyrm::trace::gpu_track::vulkan_encode,
-		                        "encodeVideoKHR",
-		                        s->begin_ns,
-		                        s->end_ns,
-		                        s->frame_index,
-		                        stream_idx);
+		                       "encodeVideoKHR",
+		                       s->begin_ns,
+		                       s->end_ns,
+		                       s->frame_index,
+		                       stream_idx);
 	}
 	if (auto s = ts_pool_image_copy.collect(encode_slot))
 	{
 		wyrm::trace::gpu_slice(wyrm::trace::gpu_track::vulkan_image_copy,
-		                        "vk_copy_image_tmp",
-		                        s->begin_ns,
-		                        s->end_ns,
-		                        s->frame_index,
-		                        stream_idx);
+		                       "vk_copy_image_tmp",
+		                       s->begin_ns,
+		                       s->end_ns,
+		                       s->frame_index,
+		                       stream_idx);
 	}
 	if (auto s = ts_pool_host_copy.collect(encode_slot))
 	{
 		wyrm::trace::gpu_slice(wyrm::trace::gpu_track::vulkan_host_copy,
-		                        "vk_copy_to_host",
-		                        s->begin_ns,
-		                        s->end_ns,
-		                        s->frame_index,
-		                        stream_idx);
+		                       "vk_copy_to_host",
+		                       s->begin_ns,
+		                       s->end_ns,
+		                       s->frame_index,
+		                       stream_idx);
 	}
 
 	// We don't copy the whole buffer, but an estimate of how much we'll need
@@ -1157,11 +1149,11 @@ std::optional<wyrm::video_encoder::data> wyrm::video_encoder_vulkan::encode(uint
 		if (auto s = ts_pool_host_copy_overflow.collect(encode_slot))
 		{
 			wyrm::trace::gpu_slice(wyrm::trace::gpu_track::vulkan_host_copy_overflow,
-			                        "vk_copy_to_host_overflow",
-			                        s->begin_ns,
-			                        s->end_ns,
-			                        s->frame_index,
-			                        stream_idx);
+			                       "vk_copy_to_host_overflow",
+			                       s->begin_ns,
+			                       s->end_ns,
+			                       s->frame_index,
+			                       stream_idx);
 		}
 	}
 

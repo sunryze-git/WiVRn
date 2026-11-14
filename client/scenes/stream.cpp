@@ -650,6 +650,7 @@ void scenes::stream::push_blit_handle(shard_accumulator * decoder, std::shared_p
 		return;
 	}
 
+	std::optional<from_headset::feedback> decoded_feedback;
 	{
 		std::shared_lock lock(decoder_mutex);
 		std::unique_lock frame_lock(frames_mutex);
@@ -659,6 +660,7 @@ void scenes::stream::push_blit_handle(shard_accumulator * decoder, std::shared_p
 			if (decoder != decoders[stream].decoder.get() or handle->feedback.generation != stream_generation)
 				return;
 			handle->feedback.received_from_decoder = instance.now();
+			decoded_feedback = handle->feedback;
 			std::swap(handle, decoders[stream].latest_frames[handle->feedback.frame_index % decoders[stream].latest_frames.size()]);
 		}
 
@@ -669,6 +671,8 @@ void scenes::stream::push_blit_handle(shard_accumulator * decoder, std::shared_p
 		}
 	}
 
+	if (decoded_feedback)
+		send_feedback(*decoded_feedback);
 	if (handle and not handle->feedback.blitted)
 	{
 		send_feedback(handle->feedback);

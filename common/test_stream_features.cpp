@@ -32,6 +32,27 @@ static void rejects(std::map<std::string, std::string> settings)
 }
 int main()
 {
+	{
+		struct reference
+		{
+			uint64_t frame_index;
+			bool acked;
+		};
+		std::array<reference, 2> references{{{41, true}, {42, false}}};
+		from_headset::feedback queued{.frame_index = 42, .sent_to_decoder = 100};
+		check(not acknowledge_decoded_reference(references, queued));
+		check(references[0].acked and not references[1].acked);
+		auto decoded = queued;
+		decoded.received_from_decoder = 200;
+		check(acknowledge_decoded_reference(references, decoded));
+		check(references[1].acked);
+		references[1] = {43, false};
+		check(not acknowledge_decoded_reference(references, decoded));
+		check(not references[1].acked);
+		queued.frame_index = 43;
+		check(not acknowledge_decoded_reference(references, queued));
+		check(not references[1].acked);
+	}
 	const recovery_clock::time_point start{};
 	check(not keyframe_retry_due(start + std::chrono::milliseconds(199), start));
 	check(keyframe_retry_due(start + std::chrono::milliseconds(200), start));

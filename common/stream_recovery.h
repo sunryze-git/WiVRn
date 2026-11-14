@@ -1,8 +1,23 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
+#include "wyrm_packets.h"
 #include <chrono>
 namespace wyrm
 {
+template <typename Range>
+bool acknowledge_decoded_reference(Range & references, const from_headset::feedback & feedback)
+{
+	if (not feedback.received_from_decoder)
+		return false;
+	for (auto & reference: references)
+		if (reference.frame_index == feedback.frame_index)
+		{
+			reference.acked = true;
+			return true;
+		}
+	return false;
+}
+
 using recovery_clock = std::chrono::steady_clock;
 inline bool keyframe_retry_due(recovery_clock::time_point now, recovery_clock::time_point sent)
 {
