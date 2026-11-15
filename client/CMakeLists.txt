@@ -112,7 +112,7 @@ else()
     # Protocol headers are also consumed by common code and its tests.
     target_link_libraries(wyrm-common PUBLIC OpenXR::headers)
 
-    target_link_libraries(wyrm Fontconfig::Fontconfig CURL::libcurl PkgConfig::GIO_CLIENT)
+    target_link_libraries(wyrm Fontconfig::Fontconfig CURL::libcurl)
 
     if(WYRM_USE_V4L2)
         file(GLOB CLIENT_V4L2_SOURCE CONFIGURE_DEPENDS
@@ -136,6 +136,24 @@ else()
     endif()
 
     target_sources(wyrm PRIVATE ${PLATFORM_SOURCE})
+
+    # Steam Frame eye expressions: Babble Frame Runtime's eye model on ExecuTorch (scripts/build-executorch.sh)
+    if(WYRM_FRAME_EYES)
+        find_package(executorch CONFIG REQUIRED PATHS "${WYRM_EXECUTORCH_PREFIX}/lib/cmake/ExecuTorch" NO_DEFAULT_PATH)
+        target_sources(wyrm PRIVATE
+            frame_eyes/tracker.cpp
+            frame_eyes/eye_gaze.cpp
+            frame_eyes/babble/camera/eye/dsp_client.cpp
+            frame_eyes/babble/model/executorch_runner.cpp
+            frame_eyes/babble/model/eye_kit.cpp
+            frame_eyes/babble/model/image_ops.cpp
+            frame_eyes/babble/model/postprocess/eye_post.cpp
+            frame_eyes/babble/model/postprocess/one_euro.cpp)
+        target_include_directories(wyrm PRIVATE frame_eyes/babble)
+        target_compile_definitions(wyrm PRIVATE WYRM_FRAME_EYES=1)
+        target_link_libraries(wyrm executorch extension_module_static extension_tensor extension_threadpool
+            xnnpack_backend executorch_selected_kernels portable_kernels)
+    endif()
 
     file(CREATE_LINK ${CMAKE_CURRENT_BINARY_DIR}/share ${CMAKE_BINARY_DIR}/share SYMBOLIC)
 endif()
@@ -186,6 +204,12 @@ target_compile_definitions(wyrm PRIVATE -DGLM_ENABLE_EXPERIMENTAL)
 target_compile_definitions(wyrm PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
 
 target_include_directories(wyrm PRIVATE .)
+# Needs the packets' OpenXR types, which wyrm-common is built without
+target_sources(wyrm PRIVATE ../common/fec.cpp ../common/shard_stream.cpp)
+target_link_libraries(wyrm leopard)
+if(NOT ANDROID)
+    target_include_directories(wyrm PRIVATE ${FRAME_ABI_INCLUDE_DIR})
+endif()
 
 if(NOT ANDROID)
     install(TARGETS wyrm)

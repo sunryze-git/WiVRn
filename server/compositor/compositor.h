@@ -28,7 +28,6 @@
 #include "foveation.h"
 #include "layer_squasher.h"
 #include "pacer.h"
-#include "stream_recovery.h"
 #include "utils/wyrm_vk_bundle.h"
 #include "video_stream_state.h"
 
@@ -37,7 +36,7 @@
 #include <array>
 #include <atomic>
 #include <memory>
-#include <shared_mutex>
+#include <mutex>
 #include <thread>
 
 namespace wyrm
@@ -55,7 +54,7 @@ public:
 		image_allocation image;
 		vk::raii::ImageView view_y;
 		vk::raii::ImageView view_cbcr;
-		to_headset::video_stream_data_shard::view_info_t view_info{};
+		to_headset::video_frame_info::view_info_t view_info{};
 		uint64_t frame_index;
 	};
 
@@ -86,14 +85,14 @@ private:
 	vk::raii::CommandPool cmd_pool;
 	vk::raii::QueryPool query_pool;
 
-	struct stream_resources;
-	std::unique_ptr<stream_resources> video;
-	std::unique_ptr<stream_resources> previous_video;
-	std::optional<from_headset::headset_info_packet> pending_video_info;
-	mutable std::shared_mutex video_mutex;
-	video_stream_state video_state;
-	std::chrono::steady_clock::time_point video_change_deadline;
-	std::atomic<uint32_t> render_size;
+	// Held by layer_commit and while the stream is rebuilt for new settings
+	std::mutex reconfigure_mutex;
+	// Guards the encoder pointers against calls from the network threads
+	std::mutex encoders_mutex;
+
+	std::array<encoder_settings, 3> settings;
+
+	std::array<image, 2> images;
 	vk::raii::CommandBuffer cmd;
 	vk::raii::Semaphore sem;
 	uint64_t sem_value = 0;
@@ -102,7 +101,14 @@ private:
 	std::atomic<float> frame_rate;
 	wyrm::pacer pacer;
 
-	std::array<XrVector2f, 2> foveation_angles{};
+	vk::Extent3D squasher_extent;
+	layer_squasher squasher;
+	wyrm::foveation foveation;
+
+	std::array<std::unique_ptr<video_encoder>, 3> encoders;
+	uint32_t stream_generation = 1;
+	video_stream_state video_state;
+	std::atomic<bool> decoder_ready = false;
 
 #ifdef __cpp_lib_atomic_lock_free_type_aliases
 	using status_type = std::atomic_signed_lock_free;
@@ -110,6 +116,8 @@ private:
 	using status_type = std::atomic_int8_t;
 #endif
 	status_type encode_request{-1}; // id of the image to encode
+	// Frame shell: the headset shows this PC's VR video (from_headset::video_active)
+	std::atomic<bool> video_active{true};
 	std::jthread encoder_thread;
 
 	struct
@@ -166,16 +174,6 @@ private:
 	int acquire_image();
 
 	void encoder_work(std::stop_token);
-	void encode_image(int index);
-	void drain_video();
-	void restore_previous_stream();
-	void replace_video(std::array<encoder_settings, 3>, vk::Extent3D);
-	bool rebuild_encoder_pending = false;
-	bool decoder_failed = false;
-	decoder_recovery_budget decoder_recovery;
-	std::optional<uint32_t> requested_bitrate;
-	std::optional<uint32_t> effective_bitrate;
-	void apply_bitrate(uint32_t);
 
 	void send_video_stream_description();
 
@@ -203,20 +201,19 @@ public:
 	void set_framerate(float hz);
 
 	void set_bitrate(uint32_t);
-	void adapt_bitrate(uint64_t capacity_bps);
-	void network_statistics(to_headset::network_report &) const;
-	// Worst eye stream: median and 95th percentile encode start to display time
-	std::pair<double, double> frame_latency_ms() const;
-	double pacer_margin_ms() const;
-	void update_foveation(const from_headset::foveation &);
+	void update_tracking(const from_headset::tracking &);
+	void update_foveation_center_override(const from_headset::override_foveation_center &);
 
 	void resume();
-	void reconfigure(const from_headset::headset_info_packet &);
-	std::optional<from_headset::headset_info_packet> acknowledge_stream(const from_headset::video_stream_ready &);
-	void check_stream_timeout();
-	void describe_stream();
+	// Rebuild images, foveation and encoders after the stream size or codec changed
+	void reconfigure() noexcept;
+	void acknowledge_stream(const from_headset::video_stream_ready &);
 
-	std::optional<from_headset::headset_info_packet> on_feedback(const from_headset::feedback &, const clock_offset &);
+	void on_feedback(const from_headset::feedback &, const clock_offset &);
+	void on_nack(const from_headset::video_nack &);
+	void set_frame_margin(float ms);
+	// Activating restarts the encoders and sends the stream description again, as on resume
+	void set_video_active(bool active);
 };
 
 } // namespace wyrm

@@ -21,6 +21,7 @@
 #include "driver/wyrm_session.h"
 
 #include "video_encoder.h"
+#include "wyrm_serialization.h"
 
 #include "encoder_settings.h"
 #include "os/os_time.h"
@@ -61,7 +62,8 @@ video_encoder::sender::sender() :
 		        }
 		        if (d)
 		        {
-			        d->encoder->SendData(d->span, true, d->prefer_control);
+			        if (not d->span.empty())
+				        d->encoder->SendData(d->span, true, d->prefer_control);
 			        std::unique_lock lock(mutex);
 			        pending.pop_front();
 			        cv.notify_all();
@@ -182,7 +184,6 @@ std::unique_ptr<video_encoder> video_encoder::create(
 				break;
 		}
 		res->video_dump.open(file);
-		res->video_dump_index.open(file + ".idx");
 	}
 	return res;
 }
@@ -209,6 +210,11 @@ video_encoder::video_encoder(vk_bundle & vk,
 
 video_encoder::~video_encoder()
 {
+	wait_idle();
+}
+
+void video_encoder::wait_idle()
+{
 	if (shared_sender)
 		shared_sender->wait_idle(this);
 }
@@ -216,61 +222,13 @@ video_encoder::~video_encoder()
 void video_encoder::on_feedback(const from_headset::feedback & feedback)
 {
 	assert(feedback.stream_index == stream_idx);
-	if (feedback.received_last_packet > 0 and feedback.received_from_decoder > feedback.received_last_packet)
-	{
-		std::lock_guard lock(feedback_mutex);
-		decode_reserve_ns = decode_timing.observe(feedback.generation, feedback.frame_index, feedback.received_from_decoder - feedback.received_last_packet);
-		if (not decoded_frames.load() or feedback.generation != feedback_generation or feedback.frame_index > feedback_frame)
-		{
-			feedback_generation = feedback.generation;
-			feedback_frame = feedback.frame_index;
-			++decoded_frames;
-			if (feedback.display_deadline > 0 and feedback.received_from_decoder > feedback.display_deadline)
-				++late_frames;
-		}
-	}
-	if (feedback.encode_begin > 0 and feedback.displayed > feedback.encode_begin)
-	{
-		std::lock_guard lock(latency_mutex);
-		if (feedback.frame_index != latency_frame)
-		{
-			latency_frame = feedback.frame_index;
-			if (latency_ns.size() < 512)
-				latency_ns.push_back(feedback.displayed - feedback.encode_begin);
-			else
-				latency_ns[latency_next] = feedback.displayed - feedback.encode_begin;
-			latency_next = (latency_next + 1) % 512;
-		}
-	}
+	wyrm::trace::scope trace_feedback(wyrm::trace::cpu_track::network, stream_idx, feedback.frame_index, "feedback_reference");
 	idr->on_feedback(feedback);
-}
-
-std::pair<double, double> video_encoder::frame_latency_ms() const
-{
-	std::vector<int64_t> samples;
-	{
-		std::lock_guard lock(latency_mutex);
-		samples = latency_ns;
-	}
-	if (samples.empty())
-		return {0, 0};
-	const auto percentile = [&](double p) {
-		auto it = samples.begin() + size_t(p * (samples.size() - 1));
-		std::ranges::nth_element(samples, it);
-		return *it / 1e6;
-	};
-	return {percentile(0.5), percentile(0.95)};
 }
 
 void video_encoder::reset()
 {
 	idr->reset();
-}
-
-void video_encoder::wait_idle()
-{
-	if (shared_sender)
-		shared_sender->wait_idle(this);
 }
 
 void video_encoder::set_bitrate(uint32_t bitrate_bps)
@@ -299,7 +257,7 @@ void video_encoder::present_image(vk::Image y_cbcr, vk::SemaphoreSubmitInfo info
 }
 
 void video_encoder::encode(wyrm_session & cnx,
-                           const to_headset::video_stream_data_shard::view_info_t & view_info,
+                           const to_headset::video_frame_info::view_info_t & view_info,
                            uint64_t frame_index)
 {
 	encode_slot = (encode_slot + 1) % num_slots;
@@ -321,99 +279,98 @@ void video_encoder::encode(wyrm_session & cnx,
 	if (shared_sender)
 		shared_sender->wait_idle(this);
 	this->cnx = &cnx;
-	++submitted_frames;
 	clock = cnx.get_offset();
-	network_deadline = clock and view_info.display_time > 0
-	                           ? std::chrono::steady_clock::time_point(std::chrono::nanoseconds(clock.from_headset(view_info.display_time))) - std::chrono::nanoseconds(decode_reserve_ns.load())
-	                           : std::chrono::steady_clock::now() + std::chrono::milliseconds(25);
 
 	wyrm::trace::scope trace_encode(wyrm::trace::cpu_track::encoder, stream_idx, frame_index, "encode");
 	auto encode_begin = os_monotonic_get_ns();
-	timing_info = {
+	frame_info.timing_info = {
 	        .encode_begin = clock.to_headset(encode_begin),
 	};
 
-	// Prepare the video shard template
-	shard.stream_item_idx = stream_idx;
-	shard.frame_idx = frame_index;
-	shard.shard_idx = 0;
-	shard.view_info = view_info;
-	shard.timing_info.reset();
+	this->frame_index = frame_index;
+	frame_info.view_info = view_info;
+	frame_data.clear();
+	frame_control = false;
+	fec_percent = cnx.has_stream() ? cnx.fec_percent.load() : 0;
 
 	auto data = encode(encode_slot, frame_index);
 	if (data)
 	{
-		timing_info.encode_end = clock.to_headset(os_monotonic_get_ns());
+		frame_info.timing_info.encode_end = clock.to_headset(os_monotonic_get_ns());
 		assert(shared_sender);
 		shared_sender->push(std::move(*data));
+	}
+}
+
+void video_encoder::resend(const from_headset::video_nack & nack)
+{
+	wyrm::trace::scope trace_resend(wyrm::trace::cpu_track::network, stream_idx, nack.frame, "nack_resend");
+	// Sent without the lock, so the next frame's SendData isn't held up
+	wyrm_session * session;
+	std::vector<to_headset::video_shard> shards;
+	{
+		std::unique_lock lock(mutex, std::defer_lock);
+		{
+			wyrm::trace::scope trace_wait(wyrm::trace::cpu_track::network, stream_idx, nack.frame, "nack_wait_encoder");
+			lock.lock();
+		}
+		wyrm::trace::scope trace_copy(wyrm::trace::cpu_track::network, stream_idx, nack.frame, "nack_copy_shards");
+		session = cnx;
+		if (session)
+			shards = recovery.resend(nack);
+	}
+	for (auto & shard: shards)
+	{
+		try
+		{
+			session->send_stream(std::move(shard));
+		}
+		catch (const std::system_error &)
+		{
+		}
 	}
 }
 
 void video_encoder::SendData(std::span<uint8_t> data, bool end_of_frame, bool control)
 {
 	std::lock_guard lock(mutex);
-	if (shard.shard_idx == 0)
+	if (frame_data.empty())
 	{
-		// One SendData call per NAL; span the whole frame, not each call.
-		wyrm::trace::cpu_begin(wyrm::trace::cpu_track::network, stream_idx, shard.frame_idx, "SendData");
-		timing_info.send_begin = clock.to_headset(os_monotonic_get_ns());
-	}
-	if (end_of_frame)
-	{
-		timing_info.send_end = clock.to_headset(os_monotonic_get_ns());
-		if (not timing_info.encode_end)
-			timing_info.encode_end = timing_info.send_end;
+		wyrm::trace::cpu_begin(wyrm::trace::cpu_track::network, stream_idx, frame_index, "SendData");
+		frame_info.timing_info.send_begin = clock.to_headset(os_monotonic_get_ns());
 	}
 	if (video_dump)
-	{
-		if (shard.shard_idx == 0)
-			video_dump_frame_start = video_dump.tellp();
 		video_dump.write((char *)data.data(), data.size());
-		if (end_of_frame)
-			video_dump_index << shard.frame_idx << ' ' << video_dump_frame_start << ' ' << video_dump.tellp() - video_dump_frame_start << '\n';
-	}
+	frame_data.insert(frame_data.end(), data.begin(), data.end());
+	frame_control |= control;
+	if (not end_of_frame)
+		return;
 
-	const ssize_t max_payload_size = to_headset::video_stream_data_shard::max_payload_size;
-
-	auto begin = data.begin();
-	auto end = data.end();
-	while (begin != end)
+	frame_info.timing_info.send_end = clock.to_headset(os_monotonic_get_ns());
+	if (not frame_info.timing_info.encode_end)
+		frame_info.timing_info.encode_end = frame_info.timing_info.send_end;
+	serialization_packet metadata;
+	metadata.serialize(frame_info);
+	std::vector<uint8_t> bytes;
+	bytes.reserve(serialized_size(frame_info) + frame_data.size());
+	for (auto span: (std::vector<std::span<uint8_t>> &)metadata)
+		bytes.insert(bytes.end(), span.begin(), span.end());
+	bytes.insert(bytes.end(), frame_data.begin(), frame_data.end());
+	for (auto & shard: recovery.frame(stream_idx, generation, frame_index, bytes, frame_control ? 0 : fec_percent))
 	{
-		const size_t payload_size = std::max(0z, max_payload_size - ssize_t(serialized_size(shard.view_info)));
-		auto next = std::min(end, begin + payload_size);
-		if (next == end)
-		{
-			if (end_of_frame)
-			{
-				if (serialized_size(timing_info) + std::distance(begin, next) <= max_payload_size)
-					shard.timing_info = timing_info;
-				else
-					--next;
-			}
-		}
-		shard.payload = {begin, next};
-		// Account for headers as well as payload. Audio and control messages do
-		// not wait behind this budget; no socket lock is held while pacing.
-		cnx->pace_video(shard.payload.size() + 128);
-		if (next == end and end_of_frame)
-		{
-			timing_info.send_end = clock.to_headset(os_monotonic_get_ns());
-			shard.timing_info = timing_info;
-		}
 		try
 		{
-			cnx->send_stream(to_headset::video_stream_data_shard{shard}, network_deadline, control);
+			const auto deadline = clock and frame_info.view_info.display_time > 0
+			                              ? std::chrono::steady_clock::time_point(std::chrono::nanoseconds(clock.from_headset(frame_info.view_info.display_time)))
+			                              : std::chrono::steady_clock::now() + std::chrono::milliseconds(25);
+			cnx->pace_video(shard.payload.size() + 128);
+			cnx->send_stream(std::move(shard), deadline, frame_control);
 		}
-		catch (...)
+		catch (const std::system_error &)
 		{
-			// Ignore network errors
 		}
-		++shard.shard_idx;
-		shard.view_info.reset();
-		begin = next;
 	}
-	if (end_of_frame)
-		wyrm::trace::cpu_end(wyrm::trace::cpu_track::network, stream_idx, shard.frame_idx, "SendData");
+	wyrm::trace::cpu_end(wyrm::trace::cpu_track::network, stream_idx, frame_index, "SendData");
 }
 
 } // namespace wyrm

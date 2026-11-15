@@ -5,6 +5,7 @@
 #include "wyrm_serialization.h"
 #include <array>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 namespace wyrm
@@ -52,6 +53,22 @@ struct multilink_diagnostics
 	size_t receiving_assemblies = 0;
 };
 
+enum class video_queue_drop_reason
+{
+	deadline,
+	arrival_impossible,
+	queue_full,
+};
+
+struct video_queue_drop
+{
+	std::span<const uint8_t> packet;
+	video_queue_drop_reason reason;
+	std::chrono::steady_clock::time_point enqueued_at, dropped_at, deadline, target_deadline;
+	size_t fragment_cursor = 0;
+	size_t queued_bytes = 0;
+};
+
 // Owns queued payloads. serialization_packet spans may reference encoder memory.
 class multilink
 {
@@ -60,6 +77,7 @@ class multilink
 
 public:
 	using key_type = std::array<uint8_t, 32>;
+	using video_queue_drop_observer = void (*)(const video_queue_drop &);
 	multilink();
 	// With discovery disabled, only the supplied peer paths are accepted.
 	multilink(bool server, key_type key, std::vector<network_endpoint> local, std::vector<network_endpoint> remote = {}, bool refresh_interfaces = true, bool discover_endpoints = true);
@@ -74,7 +92,11 @@ public:
 	uint64_t capacity_bps() const;
 	multilink_diagnostics diagnostics() const;
 	void set_options(multilink_options);
+	// Called under the transport lock; the packet view expires when the callback returns.
+	void set_video_queue_drop_observer(video_queue_drop_observer);
 	bool set_multilink_enabled(bool enabled);
+	// Streams over this interface's best path only; false if it has none in use
+	bool set_single_interface(std::string_view interface);
 	void shutdown();
 	void prepare_fork();
 	void resume_after_fork();

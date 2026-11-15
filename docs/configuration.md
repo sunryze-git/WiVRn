@@ -38,10 +38,10 @@ Changes to the audio or tracking devices exposed to OpenXR applications can stil
 require recreating the OpenXR system. Both client and server must use this version
 of the streaming protocol; existing running installations are not upgraded in place.
 
-On the tested Steam Frame driver, the hardware decoder advertises NV12 output
-and does not advertise P010. Wyrm therefore negotiates 8-bit video even when
-10-bit is selected. It keeps the capability check rather than forcing an
-unadvertised decoder format.
+Steam Frame uses 8-bit video in this integration. The tested kernel also
+configures an 8-bit DSC panel link. Experimental Q10C decoding and RGB10
+composition are not enabled. Other devices can use 10-bit video when the
+selected codec, encoder and decoder support it.
 
 SolarXR uses the SolarXR driver protocol for SlimeVR, including reconnect and
 battery-status support. The `SLIMEVR_SOCKET_DIR` environment variable can override
@@ -59,13 +59,13 @@ OpenXR enumeration stable, resets pacing history on rate changes, and applies th
 half-rate switch against the observed physical rate.
 
 SteamVR stores per-application display settings under a different profile for
-Wyrm (`system.generated.openxr.wyrm.wyrm`) than for WiVRn. Existing refresh-rate
+Wyrm (`system.generated.openxr.wyrm.wyrm`) than for Wyrm. Existing refresh-rate
 overrides do not carry over. If Frame starts at 72 Hz despite a higher saved
 Wyrm preference, select the desired rate in Frame's SteamVR settings for Wyrm.
 The physical mode takes precedence over Wyrm's saved preference on this device.
 
 These changes address Wyrm's stale mode and pacing paths. They do not establish
-that all jitter reported in [#1173](https://github.com/WiVRn/WiVRn/issues/1173)
+that all jitter reported in [#1173](https://github.com/Wyrm/Wyrm/issues/1173)
 is fixed; that still requires measurement on a Frame and its runtime.
 
 ## Discord Rich Presence
@@ -260,6 +260,8 @@ Manually specify the device for encoding, can be used to offload encode to an iG
 Default value: unset
 
 For VAAPI, a JSON object of additional options passed directly to ffmpeg `avcodec_open2`'s `option` parameter. For NVENC, see the [validated quality options](nvenc.md#quality-options). Options are strings. Server encoder configuration is read when video settings are renegotiated, including on reconnect; changed options trigger the same encoder handoff as codec changes.
+
+For vulkan, `buffer_ms` (a string, 10 to 1000, default `"1000"`) sets the rate control window: a shorter one keeps single frames closer to the average size, so large frames don't arrive as bursts the network drops.
 
 ## `application`
 Default value: unset

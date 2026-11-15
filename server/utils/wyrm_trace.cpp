@@ -18,6 +18,8 @@
 
 #include "wyrm_trace.h"
 
+#include "multilink.h"
+
 #include "util/u_trace_marker.h"
 
 #ifdef WYRM_USE_PERFETTO
@@ -27,6 +29,8 @@
 #include "util/u_logging.h"
 #include "utils/xdg_base_directory.h"
 
+#include <array>
+#include <atomic>
 #include <cstdint>
 #include <cstdlib>
 #include <ctime>
@@ -53,13 +57,30 @@ namespace wyrm::trace
 namespace
 {
 bool initialized = false;
-bool enabled = false;
+std::atomic<bool> enabled = false;
 ::vk_bundle * calibration = nullptr;
 
-perfetto::Track g_encoder_track(1);
-perfetto::Track g_compositor_track(2);
-perfetto::Track g_network_track(3);
 perfetto::Track g_feedback_track(4);
+
+constexpr std::array cpu_track_names{"Wyrm encoder CPU", "Wyrm compositor CPU", "Wyrm network CPU"};
+constexpr std::array gpu_track_names{"Wyrm Vulkan encode", "Wyrm Vulkan image copy", "Wyrm Vulkan host copy", "Wyrm Vulkan host copy overflow", "Wyrm NVENC copy", "Wyrm VA copy"};
+
+void set_track_name(const perfetto::Track & track, const char * name)
+{
+	auto desc = track.Serialize();
+	desc.set_name(name);
+	perfetto::TrackEvent::SetTrackDescriptor(track, desc);
+}
+
+perfetto::Track frame_cpu_track_obj(cpu_track which, uint8_t stream)
+{
+	return perfetto::Track(0x1000 + uint64_t(which) * 256 + stream);
+}
+
+perfetto::Track gpu_track_obj(gpu_track which, uint8_t stream)
+{
+	return perfetto::Track(0x2000 + uint64_t(which) * 256 + stream);
+}
 
 // WYRM_TRACING is the single switch: it both enables tracing and selects which Perfetto
 // backend(s) init() arms.
@@ -225,16 +246,25 @@ void start_inprocess_session()
 
 perfetto::Track & cpu_track_obj(cpu_track d)
 {
-	switch (d)
+	static_assert(sizeof(perfetto::base::PlatformThreadId) <= sizeof(uint32_t));
+	struct thread_tracks
 	{
-		case cpu_track::encoder:
-			return g_encoder_track;
-		case cpu_track::compositor:
-			return g_compositor_track;
-		case cpu_track::network:
-			return g_network_track;
-	}
-	return g_encoder_track;
+		perfetto::ThreadTrack thread = perfetto::ThreadTrack::Current();
+		// Track IDs XOR their parent, whose thread ID occupies only the low 32 bits.
+		std::array<perfetto::Track, cpu_track_names.size()> tracks{
+		        perfetto::Track(uint64_t(1) << 32, thread),
+		        perfetto::Track(uint64_t(2) << 32, thread),
+		        perfetto::Track(uint64_t(3) << 32, thread),
+		};
+		thread_tracks()
+		{
+			perfetto::TrackEvent::SetTrackDescriptor(thread, thread.Serialize());
+			for (size_t i = 0; i < tracks.size(); ++i)
+				set_track_name(tracks[i], cpu_track_names[i]);
+		}
+	};
+	thread_local thread_tracks local;
+	return local.tracks[size_t(d)];
 }
 } // namespace
 
@@ -267,12 +297,11 @@ void init()
 		U_LOG_D("wyrm::trace: WYRM_TRACING not set, perfetto tracing disabled");
 		return;
 	}
-	enabled = true;
-
 	const bool use_system = mode == tracing_mode::system or mode == tracing_mode::both;
 	const bool use_inprocess = mode == tracing_mode::inprocess or mode == tracing_mode::both;
 
 	perfetto::TracingInitArgs args;
+	args.use_monotonic_clock = true;
 	if (use_system)
 	{
 		const auto sock = default_producer_sock_path();
@@ -285,21 +314,26 @@ void init()
 	perfetto::Tracing::Initialize(args);
 	perfetto::TrackEvent::Register();
 
-	// Name the custom tracks; descriptors must be emitted after Register().
-	auto set_track_name = [](perfetto::Track & trk, const char * name) {
-		auto desc = trk.Serialize();
-		desc.set_name(name);
-		perfetto::TrackEvent::SetTrackDescriptor(trk, desc);
-	};
-	set_track_name(g_encoder_track, "Wyrm encoder");
-	set_track_name(g_compositor_track, "Wyrm compositor");
-	set_track_name(g_network_track, "Wyrm network");
 	set_track_name(g_feedback_track, "Wyrm feedback");
+	for (uint8_t stream = 0; stream < 3; ++stream)
+	{
+		for (size_t i = 0; i < cpu_track_names.size(); ++i)
+		{
+			const auto name = std::string(cpu_track_names[i]) + " stream " + std::to_string(stream);
+			set_track_name(frame_cpu_track_obj(cpu_track(i), stream), name.c_str());
+		}
+		for (size_t i = 0; i < gpu_track_names.size(); ++i)
+		{
+			const auto name = std::string(gpu_track_names[i]) + " stream " + std::to_string(stream);
+			set_track_name(gpu_track_obj(gpu_track(i), stream), name.c_str());
+		}
+	}
 
 	// The in-process session must be started after Register() so its data source is known.
 	if (use_inprocess)
 		start_inprocess_session();
 
+	enabled.store(true, std::memory_order_release);
 	U_LOG_I("wyrm::trace: init complete");
 }
 
@@ -323,7 +357,7 @@ void shutdown()
 
 bool is_enabled()
 {
-	return enabled;
+	return enabled.load(std::memory_order_acquire);
 }
 
 void set_calibration_source(::vk_bundle * monado_vk)
@@ -343,13 +377,37 @@ void instant_feedback(const char * name, int64_t time_ns, uint64_t frame, uint8_
 	TRACE_EVENT_INSTANT("wyrm_feedback", perfetto::DynamicString(name), g_feedback_track, static_cast<uint64_t>(time_ns), "frame", frame, "stream", static_cast<uint32_t>(stream));
 }
 
-void gpu_slice(gpu_track, const char * slice_name, int64_t begin_ns, int64_t end_ns, uint64_t frame, uint8_t stream)
+void video_queue_dropped(const video_queue_drop & drop, uint32_t stream, uint32_t generation, uint64_t frame, uint16_t shard)
+{
+	if (!enabled.load(std::memory_order_acquire))
+		return;
+	const char * name = nullptr;
+	switch (drop.reason)
+	{
+		case video_queue_drop_reason::deadline:
+			name = "drop_video_deadline";
+			break;
+		case video_queue_drop_reason::arrival_impossible:
+			name = "drop_video_arrival_impossible";
+			break;
+		case video_queue_drop_reason::queue_full:
+			name = "drop_video_queue_full";
+			break;
+	}
+	const auto ns = [](auto time) { return std::chrono::duration_cast<std::chrono::nanoseconds>(time.time_since_epoch()).count(); };
+	TRACE_EVENT_INSTANT("wyrm_network", perfetto::DynamicString(name), g_feedback_track, static_cast<uint64_t>(ns(drop.dropped_at)),
+	                    "frame", frame, "stream", stream, "generation", generation, "shard", shard,
+	                    "enqueued_ns", ns(drop.enqueued_at), "deadline_ns", ns(drop.deadline), "target_deadline_ns", ns(drop.target_deadline),
+	                    "fragment_cursor", drop.fragment_cursor, "queued_bytes", drop.queued_bytes);
+}
+
+void gpu_slice(gpu_track which, const char * slice_name, int64_t begin_ns, int64_t end_ns, uint64_t frame, uint8_t stream)
 {
 	if (!initialized)
 		return;
-	// gpu_track is unused today (all slices share the encoder track); kept for future GPU lanes.
-	TRACE_EVENT_BEGIN("wyrm_encoder_gpu", perfetto::DynamicString(slice_name), g_encoder_track, static_cast<uint64_t>(begin_ns), "frame", frame, "stream", static_cast<uint32_t>(stream));
-	TRACE_EVENT_END("wyrm_encoder_gpu", g_encoder_track, static_cast<uint64_t>(end_ns));
+	const auto track = gpu_track_obj(which, stream);
+	TRACE_EVENT_BEGIN("wyrm_encoder_gpu", perfetto::DynamicString(slice_name), track, static_cast<uint64_t>(begin_ns), "frame", frame, "stream", static_cast<uint32_t>(stream));
+	TRACE_EVENT_END("wyrm_encoder_gpu", track, static_cast<uint64_t>(end_ns));
 }
 
 #define WYRM_CPU_BEGIN(CAT, trk, name, ts, frame, stream) \
@@ -404,7 +462,7 @@ scope::~scope()
 
 void cpu_instant(cpu_track which, const char * name, uint64_t frame, uint8_t stream)
 {
-	if (!initialized)
+	if (!enabled.load(std::memory_order_acquire))
 		return;
 	const int64_t ts = os_monotonic_get_ns();
 	perfetto::Track & trk = cpu_track_obj(which);
@@ -427,7 +485,8 @@ void cpu_begin(cpu_track which, uint8_t stream, uint64_t frame, const char * nam
 	if (!initialized)
 		return;
 	const int64_t ts = os_monotonic_get_ns();
-	perfetto::Track & trk = cpu_track_obj(which);
+	// A frame can begin with headers on the encoder thread and finish on the sender.
+	const auto trk = frame_cpu_track_obj(which, stream);
 	switch (which)
 	{
 		case cpu_track::encoder:
@@ -442,12 +501,12 @@ void cpu_begin(cpu_track which, uint8_t stream, uint64_t frame, const char * nam
 	}
 }
 
-void cpu_end(cpu_track which, uint8_t, uint64_t, const char *)
+void cpu_end(cpu_track which, uint8_t stream, uint64_t, const char *)
 {
 	if (!initialized)
 		return;
 	const int64_t ts = os_monotonic_get_ns();
-	perfetto::Track & trk = cpu_track_obj(which);
+	const auto trk = frame_cpu_track_obj(which, stream);
 	switch (which)
 	{
 		case cpu_track::encoder:
@@ -483,6 +542,7 @@ void set_calibration_source(::vk_bundle *) {}
 	return nullptr;
 }
 void instant_feedback(const char *, int64_t, uint64_t, uint8_t) {}
+void video_queue_dropped(const video_queue_drop &, uint32_t, uint32_t, uint64_t, uint16_t) {}
 void gpu_slice(gpu_track, const char *, int64_t, int64_t, uint64_t, uint8_t) {}
 scope::scope(cpu_track which, uint8_t stream, uint64_t frame, const char * name) :
         which(which), stream(stream), frame(frame), name(name), begin_ns(0), active(false) {}

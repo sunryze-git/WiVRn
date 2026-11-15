@@ -33,7 +33,9 @@
 #include <vulkan/vulkan_raii.hpp>
 #include <openxr/openxr.h>
 
+#include <chrono>
 #include <compare>
+#include <map>
 #include <optional>
 #include <set>
 #include <uni_algo/case.h>
@@ -258,6 +260,16 @@ class lobby : public scene_impl<lobby>
 	void setup_passthrough();
 
 	void connect(const configuration::server_data & data);
+
+#ifndef __ANDROID__
+	// Frame shell: the lobby's connection logic without its UI; the shell shows state and sends commands
+	void render_shell(const XrFrameState &);
+	void handle_shell_command(const std::string &);
+	void publish_shell_state();
+	std::string shell_state;
+	// When to allow autoconnecting again after a failed connection or a dropped stream
+	std::chrono::steady_clock::time_point shell_autoconnect_retry{};
+#endif
 	std::unique_ptr<wyrm_session> connect_to_session(wyrm_discover::service service, bool manual_connection, bool multilink_enabled);
 
 	std::optional<glm::vec3> check_recenter_gesture(xr::spaces space, const xr::hand_tracker::joint_array & joints, const std::pair<glm::vec3, glm::quat> & head_pose);
@@ -265,6 +277,32 @@ class lobby : public scene_impl<lobby>
 	std::optional<glm::vec3> check_recenter_gui(glm::vec3 head_position, glm::quat head_orientation);
 
 	crypto::key keypair;
+#ifndef __ANDROID__
+	// Frame shell: the PC presenting VR is next_scene; PCs connected besides it stand by. A connection started
+	// while another PC presents becomes one of them.
+	struct standby_pc
+	{
+		std::string cookie;
+		std::shared_ptr<stream> scene;
+	};
+	std::vector<standby_pc> standby;
+	std::string active_cookie;
+
+	std::string connecting_name;
+	// A failed connection to a PC that would have stood by: cookie, message
+	std::map<std::string, std::string> connection_errors;
+	std::set<std::string> requested_connections;
+	// Remembered PCs to connect once discovery finds them, and when to fall back to their saved hostname
+	std::map<std::string, std::chrono::steady_clock::time_point> awaiting_discovery;
+	std::string pinned_cookie;
+	// When a PC was last picked to present in the shell (steady clock ns): only later VR applications switch away
+	int64_t present_override = 0;
+	// Auto-connect PCs that failed to connect as standby, and when to try again
+	std::map<std::string, std::chrono::steady_clock::time_point> standby_retry;
+	std::string hosts_signature;
+	void manage_standby(float fps);
+	void publish_hosts_state();
+#endif
 
 public:
 	virtual ~lobby();

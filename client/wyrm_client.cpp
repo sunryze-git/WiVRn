@@ -184,7 +184,7 @@ void wyrm_session::handshake(T address, bool tcp_only, crypto::key & headset_key
 
 		case to_headset::crypto_handshake::crypto_state::incompatible_version:
 			spdlog::error("Incompatible protocol versions");
-			throw std::runtime_error(_("Incompatible server version"));
+			throw std::runtime_error(_("This Frame Shell build needs its matching Wyrm server. Build both from the same checkout."));
 	}
 
 	// may be on control socket if forced TCP

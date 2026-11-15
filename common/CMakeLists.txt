@@ -35,6 +35,10 @@ if(WYRM_BUILD_TEST)
     target_link_libraries(test-multilink-jitter PRIVATE wyrm-common)
     add_test(NAME multilink-jitter-recovery COMMAND test-multilink-jitter)
     set_tests_properties(multilink-jitter-recovery PROPERTIES TIMEOUT 15)
+    add_executable(test-network-impairment test_network_impairment.cpp)
+    target_link_libraries(test-network-impairment PRIVATE wyrm-common)
+    add_test(NAME network-impairment COMMAND test-network-impairment)
+    set_tests_properties(network-impairment PROPERTIES TIMEOUT 10)
     add_executable(test-multilink-live test_multilink_live.cpp)
     target_link_libraries(test-multilink-live PRIVATE wyrm-common)
     add_executable(benchmark-multilink-live benchmark_multilink_live.cpp)
@@ -42,6 +46,10 @@ if(WYRM_BUILD_TEST)
     add_executable(test-stream-features test_stream_features.cpp)
     target_link_libraries(test-stream-features PRIVATE wyrm-common)
     add_test(NAME stream-features COMMAND test-stream-features)
+    add_executable(test-video-shards test_video_shards.cpp fec.cpp shard_stream.cpp)
+    target_link_libraries(test-video-shards PRIVATE wyrm-common leopard)
+    target_include_directories(test-video-shards PRIVATE ${CMAKE_SOURCE_DIR}/external/leopard)
+    add_test(NAME video-shards COMMAND test-video-shards)
     add_executable(test-video-stream test_video_stream.cpp)
     target_link_libraries(test-video-stream PRIVATE wyrm-common)
     add_test(NAME video-stream COMMAND test-video-stream)
@@ -62,6 +70,7 @@ add_library(wyrm-common STATIC EXCLUDE_FROM_ALL
     multilink.cpp
     link_probe.cpp
     wyrm_sockets.cpp
+    wyrm_foveation.cpp
     utils/strings.cpp
     vk/allocation.cpp
     vk/error_category.cpp

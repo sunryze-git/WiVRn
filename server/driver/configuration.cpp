@@ -50,8 +50,14 @@ static auto resolve_path(std::filesystem::path path)
 }
 
 static std::filesystem::path config_file;
-static std::filesystem::path known_keys_file = resolve_path(xdg_config_home() / "wyrm" / "known_keys.json");
-static std::filesystem::path cookie_file = resolve_path(xdg_config_home() / "wyrm" / "cookie");
+static std::filesystem::path identity_dir()
+{
+	if (const char * path = std::getenv("FRAME_SHELL_IDENTITY_DIR"))
+		return path;
+	return xdg_config_home() / "wyrm";
+}
+static std::filesystem::path known_keys_file = resolve_path(identity_dir() / "known_keys.json");
+static std::filesystem::path cookie_file = resolve_path(identity_dir() / "cookie");
 
 namespace wyrm
 {
@@ -207,6 +213,12 @@ configuration::configuration()
 		// permission, so it is always exposed.
 		if (auto it = json.find("hid-forwarding"); it != json.end())
 			hid_forwarding = *it;
+
+		if (auto it = json.find("tracking-sample-ms"); it != json.end())
+			tracking_sample_ms = std::clamp(it->get<int>(), 1, 20);
+
+		if (auto it = json.find("eye-osc"); it != json.end())
+			eye_osc = it->is_string() ? it->get<std::string>() : "";
 
 		if (auto it = json.find("debug-gui"); it != json.end())
 			debug_gui = *it;

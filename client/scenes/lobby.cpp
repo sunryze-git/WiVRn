@@ -18,6 +18,10 @@
  */
 
 #include "lobby.h"
+#include "utils/json_string.h"
+#ifndef __ANDROID__
+#include "linux/frame_shell.h"
+#endif
 
 #include "application.h"
 #include "configuration.h"
@@ -232,7 +236,7 @@ std::unique_ptr<wyrm_session> scenes::lobby::connect_to_session(wyrm_discover::s
 		if (protocol == service.txt.end())
 			throw std::runtime_error(_("Incompatible Wyrm server: no protocol field in TXT"));
 
-		if (protocol->second != protocol_string)
+		if (protocol != service.txt.end() && protocol->second != protocol_string)
 			throw std::runtime_error(fmt::format(_F("Incompatible Wyrm server protocol (client: {}, server: {})"), protocol_string, protocol->second));
 	}
 
@@ -371,87 +375,78 @@ void scenes::lobby::update_server_list()
 		discover.emplace();
 #endif
 
+	std::vector<wyrm_discover::service> discovered_services = discover->get_services();
+
+	// TODO: only if discovered_services changed
 	auto & servers = application::get_config().servers;
-	std::vector<wyrm_discover::service> manual;
 	for (auto & [cookie, data]: servers)
 	{
 		data.visible = false;
-		if (data.manual)
-		{
-			auto service = data.service;
-			service.txt["cookie"] = cookie;
-			manual.push_back(std::move(service));
-		}
 	}
-	discover->set_manual_services(std::move(manual));
-	const auto discovered = discover->get_services();
-	const auto groups = wyrm::server_group_keys(servers, discovered);
-	const auto group_key = [&groups](const auto & service) {
-		const auto cookie = service.txt.find("cookie");
-		const std::string id = cookie == service.txt.end() ? service.hostname : cookie->second;
-		if (not service.manual)
-			if (auto group = groups.find(id); group != groups.end())
-				return group->second;
-		return id;
-	};
-	grouped_server_ids.clear();
-	for (const auto & service: discovered)
+
+	char protocol_string[17];
+	sprintf(protocol_string, "%016lx", wyrm::protocol_version);
+
+	for (auto & service: discovered_services)
 	{
-		if (service.manual)
-			continue;
-		const auto id = group_key(service);
-		if (const auto cookie = service.txt.find("cookie"); cookie != service.txt.end() and cookie->second != id)
-			grouped_server_ids.insert(cookie->second);
-		for (const auto & [key, saved]: servers)
-			if (saved.manual and key != id and wyrm::same_server_endpoint(saved.service, service))
-				grouped_server_ids.insert(key);
-	}
-	const auto protocol_string = fmt::format("{:016x}", wyrm::protocol_version);
-	for (const auto & service: discovered)
-	{
-		const auto cookie = service.txt.find("cookie");
-		const std::string id = group_key(service);
-		if (grouped_server_ids.contains(id))
-			continue;
-		if (service.manual and (not servers.contains(id) or not servers.at(id).manual))
-			continue;
-		const auto protocol = service.txt.find("protocol");
-		const bool compatible = service.manual or (cookie != service.txt.end() and protocol != service.txt.end() and protocol->second == protocol_string);
-		auto [it, inserted] = servers.try_emplace(id, configuration::server_data{.autoconnect = false, .manual = service.manual, .visible = false, .compatible = compatible, .service = service});
-		auto & data = it->second;
-		if (not data.visible)
-			data.service.addresses.clear();
-		if (not data.manual)
+		std::string cookie;
+		bool compatible = true;
+
+		auto it = service.txt.find("cookie");
+		if (it == service.txt.end())
 		{
-			data.service.name = service.name;
-			data.service.hostname = service.hostname;
-			data.service.port = service.port;
+			cookie = service.hostname;
+			compatible = false;
 		}
-		if (not service.manual)
-			data.service.txt = service.txt;
-		data.visible = true;
-		data.compatible = compatible;
-		for (const auto & address: service.addresses)
+		else
+			cookie = it->second;
+
+		auto protocol = service.txt.find("protocol");
+		if (protocol == service.txt.end())
+			compatible = false;
+
+		if (protocol != service.txt.end() && protocol->second != protocol_string)
+			compatible = false;
+
+		auto server = servers.find(cookie);
+		if (server == servers.end())
 		{
-			const auto endpoint = std::visit([](const auto & a) { return wyrm::describe_endpoint(reinterpret_cast<const sockaddr *>(&a)); }, address.address);
-			auto existing = std::ranges::find_if(data.service.addresses, [&](const auto & candidate) {
-				return candidate.interface == address.interface and endpoint == std::visit([](const auto & a) { return wyrm::describe_endpoint(reinterpret_cast<const sockaddr *>(&a)); }, candidate.address);
-			});
-			if (existing == data.service.addresses.end())
-				data.service.addresses.push_back(address);
-			else
-				*existing = address;
+			// Newly discovered server: add it to the list
+			configuration::server_data data{
+			        .autoconnect = false,
+			        .manual = false,
+			        .visible = true,
+			        .compatible = compatible,
+			        .service = service,
+			};
+#ifndef __ANDROID__
+			// It streams like the PC presenting VR until set up otherwise
+			if (auto active = servers.find(active_cookie); active != servers.end())
+				data.stream = active->second.stream;
+#endif
+			servers.emplace(cookie, std::move(data));
+		}
+		else
+		{
+			server->second.visible = true;
+			server->second.service = service;
+			server->second.compatible = compatible;
 		}
 	}
 }
 
 void scenes::lobby::connect(const configuration::server_data & data)
 {
-	server_name = data.service.name;
+#ifndef __ANDROID__
+	connecting_name = data.service.name;
 	connecting_cookie.clear();
-	for (const auto & [cookie, server]: application::get_config().servers)
-		if (&server == &data)
-			connecting_cookie = cookie;
+	if (auto cookie = data.service.txt.find("cookie"); cookie != data.service.txt.end())
+		connecting_cookie = cookie->second;
+	connection_errors.erase(connecting_cookie);
+	// Another PC presents VR: this one will stand by and keeps the presenting PC's name in the lobby state
+	if (not next_scene)
+#endif
+		server_name = data.service.name;
 	async_error.reset();
 
 	async_session = utils::async<std::unique_ptr<wyrm_session>, std::string>(
@@ -460,7 +455,7 @@ void scenes::lobby::connect(const configuration::server_data & data)
 		        return connect_to_session(service, manual, multilink_enabled);
 	        },
 	        data.service,
-	        data.manual,
+	        data.manual || !data.visible,
 	        bool(application::get_config().multilink_enabled));
 }
 
@@ -895,33 +890,20 @@ static void stick_finger_to_gui(std::array<xr::hand_tracker::joint, XR_HAND_JOIN
 
 void scenes::lobby::render(const XrFrameState & frame_state)
 {
+#ifndef __ANDROID__
+	if (frame_shell::enabled())
+	{
+		render_shell(frame_state);
+		return;
+	}
+#endif
 	if (async_session.valid() && async_session.poll() == utils::future_status::ready)
 	{
 		try
 		{
 			auto session = async_session.get();
 			if (session)
-			{
-				auto & config = application::get_config();
-				if (not connecting_cookie.empty() and not session->server_id().empty() and session->server_id() != connecting_cookie)
-				{
-					auto node = config.servers.extract(connecting_cookie);
-					if (not node.empty())
-					{
-						node.key() = session->server_id();
-						node.mapped().service.txt["cookie"] = session->server_id();
-						if (auto existing = config.servers.find(node.key()); existing != config.servers.end())
-						{
-							node.mapped().autoconnect |= existing->second.autoconnect;
-							existing->second = std::move(node.mapped());
-						}
-						else
-							config.servers.insert(std::move(node));
-						config.save();
-					}
-				}
-				next_scene = stream::create(std::move(session), 1'000'000'000.f / frame_state.predictedDisplayPeriod, server_name, *this);
-			}
+				next_scene = stream::create(std::move(session), 1'000'000'000.f / frame_state.predictedDisplayPeriod, server_name, connecting_cookie, *this);
 
 			async_session.reset();
 		}
@@ -935,7 +917,6 @@ void scenes::lobby::render(const XrFrameState & frame_state)
 
 	if (next_scene)
 	{
-		next_scene->prepare_video_stream();
 		server_hid_forwarding = next_scene->hid_forwarding_enabled();
 
 		switch (next_scene->current_state())
@@ -1098,7 +1079,11 @@ void scenes::lobby::render(const XrFrameState & frame_state)
 	}
 #endif
 
-	std::vector<std::pair<int, XrCompositionLayerQuad>> imgui_layers = draw_gui(frame_state.predictedDisplayTime);
+	std::vector<std::pair<int, XrCompositionLayerQuad>> imgui_layers;
+#ifndef __ANDROID__
+	if (!frame_shell::enabled() || !next_scene)
+#endif
+		imgui_layers = draw_gui(frame_state.predictedDisplayTime);
 
 #if WYRM_CLIENT_DEBUG_MENU
 	if (auto * node = world.try_get<components::node>(debug_primitive_to_highlight.first);
@@ -1190,6 +1175,11 @@ void scenes::lobby::render(const XrFrameState & frame_state)
 void scenes::lobby::on_focused()
 {
 	recenter_gui = true;
+#ifndef __ANDROID__
+	// The shell has no lobby UI to reconnect from: reconnect on our own after a stream ends
+	if (frame_shell::enabled())
+		autoconnect_enabled = true;
+#endif
 
 	auto views = system.view_configuration_views(viewconfig);
 	assert(views.size() == 2); // FIXME
@@ -1546,3 +1536,491 @@ scene::meta & scenes::lobby::get_meta_scene()
 
 	return m;
 }
+
+#ifndef __ANDROID__
+static bool is_lobby_command(std::string_view command)
+{
+	for (std::string_view prefix: {"connect ", "disconnect", "present ", "pin ", "pin_cancel", "autoconnect ", "forget ", "setting ", "linkmode ", "pin_vr ", "auto_vr"})
+		if (command.starts_with(prefix))
+			return true;
+	return false;
+}
+
+void scenes::lobby::render_shell(const XrFrameState & frame_state)
+{
+	using namespace std::chrono_literals;
+	const auto now = std::chrono::steady_clock::now();
+
+	if (async_session.valid() && async_session.poll() == utils::future_status::ready)
+	{
+		try
+		{
+			auto session = async_session.get();
+			if (session)
+			{
+				auto & config = application::get_config();
+				if (auto it = config.servers.find(connecting_cookie); it != config.servers.end())
+					it->second.remembered = true;
+				config.save();
+			}
+			const float fps = 1'000'000'000.f / frame_state.predictedDisplayPeriod;
+			if (session and next_scene)
+				standby.push_back({connecting_cookie, stream::create(std::move(session), fps, connecting_name, connecting_cookie, *this, false)});
+			else if (session)
+			{
+				next_scene = stream::create(std::move(session), fps, server_name, connecting_cookie, *this);
+				active_cookie = connecting_cookie;
+			}
+
+			async_session.reset();
+			connecting_cookie.clear();
+		}
+		catch (std::exception & e)
+		{
+			spdlog::error("Error connecting to server: {}", e.what());
+			connection_errors[connecting_cookie] = e.what();
+			async_session.cancel();
+			if (next_scene)
+			{
+				connection_errors[connecting_cookie] = e.what();
+				standby_retry[connecting_cookie] = now + 30s;
+			}
+			else
+			{
+				async_error = e.what();
+				shell_autoconnect_retry = now + 5s;
+			}
+			connecting_cookie.clear();
+		}
+	}
+
+	if (next_scene)
+	{
+		server_hid_forwarding = next_scene->hid_forwarding_enabled();
+
+		switch (next_scene->current_state())
+		{
+			case scenes::stream::state::streaming:
+				break;
+
+			case scenes::stream::state::shutdown:
+				// The lobby UI clears a finished stream; without it, do it here and reconnect once the server is
+				// back, unless the user disconnected. A PC on standby presents instead, if there is one.
+				async_error = next_scene->pop_stream_error();
+				next_scene.reset();
+				if (pinned_cookie == active_cookie)
+					pinned_cookie.clear();
+				active_cookie.clear();
+				if (frame_shell::user_disconnected.exchange(false) or not standby.empty())
+					shell_autoconnect_retry = {};
+				else
+					shell_autoconnect_retry = now + 2s;
+				break;
+
+			default:
+				break;
+		}
+	}
+
+	update_server_list();
+
+	manage_standby(1'000'000'000.f / frame_state.predictedDisplayPeriod);
+
+	while (auto command = frame_shell::take_command(is_lobby_command))
+		handle_shell_command(*command);
+
+	if (shell_autoconnect_retry != std::chrono::steady_clock::time_point{} and now >= shell_autoconnect_retry)
+	{
+		shell_autoconnect_retry = {};
+		autoconnect_enabled = true;
+	}
+
+	for (auto it = awaiting_discovery.begin(); it != awaiting_discovery.end();)
+	{
+		auto server = application::get_config().servers.find(it->first);
+		if (server == application::get_config().servers.end() or server->second.visible or now >= it->second)
+		{
+			if (server != application::get_config().servers.end())
+				requested_connections.insert(it->first);
+			it = awaiting_discovery.erase(it);
+		}
+		else
+			++it;
+	}
+
+	if (!async_session.valid() && !requested_connections.empty())
+	{
+		auto cookie = *requested_connections.begin();
+		requested_connections.erase(requested_connections.begin());
+		const bool connected = cookie == active_cookie || std::ranges::any_of(standby, [&](const auto & pc) { return pc.cookie == cookie; });
+		if (auto it = application::get_config().servers.find(cookie); it != application::get_config().servers.end() && !connected)
+			connect(it->second);
+	}
+
+	// Auto-connect PCs besides the presenting one stand by
+	if (!async_session.valid() && next_scene)
+	{
+		for (auto && [cookie, data]: application::get_config().servers)
+		{
+			bool connected = cookie == active_cookie or std::ranges::any_of(standby, [&](auto & pc) { return pc.cookie == cookie; });
+			auto retry = standby_retry.find(cookie);
+			if (data.autoconnect and (data.visible or data.manual) and data.compatible and not connected and
+			    (retry == standby_retry.end() or now >= retry->second))
+			{
+				standby_retry[cookie] = now + 30s;
+				connect(data);
+				break;
+			}
+		}
+	}
+
+	if (!async_session.valid() && !next_scene && standby.empty() && autoconnect_enabled)
+	{
+		for (auto && [cookie, data]: application::get_config().servers)
+		{
+			if ((data.visible || data.manual) && (data.autoconnect || force_autoconnect) && data.compatible)
+			{
+				autoconnect_enabled = false;
+				connect(data);
+				break;
+			}
+		}
+	}
+
+	publish_shell_state();
+
+	session.begin_frame();
+	session.enable_passthrough(system);
+	render_start(true, frame_state.predictedDisplayTime);
+	if (next_scene)
+	{
+		next_scene->set_background_active(true);
+		next_scene->render_into(frame_state, this);
+	}
+	for (auto & pc: standby)
+	{
+		const auto activity = frame_shell::activity(pc.scene->shell_source_id());
+		pc.scene->set_background_active(false);
+		pc.scene->set_video_active(activity.composition_supported && activity.overlay_visible);
+		if (activity.composition_supported && activity.overlay_visible)
+			pc.scene->render_into(frame_state, this);
+	}
+	if (std::ranges::any_of(layers, [](const auto & entry) {
+		    const auto * projection = std::get_if<XrCompositionLayerProjection>(&entry.composition_layer);
+		    return projection && !(projection->layerFlags & XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT);
+	    }))
+		blend_mode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
+	render_end();
+	if (next_scene)
+		next_scene->finish_frame(frame_state);
+	for (auto & pc: standby)
+		pc.scene->finish_frame(frame_state);
+}
+
+void scenes::lobby::handle_shell_command(const std::string & command)
+{
+	spdlog::info("Shell command: {}", command);
+	auto & config = application::get_config();
+	// "setting <PC> <key> <value>": the PC's own stream settings, sent to it while connected
+	if (command.starts_with("setting "))
+	{
+		std::string_view rest = std::string_view(command).substr(8);
+		auto separator = rest.find(' ');
+		if (separator == std::string_view::npos)
+			return;
+		std::string cookie(rest.substr(0, separator));
+		std::string_view setting = rest.substr(separator + 1);
+		std::shared_ptr<stream> scene = cookie == active_cookie ? next_scene : nullptr;
+		for (auto & pc: standby)
+			if (pc.cookie == cookie)
+				scene = pc.scene;
+		if (setting.starts_with("resolution ") and scene and scene->resolution_locked())
+			return;
+		if (frame_shell::apply_setting(config, config.stream(cookie), setting) and scene)
+			scene->setting_changed(setting.substr(0, setting.find(' ')));
+		return;
+	}
+	// "linkmode <dongle|all|fastest>": which links the stream uses (kept for later connections)
+	if (command.starts_with("linkmode "))
+	{
+		const std::string mode = command.substr(9);
+		if (mode != "dongle" and mode != "all" and mode != "fastest")
+			return;
+		config.link_mode = mode;
+		config.multilink_enabled = mode != "fastest";
+		config.save();
+		if (next_scene)
+			next_scene->set_link_mode(mode);
+		for (auto & pc: standby)
+			pc.scene->set_link_mode(mode);
+		return;
+	}
+	auto argument = [&](size_t index) -> std::string {
+		size_t start = 0;
+		for (size_t i = 0; i <= index; ++i)
+		{
+			start = command.find(' ', start);
+			if (start == std::string::npos)
+				return "";
+			++start;
+		}
+		return command.substr(start, command.find(' ', start) - start);
+	};
+
+	if (command.starts_with("connect "))
+	{
+		auto cookie = argument(0);
+		auto server = config.servers.find(cookie);
+		bool connected = cookie == active_cookie or std::ranges::any_of(standby, [&](auto & pc) { return pc.cookie == cookie; });
+		// Not found yet: its saved hostname may resolve to a slower route (Tailscale) than discovery would give
+		if (server != config.servers.end() and not connected and not server->second.visible and not server->second.manual and
+		    cookie != connecting_cookie)
+		{
+			awaiting_discovery.try_emplace(cookie, std::chrono::steady_clock::now() + std::chrono::seconds(5));
+			autoconnect_enabled = false;
+			shell_autoconnect_retry = {};
+			standby_retry.erase(cookie);
+			connection_errors.erase(cookie);
+		}
+		else if (server != config.servers.end() && !connected && async_session.valid() && cookie != connecting_cookie)
+		{
+			requested_connections.insert(cookie);
+			standby_retry.erase(cookie);
+			connection_errors.erase(cookie);
+		}
+		else if (server != config.servers.end() and not async_session.valid() and not connected)
+		{
+			autoconnect_enabled = false;
+			shell_autoconnect_retry = {};
+			connection_errors.erase(cookie);
+			standby_retry.erase(cookie);
+			connect(server->second);
+		}
+	}
+	else if (command.starts_with("pin_vr "))
+	{
+		pinned_cookie = argument(0);
+		frame_shell::request_present(pinned_cookie);
+	}
+	else if (command == "auto_vr")
+	{
+		pinned_cookie.clear();
+		present_override = 0;
+		frame_shell::switch_wanted = true;
+	}
+	else if (command.starts_with("present "))
+		frame_shell::request_present(argument(0));
+	else if (command.starts_with("disconnect "))
+	{
+		// A PC on standby, or one being connected; auto-connect leaves it alone until connected again
+		auto cookie = argument(0);
+		requested_connections.erase(cookie);
+		awaiting_discovery.erase(cookie);
+		if (pinned_cookie == cookie)
+			pinned_cookie.clear();
+		standby_retry[cookie] = std::chrono::steady_clock::time_point::max();
+		if (cookie == active_cookie && next_scene)
+		{
+			frame_shell::user_disconnected = true;
+			next_scene->exit();
+		}
+		if (cookie == connecting_cookie and async_session.valid())
+		{
+			auto request = pin_request.lock();
+			request->pin_cancelled = true;
+			request.notify_one();
+			async_session.cancel();
+		}
+		for (auto & pc: standby)
+			if (pc.cookie == cookie)
+				pc.scene->exit();
+		connection_errors.erase(cookie);
+	}
+	else if (command == "disconnect")
+	{
+		requested_connections.clear();
+		awaiting_discovery.clear();
+		pinned_cookie.clear();
+		autoconnect_enabled = false;
+		shell_autoconnect_retry = {};
+		if (async_session.valid())
+		{
+			auto request = pin_request.lock();
+			request->pin_cancelled = true;
+			request.notify_one();
+			async_session.cancel();
+		}
+		if (next_scene)
+		{
+			standby_retry[active_cookie] = std::chrono::steady_clock::time_point::max();
+			frame_shell::user_disconnected = true;
+			next_scene->exit();
+		}
+		async_error.reset();
+	}
+	else if (command.starts_with("pin "))
+	{
+		auto request = pin_request.lock();
+		request->pin = argument(0);
+		request->pin_requested = false;
+		request.notify_one();
+	}
+	else if (command == "pin_cancel")
+	{
+		auto request = pin_request.lock();
+		request->pin_cancelled = true;
+		request.notify_one();
+	}
+	else if (command.starts_with("autoconnect "))
+	{
+		auto server = config.servers.find(argument(0));
+		if (server != config.servers.end())
+		{
+			server->second.autoconnect = argument(1) == "1";
+			config.save();
+		}
+	}
+	else if (command.starts_with("forget "))
+	{
+		auto cookie = argument(0);
+		requested_connections.erase(cookie);
+		awaiting_discovery.erase(cookie);
+		if (pinned_cookie == cookie)
+			pinned_cookie.clear();
+		if (cookie == active_cookie && next_scene)
+		{
+			frame_shell::user_disconnected = true;
+			next_scene->exit();
+		}
+		for (auto & pc: standby)
+			if (pc.cookie == cookie)
+				pc.scene->exit();
+		if (cookie == connecting_cookie && async_session.valid())
+		{
+			auto request = pin_request.lock();
+			request->pin_cancelled = true;
+			request.notify_one();
+			async_session.cancel();
+		}
+		std::erase_if(requested_connections, [&](const auto & id) { return id == cookie; });
+		config.servers.erase(cookie);
+		config.save();
+	}
+}
+
+// Frame shell: PCs on standby that went away are dropped; one that started a VR application presents (the last
+// started wins), as does one when the presenting PC is gone
+void scenes::lobby::manage_standby(float fps)
+{
+	std::erase_if(standby, [](auto & pc) { return pc.scene->current_state() == stream::state::shutdown; });
+	frame_shell::switch_wanted = false;
+
+	// Background selection does not own the connected PCs' overlay state.
+	auto requested = frame_shell::take_present_request();
+	if (!requested.empty() && requested != pinned_cookie)
+		pinned_cookie.clear();
+	if (not requested.empty() and (requested == active_cookie or std::ranges::any_of(standby, [&](auto & pc) { return pc.cookie == requested; })))
+		present_override = std::chrono::steady_clock::now().time_since_epoch().count();
+
+	auto newest = std::ranges::find_if(standby, [&](auto & pc) { return pc.cookie == requested; });
+	bool promote = newest != standby.end();
+	if (not promote && pinned_cookie.empty())
+	{
+		// Steady clock nanoseconds since a VR application started on a PC, 0 without one
+		auto since = [](const auto & scene) {
+			const auto activity = frame_shell::activity(scene->shell_source_id());
+			return activity.known ? activity.since : 0;
+		};
+		newest = std::ranges::max_element(standby, {}, [&](auto & pc) { return since(pc.scene); });
+		promote = newest != standby.end() and
+		          (not next_scene or since(newest->scene) > std::max(since(next_scene), present_override));
+	}
+	if (promote)
+	{
+		spdlog::info("Presenting VR from {}", newest->scene->apps.server());
+		auto incoming = std::move(*newest);
+		standby.erase(newest);
+		if (next_scene)
+		{
+			next_scene->set_video_active(false);
+			standby.push_back({active_cookie, std::move(next_scene)});
+		}
+		next_scene = std::move(incoming.scene);
+		active_cookie = std::move(incoming.cookie);
+		server_name = next_scene->apps.server();
+		next_scene->set_video_active(true);
+	}
+}
+
+void scenes::lobby::publish_hosts_state()
+{
+	std::vector<frame_shell_pc> pcs;
+	std::string signature;
+	const auto text = [](const auto & service, const char * key) -> const char * {
+		auto it = service.txt.find(key);
+		return it == service.txt.end() ? "" : it->second.c_str();
+	};
+	const uint32_t selected = next_scene ? next_scene->shell_source_id() : 0;
+	auto & config = application::get_config();
+	std::vector<std::string> settings;
+	settings.reserve(config.servers.size());
+	for (const auto & [id, data]: config.servers)
+	{
+		const auto other = std::ranges::find_if(standby, [&](const auto & pc) { return pc.cookie == id; });
+		const auto scene = id == active_cookie ? next_scene : other != standby.end() ? other->scene
+		                                                                             : nullptr;
+		const bool connecting = (async_session.valid() && id == connecting_cookie) || requested_connections.contains(id) || awaiting_discovery.contains(id);
+		const auto error = connection_errors.find(id);
+		const bool failed = error != connection_errors.end();
+		const char * detail = failed ? error->second.c_str() : requested_connections.contains(id) ? "Waiting for another connection"
+		                                                                                          : "";
+		const auto stage = scene ? FRAME_PC_CONNECTED : connecting ? (id == connecting_cookie && pin_request.lock()->pin_requested ? FRAME_PC_PAIRING : FRAME_PC_CONNECTING)
+		                                        : failed           ? FRAME_PC_ERROR
+		                                                           : FRAME_PC_DISCONNECTED;
+		const char * name = text(data.service, "pc_name");
+		if (!*name)
+			name = data.service.name.c_str();
+		settings.push_back(frame_shell::settings_json(config, data.stream));
+		pcs.push_back({.id = id.c_str(), .name = name, .hostname = data.service.hostname.c_str(), .version = text(data.service, "version"), .detail = detail, .settings = settings.back().c_str(), .source = scene ? scene->shell_source_id() : 0, .connection = stage, .available = data.visible, .compatible = data.compatible, .autoconnect = data.autoconnect, .manual = data.manual, .background_pinned = id == pinned_cookie});
+		signature += fmt::format("{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{};", id, name, data.service.hostname, text(data.service, "version"), detail, pcs.back().source, int(stage), data.visible, data.compatible, data.autoconnect, data.manual, settings.back());
+	}
+	signature += std::to_string(selected) + pinned_cookie;
+	if (signature != hosts_signature)
+	{
+		hosts_signature = std::move(signature);
+		frame_shell::hosts_state(pcs.data(), pcs.size(), selected);
+	}
+}
+
+void scenes::lobby::publish_shell_state()
+{
+	publish_hosts_state();
+	std::string state = "idle";
+	std::string detail;
+	if (next_scene)
+		state = "connected";
+	else if (pin_request.lock()->pin_requested)
+		state = "pin";
+	else if (async_session.valid())
+	{
+		state = "connecting";
+		detail = async_session.get_progress();
+	}
+	else if (async_error)
+	{
+		state = "error";
+		detail = *async_error;
+	}
+
+	std::string json = fmt::format(R"({{"state":{},"server":{},"detail":{}}})",
+	                               json_string(state),
+	                               json_string(server_name),
+	                               json_string(detail));
+
+	if (json != shell_state)
+	{
+		shell_state = json;
+		frame_shell::lobby_state(shell_state.c_str());
+	}
+}
+#endif

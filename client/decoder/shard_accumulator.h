@@ -20,12 +20,13 @@
 #pragma once
 
 #include "decoder.h"
+#include "shard_stream.h"
 #include "wyrm_packets.h"
+#include <openxr/openxr.h>
 
 #include <fstream>
 #include <memory>
-#include <optional>
-#include <vector>
+#include <string>
 #include <vulkan/vulkan_raii.hpp>
 
 namespace xr
@@ -40,44 +41,20 @@ class stream;
 
 namespace wyrm
 {
-
 class shard_accumulator
 {
 	std::shared_ptr<decoder> decoder_;
 
-public:
-	using data_shard = wyrm::to_headset::video_stream_data_shard;
-	struct shard_set
-	{
-		size_t min_for_reconstruction = -1;
-		std::vector<std::optional<data_shard>> data;
-		void reset(uint64_t frame_index);
-		bool empty() const;
-
-		std::optional<uint16_t> insert(data_shard &&, xr::instance & instance);
-
-		wyrm::from_headset::feedback feedback{};
-
-		explicit shard_set(uint8_t stream_index);
-		shard_set(const shard_set &) = default;
-		shard_set(shard_set &&) = default;
-		shard_set & operator=(const shard_set &) = default;
-		shard_set & operator=(shard_set &&) = default;
-
-		uint64_t frame_index() const
-		{
-			return feedback.frame_index;
-		}
-	};
-
-private:
-	shard_set current;
-	shard_set next;
+	shards::receiver recovery;
+	std::map<uint64_t, from_headset::feedback> feedbacks;
+	uint64_t next_frame = 0;
+	uint8_t stream_index;
 	std::weak_ptr<scenes::stream> weak_scene;
 	xr::instance & instance;
-	// WYRM_DUMP_VIDEO: complete frames as handed to the decoder, with a "frame offset size" index
-	std::ofstream video_dump;
-	std::ofstream video_dump_index;
+	std::ofstream dump_video;
+	std::ofstream dump_frames;
+	std::string dump_filename;
+	uint64_t dump_offset = 0;
 
 public:
 	explicit shard_accumulator(
@@ -89,16 +66,18 @@ public:
 	        std::weak_ptr<scenes::stream> scene,
 	        uint8_t stream_index) :
 	        decoder_(decoder::make(device, physical_device, vk_queue_family_index, description, stream_index, scene, this)),
-	        current(stream_index),
-	        next(stream_index),
+	        stream_index(stream_index),
 	        weak_scene(scene),
 	        instance(instance)
 	{
-		next.reset(1);
-		open_video_dump(description, stream_index);
+		open_dump(description.codec[stream_index]);
 	}
+	~shard_accumulator();
 
-	void push_shard(wyrm::to_headset::video_stream_data_shard &&);
+	void push_shard(wyrm::to_headset::video_shard &&);
+	// Network thread, between packets: asks for what an incomplete frame lacks once its shards stopped arriving
+	void request_stalled();
+	std::chrono::milliseconds recovery_timeout(shards::receiver::clock::time_point now, std::chrono::milliseconds maximum) const;
 
 	vk::Sampler sampler()
 	{
@@ -108,10 +87,10 @@ public:
 	using blit_handle = decoder::blit_handle;
 
 private:
-	void open_video_dump(const wyrm::to_headset::video_stream_description & description, uint8_t stream_index);
-	void try_submit_frame(std::optional<uint16_t> shard_idx);
-	void try_submit_frame(uint16_t shard_idx);
+	void request_missing(uint64_t frame, shards::receiver::frame &);
 	void send_feedback(wyrm::from_headset::feedback & feedback);
-	void advance();
+	void open_dump(video_codec codec) noexcept;
+	void dump_received(std::span<const std::span<const uint8_t>> payload, const from_headset::feedback & feedback, XrTime target) noexcept;
+	void close_dump() noexcept;
 };
 } // namespace wyrm

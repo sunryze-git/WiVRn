@@ -74,7 +74,7 @@ public:
 
 	void frame_completed(
 	        const wyrm::from_headset::feedback & feedback,
-	        const wyrm::to_headset::video_stream_data_shard::view_info_t & view_info) override;
+	        const wyrm::to_headset::video_frame_info::view_info_t & view_info) override;
 
 	vk::Sampler sampler() override
 	{

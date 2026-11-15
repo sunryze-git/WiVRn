@@ -20,8 +20,6 @@
 // Copyright 2025-2026, NVIDIA CORPORATION.
 
 #include "compositor.h"
-#include "adaptive_bitrate.h"
-#include <cmath>
 
 // Monado includes
 #include "driver/xrt_cast.h"
@@ -126,7 +124,7 @@ std::array<wyrm::compositor::image, 2> make_images(wyrm::vk_bundle & vk, vk::Com
 	                .mipLevels = 1,
 	                .arrayLayers = 3, // left, right then alpha
 	                .samples = vk::SampleCountFlagBits::e1,
-	                .usage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc,
+	                .usage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eSampled,
 	        },
 	        vk::ImageFormatListCreateInfo{
 	                .viewFormatCount = formats.size(),
@@ -222,27 +220,6 @@ vk::Extent3D render_extent(const wyrm::from_headset::headset_info_packet & info)
 namespace wyrm
 {
 
-struct compositor::stream_resources
-{
-	std::array<encoder_settings, 3> settings;
-	std::array<image, 2> images;
-	layer_squasher squasher;
-	wyrm::foveation foveation;
-	std::array<std::unique_ptr<video_encoder>, 3> encoders;
-	vk::Extent3D render_extent;
-
-	stream_resources(vk_bundle & vk, vk::CommandPool pool, std::array<encoder_settings, 3> settings, vk::Extent3D render_extent) :
-	        settings(std::move(settings)),
-	        images(make_images(vk, pool, this->settings)),
-	        squasher(vk, render_extent),
-	        foveation(vk, images[0].image.info().extent),
-	        render_extent(render_extent)
-	{
-		for (auto [i, settings]: std::ranges::enumerate_view(this->settings))
-			encoders[i] = video_encoder::create(vk, settings, i);
-	}
-};
-
 void compositor::timings::add(float us)
 {
 	int index = this->index;
@@ -298,17 +275,28 @@ xrt_result_t compositor::mark_frame(int64_t frame_id,
 
 xrt_result_t compositor::layer_commit(xrt_graphics_sync_handle_t sync_handle)
 {
-	std::shared_lock video_lock(video_mutex);
 	u_graphics_sync_unref(&sync_handle);
+	std::lock_guard reconfigure_lock{reconfigure_mutex};
 
 	// Move waited frame to rendering frame, clear waited.
 	comp_frame_move_and_clear_locked(&frame.rendering, &frame.waited);
 
-	U_LOG_IFL_D(log_level, "frame %ld commit %d layers", frame.rendering.id, layer_accum.layer_count);
-
-	if (not video_state.ready() or encode_request >= 0 // encoders have not picked up the previous frame
-	    or not session.connected() or not session.get_offset())
+	// On standby (the headset shows another PC) frames go nowhere: once handed to the encoders they must be encoded
+	const char * drop_reason = nullptr;
+	if (encode_request >= 0)
+		drop_reason = "drop_encoder_pending";
+	else if (not session.connected())
+		drop_reason = "drop_disconnected";
+	else if (not session.get_offset())
+		drop_reason = "drop_clock_unstable";
+	else if (not video_active)
+		drop_reason = "drop_video_standby";
+	else if (not decoder_ready)
+		drop_reason = "drop_decoder_unready";
+	if (drop_reason)
 	{
+		if (trace::is_enabled())
+			trace::instant_feedback(drop_reason, os_monotonic_get_ns(), frame.rendering.id);
 		comp_frame_clear_locked(&frame.rendering);
 		return XRT_SUCCESS;
 	}
@@ -316,6 +304,8 @@ xrt_result_t compositor::layer_commit(xrt_graphics_sync_handle_t sync_handle)
 	int i = acquire_image();
 	if (i < 0)
 	{
+		if (trace::is_enabled())
+			trace::instant_feedback("drop_image_busy", os_monotonic_get_ns(), frame.rendering.id);
 		comp_frame_clear_locked(&frame.rendering);
 		return XRT_SUCCESS;
 	}
@@ -325,14 +315,14 @@ xrt_result_t compositor::layer_commit(xrt_graphics_sync_handle_t sync_handle)
 		r->StartFrameCapture(NULL, NULL);
 #endif
 
-	auto & view_info = video->images[i].view_info;
-	video->images[i].frame_index = frame.rendering.id;
+	auto & view_info = images[i].view_info;
+	images[i].frame_index = frame.rendering.id;
 	view_info = {
 	        .display_time = session.get_offset().to_headset(frame.rendering.predicted_display_time_ns),
 	        .alpha = layer_accum.data.env_blend_mode == XRT_BLEND_MODE_ALPHA_BLEND,
 	};
 
-	trace::instant_feedback("begin", frame.rendering.id, os_monotonic_get_ns());
+	trace::instant_feedback("begin", os_monotonic_get_ns(), frame.rendering.id);
 
 	cmd_pool.reset();
 	cmd.begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
@@ -349,7 +339,6 @@ xrt_result_t compositor::layer_commit(xrt_graphics_sync_handle_t sync_handle)
 
 	// Check if we can pass a layer directly to foveation
 	if (layer_accum.layer_count == 1 and
-	    not(layer_accum.layers[0].data.flags & (XRT_LAYER_SPLIT_QUAD_VIEW_CONTEXT | XRT_LAYER_SPLIT_QUAD_VIEW_INSET)) and
 	    (layer_accum.layers[0].data.type == XRT_LAYER_PROJECTION or
 	     layer_accum.layers[0].data.type == XRT_LAYER_PROJECTION_DEPTH))
 	{
@@ -372,8 +361,8 @@ xrt_result_t compositor::layer_commit(xrt_graphics_sync_handle_t sync_handle)
 	{
 		// no fast-path, squash layers
 		std::array<xrt_pose, 2> poses;
-		const auto extent = video->images[0].image.info().extent;
-		std::tie(poses, src_fov, src_rect) = video->squasher.do_layers(
+		const auto extent = images[0].image.info().extent;
+		std::tie(poses, src_fov, src_rect) = squasher.do_layers(
 		        vk.device,
 		        cmd,
 		        session.get_hmd(),
@@ -382,7 +371,7 @@ xrt_result_t compositor::layer_commit(xrt_graphics_sync_handle_t sync_handle)
 		        layer_accum,
 		        xrt_rect{.extent{.w = int(extent.width), .h = int(extent.height)}});
 
-		src = video->squasher.get_views();
+		src = squasher.get_views();
 
 		for (int view = 0; view < 2; ++view)
 		{
@@ -398,7 +387,7 @@ xrt_result_t compositor::layer_commit(xrt_graphics_sync_handle_t sync_handle)
 		                .dstAccessMask = vk::AccessFlagBits2::eShaderSampledRead,
 		                .oldLayout = vk::ImageLayout::eGeneral,
 		                .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
-		                .image = video->squasher.get_image(),
+		                .image = squasher.get_image(),
 		                .subresourceRange = {
 		                        .aspectMask = vk::ImageAspectFlagBits::eColor,
 		                        .levelCount = 1,
@@ -413,11 +402,11 @@ xrt_result_t compositor::layer_commit(xrt_graphics_sync_handle_t sync_handle)
 	                .dstAccessMask = vk::AccessFlagBits2::eShaderStorageWrite,
 	                .oldLayout = vk::ImageLayout::eUndefined,
 	                .newLayout = vk::ImageLayout::eGeneral,
-	                .image = video->images[i].image,
+	                .image = images[i].image,
 	                .subresourceRange = {
 	                        .aspectMask = vk::ImageAspectFlagBits::eColor,
 	                        .levelCount = 1,
-	                        .layerCount = video->images[i].image.info().arrayLayers,
+	                        .layerCount = images[i].image.info().arrayLayers,
 	                },
 	        });
 
@@ -429,23 +418,31 @@ xrt_result_t compositor::layer_commit(xrt_graphics_sync_handle_t sync_handle)
 
 	cmd.writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, *query_pool, 1);
 
-	view_info.foveation = video->foveation.foveate(
+	if (session.get_info().eye_gaze)
+	{
+		auto now = os_monotonic_get_ns();
+		session.add_tracking_request(device_id::EYE_GAZE, frame.rendering.desired_present_time_ns, now, now);
+	}
+	view_info.foveation = foveation.foveate(
 	        vk.device,
 	        cmd,
-	        video->images[i].view_y,
-	        video->images[i].view_cbcr,
+	        images[i].view_y,
+	        images[i].view_cbcr,
 	        flip_y,
 	        src,
 	        src_rect,
 	        src_fov,
+	        {xrt_cast(view_info.pose[0]), xrt_cast(view_info.pose[1])},
 	        view_info.alpha);
 
-	for (auto & encoder: video->encoders)
+	bool ownership_transfer = false;
+	for (auto & encoder: encoders)
 	{
 		if (encoder->stream_idx == 2 and not view_info.alpha)
 			continue;
 		else if (encoder->need_transfer or encoder->target_queue == vk.queue.family_index)
 		{
+			ownership_transfer |= encoder->need_transfer;
 			image_barriers.push_back(
 			        vk::ImageMemoryBarrier2{
 			                .srcStageMask = vk::PipelineStageFlagBits2KHR::eComputeShader,
@@ -461,10 +458,10 @@ xrt_result_t compositor::layer_commit(xrt_graphics_sync_handle_t sync_handle)
 			                // both the queue-family transfer and the layout
 			                // transition the encoder needs.
 			                .oldLayout = vk::ImageLayout::eGeneral,
-			                .newLayout = encoder->target_layout,
+				                .newLayout = encoder->need_transfer ? encoder->target_layout : vk::ImageLayout::eGeneral,
 			                .srcQueueFamilyIndex = vk.queue.family_index,
 			                .dstQueueFamilyIndex = encoder->target_queue,
-			                .image = video->images[i].image,
+			                .image = images[i].image,
 			                .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eColor,
 			                                     .baseMipLevel = 0,
 			                                     .levelCount = 1,
@@ -485,7 +482,7 @@ xrt_result_t compositor::layer_commit(xrt_graphics_sync_handle_t sync_handle)
 	const vk::SemaphoreSubmitInfo sem_info{
 	        .semaphore = *sem,
 	        .value = ++sem_value,
-	        .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+	        .stageMask = ownership_transfer ? vk::PipelineStageFlagBits2::eAllCommands : vk::PipelineStageFlagBits2::eComputeShader,
 	};
 
 	{
@@ -504,12 +501,12 @@ xrt_result_t compositor::layer_commit(xrt_graphics_sync_handle_t sync_handle)
 	pacer.mark_timing_point(COMP_TARGET_TIMING_POINT_SUBMIT_END, frame.rendering.id, os_monotonic_get_ns());
 	auto info = pacer.present_to_info(frame.rendering.desired_present_time_ns);
 
-	for (auto & encoder: video->encoders)
+	for (auto & encoder: encoders)
 	{
 		if (encoder->stream_idx == 2 and not view_info.alpha)
 			continue;
 		encoder->present_image(
-		        video->images[i].image,
+		        images[i].image,
 		        sem_info,
 		        info.frame_id);
 	}
@@ -559,7 +556,10 @@ xrt_result_t compositor::layer_commit(xrt_graphics_sync_handle_t sync_handle)
 
 xrt_result_t compositor::get_display_refresh_rate(float * hz)
 {
-	*hz = session.get_display_refresh_rate();
+	auto settings = session.get_settings();
+	// there should not be rounding errors, hz must be one of the available refresh rates
+	*hz = frame_rate * settings->fps_divider;
+	assert(std::ranges::contains(session.get_info().available_refresh_rates, *hz));
 	return XRT_SUCCESS;
 }
 
@@ -567,7 +567,7 @@ xrt_result_t compositor::request_display_refresh_rate(float hz)
 {
 	requested_refresh_rate = hz;
 	U_LOG_I("request refresh rate: %fHz", hz);
-	if (hz > 0 and not session.get_info().refresh_rate_external)
+	if (hz > 0)
 	{
 		try
 		{
@@ -586,25 +586,23 @@ xrt_result_t compositor::get_view_config(
         xrt_view_type view_type,
         xrt_view_config * out_view_config)
 {
-	const auto size = reinterpret_cast<compositor *>(self)->render_size.load();
-	const vk::Extent3D extent{size >> 16, size & 0xffff, 1};
+	const auto & session = reinterpret_cast<compositor *>(self)->session;
+	const auto extent = render_extent(session.get_info());
 	switch (view_type)
 	{
 		case XRT_VIEW_TYPE_MONO:
 			return XRT_ERROR_UNSUPPORTED_VIEW_TYPE;
-		case XRT_VIEW_TYPE_QUAD:
 		case XRT_VIEW_TYPE_STEREO:
 			*out_view_config = {
-			        .view_type = view_type,
-			        .view_count = view_type == XRT_VIEW_TYPE_QUAD ? 4u : 2u,
+			        .view_type = XRT_VIEW_TYPE_STEREO,
+			        .view_count = 2,
 			        .views = {}};
-			for (auto [i, view]: std::ranges::enumerate_view(std::span(out_view_config->views, out_view_config->view_count)))
+			for (auto & view: std::span(out_view_config->views, out_view_config->view_count))
 			{
-				const float scale = view_type == XRT_VIEW_TYPE_QUAD ? (i < 2 ? 0.5f : 0.75f) : 1.0f;
 				view = {
 				        .recommended = {
-				                .width_pixels = uint32_t(extent.width * scale),
-				                .height_pixels = uint32_t(extent.height * scale),
+				                .width_pixels = extent.width,
+				                .height_pixels = extent.height,
 				                .sample_count = 1,
 				        },
 				        .max = {
@@ -615,6 +613,7 @@ xrt_result_t compositor::get_view_config(
 				};
 			}
 			return XRT_SUCCESS;
+		case XRT_VIEW_TYPE_QUAD:
 		case XRT_VIEW_TYPE_INVALID:
 		case XRT_VIEW_TYPE_MAX:
 			return XRT_ERROR_UNSUPPORTED_VIEW_TYPE;
@@ -624,7 +623,7 @@ xrt_result_t compositor::get_view_config(
 
 int compositor::acquire_image()
 {
-	for (auto [i, image]: std::ranges::enumerate_view(video->images))
+	for (auto [i, image]: std::ranges::enumerate_view(images))
 	{
 		if (not image.busy.exchange(true))
 			return i;
@@ -636,54 +635,41 @@ void compositor::encoder_work(std::stop_token tok)
 {
 	while (not tok.stop_requested())
 	{
-		std::shared_lock video_lock(video_mutex);
 		auto req = encode_request.exchange(-1);
 		if (req < 0)
 		{
-			video_lock.unlock();
 			encode_request.wait(req);
 			wyrm::trace::cpu_instant(wyrm::trace::cpu_track::compositor, "encoder_work wake", 0, 0);
 			continue;
 		}
 
-		encode_image(req);
-	}
-}
+		assert(req < images.size());
+		auto & image = images[req];
 
-void compositor::encode_image(int req)
-{
-	assert(req < video->images.size());
-	auto & image = video->images[req];
+		wyrm::trace::scope trace_iter(wyrm::trace::cpu_track::compositor, 0, image.frame_index, "encoder_work iter");
 
-	wyrm::trace::scope trace_iter(wyrm::trace::cpu_track::compositor, 0, image.frame_index, "encoder_work iter");
-
-	try
-	{
-		for (auto & encoder: video->encoders)
+		for (auto & encoder: encoders)
 		{
 			if (encoder->stream_idx < 2 or image.view_info.alpha)
 				encoder->encode(session, image.view_info, image.frame_index);
 		}
+		image.busy = false;
 	}
-	catch (std::exception & e)
-	{
-		U_LOG_W("encode error: %s", e.what());
-	}
-	image.busy = false;
 }
 
 void compositor::send_video_stream_description()
+
 {
 	to_headset::video_stream_description desc{
-	        .generation = video_state.generation(),
-	        .width = uint16_t(video->images[0].image.info().extent.width),
-	        .height = uint16_t(video->images[0].image.info().extent.height),
-	        .frame_rate = frame_rate,
-	        .bit_depth = uint8_t(video->settings[0].bit_depth),
+	        .generation = stream_generation,
+	        .width = uint16_t(images[0].image.info().extent.width),
+	        .height = uint16_t(images[0].image.info().extent.height),
+	        .frame_rate = settings[0].fps,
+	        .bit_depth = uint8_t(settings[0].bit_depth),
 	};
 	get_display_refresh_rate(&desc.refresh_rate);
-	static_assert(std::tuple_size_v<decltype(video->settings)> == std::tuple_size_v<decltype(desc.codec)>);
-	std::ranges::transform(video->settings, desc.codec.begin(), &encoder_settings::codec);
+	static_assert(std::tuple_size_v<decltype(settings)> == std::tuple_size_v<decltype(desc.codec)>);
+	std::ranges::transform(settings, desc.codec.begin(), &encoder_settings::codec);
 	session.send_control(std::move(desc));
 }
 
@@ -715,12 +701,15 @@ compositor::compositor(wyrm_session & session) :
                                       .queryType = vk::QueryType::eTimestamp,
                                       .queryCount = 3,
                               }),
-        video(std::make_unique<stream_resources>(vk, cmd_pool, get_encoder_settings(vk, session), render_extent(session.get_info()))),
-        render_size(uint32_t(session.get_info().render_eye_width) << 16 | session.get_info().render_eye_height),
+        settings(get_encoder_settings(vk, session)),
+        images{make_images(vk, cmd_pool, settings)},
         cmd{std::move(vk.device.allocateCommandBuffers({.commandPool = *cmd_pool, .commandBufferCount = 1})[0])},
         sem{make_semaphore(vk)},
-        frame_rate(video->settings[0].fps),
-        pacer(U_TIME_1S_IN_NS / frame_rate)
+        frame_rate(settings[0].fps),
+        pacer(U_TIME_1S_IN_NS / frame_rate),
+        squasher_extent(render_extent(session.get_info())),
+        squasher(vk, squasher_extent),
+        foveation(vk, images[0].image.info().extent)
 {
 	comp_base * c_base = this;
 	// Ensure we can safely cast pointers
@@ -773,9 +762,12 @@ compositor::compositor(wyrm_session & session) :
 	if (xret != XRT_SUCCESS)
 		throw std::runtime_error("comp_swapchain_shared_init failed");
 
-	print_encoders(video->settings);
-	session.set_video_bitrate(session.get_settings()->bitrate_bps);
-
+	print_encoders(settings);
+	for (auto [i, settings]: std::ranges::enumerate_view(settings))
+	{
+		encoders[i] = video_encoder::create(vk, settings, i);
+		encoders[i]->generation = stream_generation;
+	}
 	send_video_stream_description();
 
 	u_var_add_root(this, "Compositor", false);
@@ -792,6 +784,10 @@ compositor::~compositor()
 	encoder_thread.request_stop();
 	encode_request = -2;
 	encode_request.notify_all();
+	encoder_thread.join();
+	for (auto & encoder: encoders)
+		encoder->wait_idle();
+	vk.device.waitIdle();
 	comp_base * c_base = this;
 	comp_swapchain_shared_garbage_collect(&cscs);
 	comp_swapchain_shared_destroy(&cscs, &c_base->vk);
@@ -803,12 +799,11 @@ xrt_system_compositor_info compositor::sys_info() const
 	const auto & info = session.get_info();
 	auto [prop, dev_id] = vk.physical_device.getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceIDProperties>();
 	xrt_system_compositor_info res{
-	        .view_type_count = configuration().quad_views ? 2u : 1u,
+	        .view_type_count = 1,
 	        .view_types = {
 	                XRT_VIEW_TYPE_STEREO,
-	                XRT_VIEW_TYPE_QUAD,
 	        },
-	        .max_layers = video->squasher.max_layers(prop.properties),
+	        .max_layers = squasher.max_layers(prop.properties),
 	        .supported_blend_modes = {
 	                XRT_BLEND_MODE_OPAQUE,
 	                XRT_BLEND_MODE_ALPHA_BLEND,
@@ -816,7 +811,6 @@ xrt_system_compositor_info compositor::sys_info() const
 	        .supported_blend_mode_count = uint8_t(1 + info.passthrough),
 	        .refresh_rate_count = std::min<uint32_t>(info.available_refresh_rates.size(), std::size(res.refresh_rates_hz)),
 	        .supports_fov_mutable = true,
-	        .supports_emulated_quad_views_with_inset = configuration().quad_views,
 	};
 
 	std::ranges::copy(dev_id.deviceUUID, res.compositor_vk_deviceUUID.data);
@@ -827,328 +821,157 @@ xrt_system_compositor_info compositor::sys_info() const
 
 void compositor::set_bitrate(uint32_t bitrate)
 {
-	if (not bitrate)
-		return;
-	std::unique_lock video_lock(video_mutex);
-	requested_bitrate = bitrate;
-	apply_bitrate(bitrate);
-}
-
-void compositor::adapt_bitrate(uint64_t capacity_bps)
-{
-	if (not capacity_bps)
-		return;
-	std::unique_lock video_lock(video_mutex);
-	const uint32_t desired = requested_bitrate.value_or(session.get_settings()->bitrate_bps);
-	const uint32_t current = effective_bitrate.value_or(desired);
-	const auto target = adapted_video_bitrate(desired, current, capacity_bps);
-	if (target != current)
-		apply_bitrate(target);
-}
-
-std::pair<double, double> compositor::frame_latency_ms() const
-{
-	std::shared_lock lock(video_mutex);
-	std::pair<double, double> result;
-	for (size_t i = 0; i < std::min<size_t>(2, video->encoders.size()); ++i)
-	{
-		const auto [median, p95] = video->encoders[i]->frame_latency_ms();
-		result = {std::max(result.first, median), std::max(result.second, p95)};
-	}
-	return result;
-}
-
-double compositor::pacer_margin_ms() const
-{
-	return pacer.present_to_decoded_ns() / 1e6;
-}
-
-void compositor::network_statistics(to_headset::network_report & report) const
-{
-	std::shared_lock lock(video_mutex);
-	report.effective_bitrate = effective_bitrate.value_or(requested_bitrate.value_or(0));
-	for (const auto & encoder: video->encoders)
-		encoder->network_statistics(report);
-}
-
-void compositor::apply_bitrate(uint32_t bitrate)
-{
-	effective_bitrate = bitrate;
 	session.set_video_bitrate(bitrate);
-	for (size_t i = 0; i < video->encoders.size(); ++i)
-	{
-		auto & settings = video->settings[i];
-		const auto rate = uint64_t(bitrate * settings.bitrate_multiplier);
-		if (settings.bitrate == rate)
-			continue;
-		if (settings.encoder_name == encoder_vaapi)
-			rebuild_encoder_pending = true;
-		else
-		{
-			settings.bitrate = rate;
-			video->encoders[i]->set_bitrate(bitrate);
-		}
-	}
+	std::lock_guard lock{encoders_mutex};
+	for (auto & encoder: encoders)
+		encoder->set_bitrate(bitrate);
 }
 
 void compositor::set_framerate(float hz)
 {
-	if (not std::isfinite(hz) or hz < 10 or hz > 300)
+	if (frame_rate.exchange(hz) == hz)
 		return;
-	std::unique_lock video_lock(video_mutex);
-	const auto previous = frame_rate.exchange(hz);
-	if (previous == hz)
-		return;
-	U_LOG_IFL_D(log_level, "Framerate change from %.2f to %.2f", previous, hz);
+	U_LOG_IFL_D(log_level, "Framerate change from %.0f to %.0f", frame_rate.load(), hz);
 	pacer.set_frame_duration(U_TIME_1S_IN_NS / hz);
-	for (size_t i = 0; i < video->encoders.size(); ++i)
-	{
-		if (video->settings[i].encoder_name == encoder_vaapi)
-			rebuild_encoder_pending = true;
-		else
-		{
-			video->settings[i].fps = hz;
-			video->encoders[i]->set_framerate(hz);
-		}
-	}
+	std::lock_guard lock{encoders_mutex};
+	for (auto & encoder: encoders)
+		encoder->set_framerate(hz);
 }
 
-void compositor::update_foveation(const from_headset::foveation & packet)
+void compositor::update_tracking(const from_headset::tracking & tracking)
 {
-	std::unique_lock video_lock(video_mutex);
-	foveation_angles = packet.angles;
-	video->foveation.update_foveation(packet);
+	foveation.update_tracking(tracking);
+}
+
+void compositor::update_foveation_center_override(const from_headset::override_foveation_center & center)
+{
+	foveation.update_foveation_center_override(center);
 }
 
 void compositor::resume()
 {
-	std::unique_lock video_lock(video_mutex);
-	video_state.suspend();
+	decoder_ready = false;
 	pacer.reset();
-	for (auto & encoder: video->encoders)
-		encoder->reset();
+	{
+		std::lock_guard lock{encoders_mutex};
+		video_state.suspend();
+		for (auto & encoder: encoders)
+			encoder->reset();
+	}
 	send_video_stream_description();
 }
 
-std::optional<from_headset::headset_info_packet> compositor::on_feedback(const from_headset::feedback & feedback, const clock_offset & o)
+void compositor::reconfigure() noexcept
 {
-	std::shared_lock video_lock(video_mutex);
-	if (not video_state.accepts(feedback.generation))
-		return {};
-	uint8_t stream = feedback.stream_index;
-	if (stream >= video->encoders.size())
-		return {};
-	video->encoders[stream]->on_feedback(feedback);
-	if (o)
-		pacer.on_feedback(feedback, o);
-	if (stream < 2 and feedback.received_from_decoder)
+	std::lock_guard reconfigure_lock{reconfigure_mutex};
+
+	// layer_commit is blocked; wait for the encoder thread to finish the last frame
+	while (encode_request >= 0 or std::ranges::any_of(images, [](const image & i) { return i.busy.load(); }))
+		std::this_thread::yield();
+
+	auto new_settings = get_encoder_settings(vk, session);
+	print_encoders(new_settings);
+
+	std::unique_lock lock{encoders_mutex};
+	for (auto & encoder: encoders)
+		encoder->wait_idle();
+	vk.device.waitIdle();
+	for (auto & encoder: encoders)
+		encoder.reset();
+
+	settings = new_settings;
+	++stream_generation;
+	video_state.replace();
+	decoder_ready = false;
+	// image holds an atomic and cannot be assigned
+	std::destroy_at(&images);
+	::new (&images) std::array<image, 2>{make_images(vk, cmd_pool, settings)};
+
+	foveation.resize(vk, images[0].image.info().extent);
+
+	auto extent = render_extent(session.get_info());
+	if (squasher_extent != extent)
 	{
-		video_lock.unlock();
-		std::unique_lock lock(video_mutex);
-		video_state.decoded(feedback.generation, stream);
-		if (video_state.accepts(feedback.generation) and video_state.confirmed())
-		{
-			decoder_failed = false;
-			previous_video.reset();
-			return std::exchange(pending_video_info, {});
-		}
+		std::destroy_at(&squasher);
+		::new (&squasher) layer_squasher(vk, extent);
+		squasher_extent = extent;
 	}
-	return {};
+
+	for (auto [i, settings]: std::ranges::enumerate_view(settings))
+	{
+		encoders[i] = video_encoder::create(vk, settings, i);
+		encoders[i]->generation = stream_generation;
+	}
+	lock.unlock();
+	pacer.reset();
+	send_video_stream_description();
 }
 
-std::optional<from_headset::headset_info_packet> compositor::acknowledge_stream(const from_headset::video_stream_ready & ready)
+void compositor::set_video_active(bool active)
 {
-	std::unique_lock video_lock(video_mutex);
-	if (not video_state.accepts(ready.generation))
-		return {};
+	if (video_active.exchange(active) == active)
+		return;
+	U_LOG_I("VR video %s", active ? "active" : "on standby");
+	if (active)
+		resume();
+}
+
+void compositor::set_frame_margin(float ms)
+{
+	pacer.set_client_margin(ms);
+}
+
+void compositor::on_nack(const from_headset::video_nack & nack)
+{
+	trace::scope trace_nack(trace::cpu_track::network, nack.stream, nack.frame, "nack_process");
+	std::unique_lock lock(encoders_mutex, std::defer_lock);
+	{
+		trace::scope trace_wait(trace::cpu_track::network, nack.stream, nack.frame, "nack_wait_encoders");
+		lock.lock();
+	}
+	if (nack.generation == stream_generation and nack.stream < encoders.size() and encoders[nack.stream])
+		encoders[nack.stream]->resend(nack);
+}
+
+void compositor::on_feedback(const from_headset::feedback & feedback, const clock_offset & o)
+{
+	uint8_t stream = feedback.stream_index;
+	if (stream >= encoders.size())
+		return;
+	{
+		std::unique_lock lock(encoders_mutex, std::defer_lock);
+		{
+			trace::scope trace_wait(trace::cpu_track::network, stream, feedback.frame_index, "feedback_wait_encoders");
+			lock.lock();
+		}
+		if (feedback.generation != stream_generation)
+			return;
+		encoders[stream]->on_feedback(feedback);
+		if (feedback.received_from_decoder)
+			video_state.decoded(feedback.generation, stream);
+	}
+	if (not o)
+		return;
+	trace::scope trace_pacer(trace::cpu_track::network, stream, feedback.frame_index, "feedback_pacer");
+	pacer.on_feedback(feedback, o);
+}
+
+void compositor::acknowledge_stream(const from_headset::video_stream_ready & ready)
+{
+	std::lock_guard lock{encoders_mutex};
+	if (!video_state.accepts(ready.generation))
+		return;
 	if (ready.accepted)
 	{
 		video_state.acknowledge(ready.generation);
-		if (not previous_video)
-			return std::exchange(pending_video_info, {});
-		return {};
-	}
-	U_LOG_W("Client rejected video stream: %s", ready.error.c_str());
-	if (previous_video)
-	{
-		restore_previous_stream();
-		return {};
-	}
-	decoder_failed = true;
-	video_state.suspend();
-	if (decoder_recovery.retry(std::chrono::steady_clock::now()))
-	{
-		drain_video();
-		video_state.replace();
-		for (auto & encoder: video->encoders)
-		{
-			encoder->set_generation(video_state.generation());
-			encoder->reset();
-		}
-		send_video_stream_description();
+		decoder_ready = true;
 	}
 	else
 	{
-		session.send_control(to_headset::server_message{
-		        .kind = to_headset::server_message::kind::toast_urgent,
-		        .msg = "Video decoder recovery failed repeatedly. Change codec or video resolution to retry.",
-		});
+		video_state.suspend();
+		decoder_ready = false;
+		U_LOG_W("Client rejected video generation %lu: %s", ready.generation, ready.error.c_str());
 	}
-	return {};
-}
-
-void compositor::reconfigure(const from_headset::headset_info_packet & info)
-{
-	if (info.render_eye_width == 0 or info.render_eye_height == 0 or
-	    info.render_eye_width > 16384 or info.render_eye_height > 16384 or
-	    info.stream_eye_width == 0 or info.stream_eye_height == 0 or
-	    info.stream_eye_width > 4096 or info.stream_eye_height > 4096 or
-	    info.supported_codecs.empty())
-		throw std::runtime_error("Invalid video stream dimensions or codec capabilities");
-
-	std::unique_lock video_lock(video_mutex);
-	if (previous_video or (not video_state.ready() and not decoder_failed))
-	{
-		pending_video_info = info;
-		return;
-	}
-	drain_video();
-
-	auto settings = get_encoder_settings(vk, session, info);
-	for (auto & encoder: settings)
-	{
-		encoder.fps = frame_rate;
-		if (effective_bitrate or requested_bitrate)
-			encoder.bitrate = effective_bitrate.value_or(requested_bitrate.value_or(0)) * encoder.bitrate_multiplier;
-	}
-	const auto extent = render_extent(info);
-	const bool unchanged = extent == video->render_extent and std::ranges::equal(settings, video->settings, [](const auto & a, const auto & b) {
-		                       return a.width == b.width and a.height == b.height and a.codec == b.codec and
-		                              a.bit_depth == b.bit_depth and a.encoder_name == b.encoder_name and a.options == b.options and a.device == b.device;
-	                       });
-	if (unchanged and not decoder_failed)
-	{
-		send_video_stream_description();
-		return;
-	}
-
-	replace_video(std::move(settings), extent);
-}
-
-void compositor::replace_video(std::array<encoder_settings, 3> settings, vk::Extent3D extent)
-{
-	// Prepare replacements before committing. Failed allocations and unsupported
-	// encoder settings leave the active stream intact.
-	auto replacement = std::make_unique<stream_resources>(vk, cmd_pool, std::move(settings), extent);
-	replacement->foveation.update_foveation({.angles = foveation_angles});
-	const auto previous_failure = decoder_failed;
-	decoder_failed = false;
-	auto previous_state = video_state;
-	video_state.replace();
-	for (auto & encoder: replacement->encoders)
-		encoder->set_generation(video_state.generation());
-	video.swap(replacement);
-	try
-	{
-		send_video_stream_description();
-	}
-	catch (...)
-	{
-		video.swap(replacement);
-		video_state = previous_state;
-		decoder_failed = previous_failure;
-		throw;
-	}
-	render_size = uint32_t(extent.width) << 16 | extent.height;
-	previous_video = std::move(replacement);
-	rebuild_encoder_pending = false;
-	video_change_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-	U_LOG_I("Video stream reconfigured, generation %lu; waiting for client decoders", video_state.generation());
-	print_encoders(video->settings);
-}
-
-void compositor::drain_video()
-{
-	// Drain a frame that has been submitted but not picked up by the worker.
-	if (auto req = encode_request.exchange(-1); req >= 0)
-		encode_image(req);
-	for (auto & encoder: video->encoders)
-		encoder->wait_idle();
-	{
-		std::unique_lock queue_lock(vk.queue.mutex);
-		vk.device.waitIdle();
-	}
-}
-
-void compositor::restore_previous_stream()
-{
-	if (not previous_video)
-		return;
-	drain_video();
-	video.swap(previous_video);
-	previous_video.reset();
-	video->foveation.update_foveation({.angles = foveation_angles});
-	video_state.replace();
-	const auto settings = *session.get_settings();
-	for (auto & encoder: video->encoders)
-	{
-		encoder->set_generation(video_state.generation());
-		if (video->settings[encoder->stream_idx].encoder_name != encoder_vaapi)
-		{
-			const auto bitrate = effective_bitrate.value_or(requested_bitrate.value_or(settings.bitrate_bps));
-			encoder->set_bitrate(bitrate);
-			encoder->set_framerate(frame_rate);
-			video->settings[encoder->stream_idx].bitrate = bitrate * encoder->bitrate_multiplier;
-			video->settings[encoder->stream_idx].fps = frame_rate;
-		}
-		encoder->reset();
-	}
-	render_size = uint32_t(video->render_extent.width) << 16 | video->render_extent.height;
-	send_video_stream_description();
-}
-
-void compositor::check_stream_timeout()
-{
-	std::unique_lock lock(video_mutex);
-	if (rebuild_encoder_pending and not previous_video and video_state.ready())
-	{
-		rebuild_encoder_pending = false;
-		try
-		{
-			auto settings = video->settings;
-			for (auto & encoder: settings)
-			{
-				encoder.fps = frame_rate;
-				if (effective_bitrate or requested_bitrate)
-					encoder.bitrate = effective_bitrate.value_or(requested_bitrate.value_or(0)) * encoder.bitrate_multiplier;
-			}
-			drain_video();
-			replace_video(std::move(settings), video->render_extent);
-		}
-		catch (const std::exception & e)
-		{
-			U_LOG_W("Could not rebuild video encoders: %s", e.what());
-			session.send_control(to_headset::server_message{
-			        .kind = to_headset::server_message::kind::toast_urgent,
-			        .msg = std::format("Could not apply encoder rate settings: {}", e.what()),
-			});
-		}
-	}
-	if (previous_video and std::chrono::steady_clock::now() >= video_change_deadline)
-	{
-		U_LOG_W("Video stream replacement timed out; restoring previous stream");
-		restore_previous_stream();
-		session.send_control(to_headset::server_message{
-		        .kind = to_headset::server_message::kind::toast_urgent,
-		        .msg = "Video settings could not be decoded. Restoring the previous stream.",
-		});
-	}
-}
-
-void compositor::describe_stream()
-{
-	std::shared_lock lock(video_mutex);
-	send_video_stream_description();
 }
 
 } // namespace wyrm

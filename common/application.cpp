@@ -142,7 +142,7 @@ std::optional<application> do_desktop_entry(const std::filesystem::path & filena
 		std::string_view line(bounds.begin(), bounds.end());
 		key_value item(line);
 		if (item.key == "Categories")
-			vr = contains(item.value, "X-Wyrm-VR") or contains(item.value, "X-WiVRn-VR");
+			vr = contains(item.value, "X-Wyrm-VR") or contains(item.value, "X-Wyrm-VR");
 	}
 	if (not vr)
 		return res;
@@ -233,11 +233,15 @@ std::unordered_map<std::string, application> list_applications()
 		auto cmd = steam.get_steam_command() + " ";
 		for (auto && app: steam.list_applications())
 		{
+			// Library games carry no icon: the headset shows Steam's cover art for their app id; shortcuts
+			// (non-Steam games) keep theirs
+			bool shortcut = app.appid & 0x02000000;
 			res.emplace(std::to_string(app.appid),
 			            application{
 			                    .name = std::move(app.name),
 			                    .exec = cmd + app.url,
-			                    .icon_path = std::move(app.icon),
+			                    .icon_path = shortcut ? steam.get_icon(app.appid) : std::nullopt,
+			                    .last_played = app.last_played,
 			            });
 		}
 	}

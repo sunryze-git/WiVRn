@@ -78,7 +78,7 @@ int main()
 	}
 
 	to_headset::video_stream_description description{
-	        .generation = stream.generation(),
+	        .generation = uint32_t(stream.generation()),
 	        .width = 1536,
 	        .height = 1600,
 	        .codec = {h265, h265, h265},
@@ -96,16 +96,16 @@ int main()
 	check(ready.generation == description.generation and not ready.accepted and ready.error == "Decoder allocation failed");
 
 	std::vector<uint8_t> payload(256, 42);
-	to_headset::video_stream_data_shard shard{
+	to_headset::video_shard shard{
+	        .stream = 1,
 	        .generation = description.generation,
-	        .stream_item_idx = 1,
-	        .frame_idx = 9000,
-	        .shard_idx = 0,
+	        .frame = 9000,
+	        .index = 0,
 	        .payload = payload,
 	};
 	const auto decoded_shard = roundtrip(shard);
 	check(stream.accepts(decoded_shard.generation));
-	check(decoded_shard.frame_idx == 9000 and std::ranges::equal(decoded_shard.payload, payload));
+	check(decoded_shard.frame == 9000 and std::ranges::equal(decoded_shard.payload, payload));
 	stream.replace();
 	check(not stream.accepts(decoded_shard.generation));
 

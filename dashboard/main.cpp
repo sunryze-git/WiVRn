@@ -28,7 +28,7 @@ int main(int argc, char * argv[])
 	        wyrm::display_version(),
 	        i18n("Wyrm server"),
 	        KAboutLicense::GPL_V3,
-	        i18n("(c) 2022-2026 WiVRn development team"));
+	        i18n("(c) 2022-2026 Wyrm development team"));
 
 	aboutData.setDesktopFileName(QStringLiteral("org.wyrmvr.wyrm"));
 	aboutData.setOrganizationDomain("wyrmvr.org");

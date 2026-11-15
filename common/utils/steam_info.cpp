@@ -27,7 +27,6 @@
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
-#include <unordered_set>
 
 namespace
 {
@@ -175,51 +174,11 @@ std::optional<uint32_t> guess_steam_userid(const std::filesystem::path & root)
 	}
 }
 
-std::unordered_set<uint64_t> installed_appids(std::filesystem::path root)
+} // namespace
+
+void read_steam_icons(std::filesystem::path path, std::unordered_map<uint32_t, wyrm::steam::icon> & icons)
 {
-	std::unordered_set<uint64_t> res;
-	try
-	{
-		wyrm::vdf::root vdf(root / "config/libraryfolders.vdf");
-		using values_t = std::vector<wyrm::vdf::keyvalue>;
-		if (vdf.key != "libraryfolders")
-			return {};
-
-		for (const auto & kv: std::get<values_t>(vdf.value))
-		{
-			for (const auto & [appid, _]: std::get<values_t>(kv["apps"].value))
-			{
-				uint64_t val;
-				if (std::from_chars(appid.data.begin(), appid.data.end(), val).ec == std::errc())
-					res.emplace(val);
-			}
-		}
-	}
-	catch (...)
-	{}
-	return res;
-}
-
-std::unordered_set<uint64_t> owned_appids(std::filesystem::path localconfig)
-{
-	wyrm::vdf::root localconfig_vdf(localconfig);
-	using values_t = std::vector<wyrm::vdf::keyvalue>;
-	if (localconfig_vdf.key != "UserLocalConfigStore")
-		return {};
-
-	std::unordered_set<uint64_t> res;
-	for (const auto & [k, entries]: std::get<values_t>(localconfig_vdf["Software"]["Valve"]["Steam"]["apps"].value))
-	{
-		uint64_t val;
-		if (std::from_chars(k.data.begin(), k.data.end(), val).ec == std::errc())
-			res.emplace(val);
-	}
-	return res;
-}
-
-std::vector<wyrm::steam::application> read_appinfo(std::filesystem::path root, std::unordered_set<uint64_t> const & appids)
-{
-	binary_reader in{std::ifstream{root / "appcache/appinfo.vdf"}};
+	binary_reader in{std::ifstream{path}};
 
 	uint32_t magic = in.read<uint32_t>();
 	if ((magic & 0xff'ff'ff'00) != 0x07'56'44'00)
@@ -236,73 +195,28 @@ std::vector<wyrm::steam::application> read_appinfo(std::filesystem::path root, s
 		string_table = in.string_table();
 		string_table_ptr = &string_table;
 	}
-	std::vector<wyrm::steam::application> res;
 
-	enum section
-	{
-		common,
-		other,
-	};
 	struct V
 	{
-		std::vector<enum section> section;
-		wyrm::steam::application current{};
-		std::string clienticon;
-		std::string linuxclienticon;
-		bool VR = false;
-
-		void clear()
-		{
-			section.clear();
-			current.icon.clear();
-			current.name.clear();
-			current.url.clear();
-			clienticon.clear();
-			linuxclienticon.clear();
-			VR = false;
-			section.push_back(section::other);
-		}
+		wyrm::steam::icon current{};
 
 		void begin_dict(const std::string & key)
 		{
-			if (key == "common")
-				section.push_back(section::common);
-			else
-				section.push_back(section::other);
 		}
 		void end_dict()
 		{
-			section.pop_back();
 		}
 		void on_string(const std::string & key, std::string && val)
 		{
-			switch (section.back())
-			{
-				case common:
-					if (strcasecmp(key.c_str(), "clienticon") == 0)
-						clienticon = std::move(val);
-					else if (strcasecmp(key.c_str(), "linuxclienticon") == 0)
-						linuxclienticon = std::move(val);
-					else if (strcasecmp(key.c_str(), "name") == 0)
-						current.name[""] = std::move(val);
-					break;
-				case other:
-					break;
-			}
+			if (strcasecmp(key.c_str(), "clienticon") == 0)
+				current.clienticon = std::move(val);
+			else if (strcasecmp(key.c_str(), "linuxclienticon") == 0)
+				current.linuxclienticon = std::move(val);
 		}
 		void on_uint32_t(const std::string & key, uint32_t val)
 		{
-			switch (section.back())
-			{
-				case common:
-					if (key == "openvrsupport")
-						VR = val;
-					break;
-				case other:
-					break;
-			}
 		}
-	} v;
+	};
 
 	while (true)
 	{
@@ -323,40 +237,25 @@ std::vector<wyrm::steam::application> read_appinfo(std::filesystem::path root, s
 		        + 4  // checksum
 		        + 1  // type
 		);
-		if (appids.contains(app_id))
+		try
 		{
-			try
-			{
-				v.clear();
-				read_dict(in, v, string_table_ptr);
-				if (v.VR)
-				{
-					auto & item = res.emplace_back(std::move(v.current));
-					item.appid = app_id;
-					item.url = std::format("steam://launch/{}/VR", app_id);
-
-					if (auto icon_path = root / "steam/games" / (v.clienticon + ".ico"); std::filesystem::exists(icon_path))
-						item.icon = icon_path;
-
-					else if (auto icon_path = root / "steam/games" / (v.linuxclienticon + ".zip"); std::filesystem::exists(icon_path))
-						item.icon = icon_path;
-				}
-			}
-			catch (...)
-			{
-				// Ignore errors
-			}
+			V v;
+			read_dict(in, v, string_table_ptr);
+			if (not(v.current.clienticon.empty() and v.current.linuxclienticon.empty()))
+				icons.emplace(app_id, std::move(v.current));
+		}
+		catch (...)
+		{
+			// Ignore errors
 		}
 		in.seekg(pos + size_data);
 	}
-	return res;
 }
-
-} // namespace
 
 void read_steam_shortcuts(
         const std::filesystem::path & path,
-        std::vector<wyrm::steam::application> & apps)
+        std::vector<wyrm::steam::application> & apps,
+        std::unordered_map<uint32_t, std::filesystem::path> & icons)
 {
 	if (not std::filesystem::exists(path))
 		return;
@@ -371,9 +270,11 @@ void read_steam_shortcuts(
 	struct V
 	{
 		std::vector<wyrm::steam::application> & apps;
+		std::unordered_map<uint32_t, std::filesystem::path> & icons;
 
 		int depth = 0;
 		wyrm::steam::application current{};
+		std::filesystem::path icon;
 		bool VR = false;
 
 		void begin_dict(const std::string & key)
@@ -382,6 +283,7 @@ void read_steam_shortcuts(
 			if (depth == 1)
 			{
 				current = decltype(current){};
+				icon.clear();
 				VR = false;
 			}
 		}
@@ -392,6 +294,8 @@ void read_steam_shortcuts(
 			{
 				if (VR)
 				{
+					if (not icon.empty())
+						icons[current.appid] = std::move(icon);
 					// ¯\_(ツ)_/¯
 					current.appid = (current.appid << 32) | 0x02000000;
 					current.url = std::format("steam://rungameid/{}", current.appid);
@@ -406,7 +310,7 @@ void read_steam_shortcuts(
 				if (strcasecmp(key.c_str(), "AppName") == 0)
 					current.name[""] = std::move(val);
 				else if (strcasecmp(key.c_str(), "icon") == 0 and not val.empty())
-					current.icon = std::move(val);
+					icon = std::move(val);
 			}
 		}
 		void on_uint32_t(const std::string & key, uint32_t val)
@@ -419,7 +323,7 @@ void read_steam_shortcuts(
 					VR = val;
 			}
 		}
-	} v{apps};
+	} v{apps, icons};
 
 	read_dict(in, v);
 }
@@ -467,21 +371,76 @@ std::vector<wyrm::steam> wyrm::steam::find_installations()
 std::vector<wyrm::steam::application> wyrm::steam::list_applications()
 {
 	std::vector<wyrm::steam::application> res;
-	const auto installed = installed_appids(root);
+	// Installed Steam games, from the libraries' app manifests (as WayVR's dashboard lists them)
+	try
+	{
+		using kv_list = std::vector<wyrm::vdf::keyvalue>;
+		static const kv_list none;
+		auto children = [](const wyrm::vdf::keyvalue & kv) -> const kv_list & {
+			auto list = std::get_if<kv_list>(&kv.value);
+			return list ? *list : none;
+		};
+		auto text = [](const wyrm::vdf::keyvalue & kv) -> std::string_view {
+			auto value = std::get_if<wyrm::vdf::string>(&kv.value);
+			return value ? value->data : std::string_view{};
+		};
+		wyrm::vdf::root libraries(root / "steamapps/libraryfolders.vdf");
+		for (const auto & library: children(libraries))
+		{
+			std::filesystem::path path;
+			const kv_list * apps = nullptr;
+			for (const auto & entry: children(library))
+			{
+				if (entry.key == "path")
+					path = text(entry);
+				else if (entry.key == "apps")
+					apps = &children(entry);
+			}
+			for (const auto & app_entry: apps ? *apps : none)
+			{
+				uint64_t appid;
+				if (std::from_chars(app_entry.key.data.begin(), app_entry.key.data.end(), appid).ec != std::errc{})
+					continue;
+				try
+				{
+					wyrm::vdf::root manifest(path / std::format("steamapps/appmanifest_{}.acf", appid));
+					application app{
+					        .appid = appid,
+					        .url = std::format("steam://rungameid/{}", appid),
+					};
+					for (const auto & field: children(manifest))
+					{
+						if (field.key == "name")
+							app.name[""] = text(field);
+						else if (field.key == "LastPlayed")
+							std::from_chars(text(field).data(), text(field).data() + text(field).size(), app.last_played);
+					}
+					// Steam's tools are in the libraries too; their manifests don't say so
+					auto & name = app.name[""];
+					bool tool = name.empty() or name.starts_with("Proton ") or name.starts_with("Steam Linux Runtime") or
+					            name.starts_with("Steamworks ") or name == "SteamVR";
+					if (not tool)
+						res.push_back(std::move(app));
+				}
+				catch (std::exception &)
+				{}
+			}
+		}
+	}
+	catch (std::exception & e)
+	{
+		std::cerr << "Failed to list Steam libraries: " << e.what() << std::endl;
+	}
 
+	// Shortcuts
 	if (default_userid)
 	{
 		try
 		{
-			auto const & config = root / "userdata" / std::to_string(*default_userid) / "config";
-			auto ids = owned_appids(config / "localconfig.vdf");
-			std::erase_if(ids, [&](auto id) { return not installed.contains(id); });
-			res = read_appinfo(root, ids);
-			read_steam_shortcuts(config / "shortcuts.vdf", res);
+			read_steam_shortcuts(root / "userdata" / std::to_string(*default_userid) / "config/shortcuts.vdf", res, shortcut_icons);
 		}
 		catch (std::exception & e)
 		{
-			std::cerr << "Listing Steam applications failed (user id " << *default_userid << "): " << e.what() << std::endl;
 		}
 	}
 	else
@@ -491,22 +450,51 @@ std::vector<wyrm::steam::application> wyrm::steam::list_applications()
 		for (auto const & entry: std::filesystem::directory_iterator{root / "userdata", ec})
 			try
 			{
-				auto const & config = entry.path() / "config";
-				auto ids = owned_appids(config / "localconfig.vdf");
-				std::erase_if(ids, [&](auto id) { return not installed.contains(id); });
-				auto tmp = read_appinfo(root, ids);
-				res.insert(res.end(),
-				           std::make_move_iterator(tmp.begin()),
-				           std::make_move_iterator(tmp.end()));
-				read_steam_shortcuts(config / "shortcuts.vdf", res);
+				read_steam_shortcuts(entry.path() / "config/shortcuts.vdf", res, shortcut_icons);
 			}
 			catch (std::exception & e)
 			{
-				std::cerr << "Listing Steam applications failed (" << entry.path().filename() << "): " << e.what() << std::endl;
 			}
 	}
 
 	return res;
+}
+
+std::optional<std::filesystem::path> wyrm::steam::get_icon(uint64_t appid)
+{
+	if (appid & 0x02000000)
+	{
+		// Shortcut
+		auto it = shortcut_icons.find(appid >> 32);
+		if (it != shortcut_icons.end())
+			return it->second;
+		return {};
+	}
+
+	if (not icons)
+	{
+		icons.emplace();
+		try
+		{
+			read_steam_icons(root / "appcache/appinfo.vdf", *icons);
+		}
+		catch (...)
+		{}
+	}
+	auto it = icons->find(appid);
+	if (it == icons->end())
+		return {};
+
+	auto icon_path = root / "steam/games" / (it->second.clienticon + ".ico");
+
+	if (std::filesystem::exists(icon_path))
+		return icon_path;
+
+	icon_path = root / "steam/games" / (it->second.linuxclienticon + ".zip");
+	if (std::filesystem::exists(icon_path))
+		return icon_path;
+
+	return {};
 }
 
 std::string wyrm::steam::get_steam_command() const

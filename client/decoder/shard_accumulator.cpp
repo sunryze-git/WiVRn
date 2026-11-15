@@ -18,230 +18,209 @@
  */
 
 #include "shard_accumulator.h"
-#include "scenes/stream.h" // IWYU pragma: keep
-#include "spdlog/spdlog.h"
+#include "scenes/stream.h"
+#include "shard_recovery.h"
+#include "wyrm_serialization.h"
 #include "xr/instance.h"
-
 #include <cstdlib>
 
 namespace wyrm
 {
-
-using namespace wyrm::to_headset;
-using shard_set = shard_accumulator::shard_set;
-using data_shard = shard_accumulator::data_shard;
-
-shard_set::shard_set(uint8_t stream_index)
+void shard_accumulator::open_dump(video_codec codec) noexcept
 {
-	feedback.stream_index = stream_index;
-}
-
-void shard_set::reset(uint64_t frame_index)
-{
-	min_for_reconstruction = -1;
-	data.clear();
-
-	uint8_t stream_index = feedback.stream_index;
-	feedback = {};
-	feedback.frame_index = frame_index;
-	feedback.stream_index = stream_index;
-}
-
-bool shard_set::empty() const
-{
-	return data.empty();
-}
-
-static bool is_complete(const shard_set & shards)
-{
-	const auto & frame = shards.data;
-	if (frame.empty())
-		return false;
-	if (not(frame.back() and frame.back()->timing_info))
-		return false;
-	for (const auto & shard: frame)
-		if (not shard)
-			return false;
-	return true;
-}
-
-std::optional<uint16_t> shard_set::insert(data_shard && shard, xr::instance & instance)
-{
-	feedback.generation = shard.generation;
-	if (empty())
-		feedback.received_first_packet = instance.now();
-
-	auto idx = shard.shard_idx;
-	if (idx >= data.size())
-		data.resize(idx + 1);
-	if (data[idx])
-		return {};
-	data[idx] = std::move(shard);
-	return idx;
-}
-
-static void debug_why_not_sent(const shard_set & shards)
-{
-	const auto & frame = shards.data;
-	if (frame.empty())
-	{
-		spdlog::info("frame {} was not sent because no shard was received", shards.frame_index());
+	const char * prefix = std::getenv("WYRM_DUMP_RECEIVED_VIDEO");
+	if (not prefix or not *prefix)
 		return;
-	}
-	int frame_idx = -1;
-	size_t data = 0;
-	size_t missing = 0;
-	for (const auto & shard: frame)
+	try
 	{
-		if (shard)
+		const char * extension = "raw";
+		if (codec == video_codec::h264)
+			extension = "h264";
+		else if (codec == video_codec::h265)
+			extension = "h265";
+		else if (codec == video_codec::av1)
+			extension = "av1";
+		const auto stem = std::string(prefix) + "-stream" + std::to_string(stream_index);
+		dump_filename = stem + "." + extension;
+		dump_video.open(dump_filename, std::ios::binary | std::ios::app);
+		dump_frames.open(dump_filename + ".jsonl", std::ios::app);
+		dump_video.seekp(0, std::ios::end);
+		const auto offset = dump_video.tellp();
+		if (not dump_video or not dump_frames or offset < 0)
 		{
-			frame_idx = shard->frame_idx;
-			++data;
+			spdlog::warn("Could not open received video dump {}; disabling it", dump_filename);
+			close_dump();
+			return;
 		}
-		else
-			++missing;
+		dump_offset = static_cast<uint64_t>(offset);
+		spdlog::info("Dumping received video to {}", dump_filename);
 	}
-
-	bool end = frame.back() and frame.back()->timing_info;
-	spdlog::info("frame {} was not sent with {} data shards, {}{} missing", frame_idx, data, end ? "" : "at least ", missing);
+	catch (...)
+	{
+		close_dump();
+	}
 }
 
-void shard_accumulator::advance()
+void shard_accumulator::dump_received(std::span<const std::span<const uint8_t>> payload, const from_headset::feedback & feedback, XrTime target) noexcept
 {
-	std::swap(current, next);
-	next.reset(current.frame_index() + 1);
+	if (not dump_video.is_open())
+		return;
+	try
+	{
+		uint64_t size = 0;
+		for (const auto part: payload)
+		{
+			dump_video.write(reinterpret_cast<const char *>(part.data()), part.size());
+			size += part.size();
+		}
+		if (dump_video)
+			dump_frames << "{\"frame_index\":" << feedback.frame_index
+			            << ",\"generation\":" << feedback.generation
+			            << ",\"stream_index\":" << unsigned(feedback.stream_index)
+			            << ",\"target_ns\":" << target
+			            << ",\"offset\":" << dump_offset << ",\"size\":" << size << "}\n";
+		if (not dump_video or not dump_frames)
+		{
+			spdlog::warn("Writing received video dump {} failed; disabling it", dump_filename);
+			close_dump();
+			return;
+		}
+		dump_offset += size;
+	}
+	catch (...)
+	{
+		close_dump();
+	}
 }
 
-void shard_accumulator::push_shard(video_stream_data_shard && shard)
+void shard_accumulator::close_dump() noexcept
 {
-	assert(current.frame_index() + 1 == next.frame_index());
-
-	auto frame_diff = shard.frame_idx - current.frame_index();
-	if (shard.frame_idx < current.frame_index())
+	try
 	{
-		// frame is in the past, drop it
-		spdlog::info("Drop shard for old frame {} (current {})", shard.frame_idx, current.frame_index());
-	}
-	else if (frame_diff == 0)
-	{
-		auto shard_idx = current.insert(std::move(shard), instance);
-		try_submit_frame(shard_idx);
-	}
-	else if (frame_diff == 1)
-	{
-		next.insert(std::move(shard), instance);
-		if (is_complete(next))
+		bool failed = false;
+		if (dump_video.is_open())
 		{
-			debug_why_not_sent(current);
-			send_feedback(current.feedback);
+			dump_video.flush();
+			dump_video.close();
+			failed |= not dump_video;
+		}
+		if (dump_frames.is_open())
+		{
+			dump_frames.flush();
+			dump_frames.close();
+			failed |= not dump_frames;
+		}
+		if (failed)
+			spdlog::warn("Flushing received video dump {} failed", dump_filename);
+	}
+	catch (...)
+	{}
+}
 
-			advance();
+shard_accumulator::~shard_accumulator()
+{
+	close_dump();
+}
 
-			try_submit_frame(0);
+void shard_accumulator::push_shard(to_headset::video_shard && shard)
+{
+	const auto index = shard.frame;
+	const auto generation = shard.generation;
+	const auto previous = shard.previous;
+	if (index < next_frame)
+		return;
+	auto * frame = recovery.add(std::move(shard));
+	if (not frame)
+		return;
+	auto [it, inserted] = feedbacks.try_emplace(index);
+	auto & feedback = it->second;
+	if (inserted)
+	{
+		feedback = {.frame_index = index, .stream_index = stream_index,
+		            .received_first_packet = instance.now()};
+		// A frame sent before this one never arrived: the decoder lacks its references until a keyframe
+		if (next_frame != 0 and previous >= next_frame and previous < index and not recovery.frames.contains(previous))
+		{
+			from_headset::feedback lost{.generation = generation, .frame_index = previous, .stream_index = stream_index};
+			send_feedback(lost);
 		}
 	}
-	else if (frame_diff == 2)
+	feedback.generation = generation;
+	if (not feedback.received_first_packet)
+		feedback.received_first_packet = instance.now();
+	if (frame->complete)
 	{
-		debug_why_not_sent(current);
-		send_feedback(current.feedback);
-
-		advance();
-
-		push_shard(std::move(shard));
+		deserialization_packet metadata({}, frame->data.front());
+		auto info = metadata.deserialize<to_headset::video_frame_info>();
+		std::vector<std::span<const uint8_t>> payload;
+		for (size_t i = 0; i < frame->data.size(); ++i)
+			payload.push_back(frame->payload(i));
+		payload.front() = payload.front().subspan(serialized_size(info));
+		feedback.resent = frame->resent();
+		feedback.fec_recovered = frame->recovered;
+		feedback.received_last_packet = instance.now();
+		feedback.sent_to_decoder = feedback.received_last_packet;
+		feedback.encode_begin = info.timing_info.encode_begin;
+		feedback.encode_end = info.timing_info.encode_end;
+		feedback.send_begin = info.timing_info.send_begin;
+		feedback.send_end = info.timing_info.send_end;
+		dump_received(payload, feedback, info.view_info.display_time);
+		decoder_->push_data(payload, index, false);
+		decoder_->frame_completed(feedback, info.view_info);
+		send_feedback(feedback);
+		next_frame = index + 1;
 	}
 	else
+		// Frames never seen were skipped by the server or reported lost above
+		next_frame = recovery.frames.begin()->first;
+
+	for (auto old = recovery.frames.begin(); old != recovery.frames.end() and old->first < next_frame;)
 	{
-		// We have lost more than one frame
-		send_feedback(current.feedback);
-		send_feedback(next.feedback);
-
-		current.reset(shard.frame_idx);
-		next.reset(shard.frame_idx + 1);
-
-		push_shard(std::move(shard));
+		if (auto f = feedbacks.find(old->first); f != feedbacks.end())
+		{
+			if (not old->second.complete)
+				send_feedback(f->second);
+			feedbacks.erase(f);
+		}
+		old = recovery.frames.erase(old);
 	}
+	for (auto & [number, pending]: recovery.frames)
+		if (number < index and not pending.complete)
+			request_missing(number, pending);
 }
 
-void shard_accumulator::open_video_dump(const wyrm::to_headset::video_stream_description & description, uint8_t stream_index)
+void shard_accumulator::request_missing(uint64_t number, shards::receiver::frame & frame)
 {
-	const char * path = std::getenv("WYRM_DUMP_VIDEO");
-	if (not path)
+	auto now = shards::receiver::clock::now();
+	if (frame.last_request != shards::receiver::clock::time_point{} and
+	    now - frame.last_request < shards::shard_request_interval)
 		return;
-	const std::string file = std::string(path) + "-g" + std::to_string(description.generation) + "-" + std::to_string(stream_index) + ".bin";
-	video_dump.open(file, std::ios::binary);
-	video_dump_index.open(file + ".idx");
-	spdlog::info("Dumping stream {} video to {}", stream_index, file);
-}
-
-void shard_accumulator::try_submit_frame(std::optional<uint16_t> shard_idx)
-{
-	if (shard_idx)
-		try_submit_frame(*shard_idx);
-}
-
-void shard_accumulator::try_submit_frame(uint16_t shard_idx)
-{
-	auto & data_shards = current.data;
-
-	for (size_t idx = 0; idx < shard_idx; ++idx)
-		if (not data_shards[idx])
-			return;
-
-	uint16_t last_idx = shard_idx + 1;
-	for (size_t size = data_shards.size();
-	     last_idx < size and data_shards[last_idx];
-	     ++last_idx)
-	{
-	}
-
-	std::vector<std::span<const uint8_t>> payload;
-	payload.reserve(last_idx - shard_idx);
-	for (size_t idx = shard_idx; idx < last_idx; ++idx)
-		payload.emplace_back(data_shards[idx]->payload);
-
-	bool frame_complete = last_idx == data_shards.size() and data_shards.back()->timing_info;
-	decoder_->push_data(payload, data_shards[shard_idx]->frame_idx, not frame_complete);
-
-	if (not frame_complete)
+	auto missing = recovery.missing(frame, shards::max_shard_requests);
+	if (missing.empty())
 		return;
-
-	if (video_dump)
-	{
-		const auto offset = video_dump.tellp();
-		for (const auto & shard: data_shards)
-			video_dump.write(reinterpret_cast<const char *>(shard->payload.data()), shard->payload.size());
-		video_dump_index << current.frame_index() << ' ' << offset << ' ' << video_dump.tellp() - offset << '\n';
-	}
-
-	current.feedback.received_last_packet = instance.now();
-	current.feedback.sent_to_decoder = current.feedback.received_last_packet;
-	data_shard::timing_info_t timing_info = data_shards.back()->timing_info.value_or(data_shard::timing_info_t{});
-	current.feedback.encode_begin = timing_info.encode_begin;
-	current.feedback.encode_end = timing_info.encode_end;
-	current.feedback.send_begin = timing_info.send_begin;
-	current.feedback.send_end = timing_info.send_end;
-
-	if (not data_shards.front()->view_info)
-	{
-		spdlog::warn("first shard has no view_info");
-		return;
-	}
-
-	// Try to extract a frame
-	current.feedback.display_deadline = data_shards.front()->view_info->display_time;
-	decoder_->frame_completed(current.feedback, *data_shards.front()->view_info);
-
-	send_feedback(current.feedback);
-
-	advance();
+	if (auto scene = weak_scene.lock())
+		scene->send_nack({.stream = stream_index, .generation = feedbacks.at(number).generation,
+		                  .frame = number, .shards = std::move(missing)});
 }
 
-void shard_accumulator::send_feedback(wyrm::from_headset::feedback & feedback)
+void shard_accumulator::request_stalled()
 {
-	if (not feedback.received_last_packet)
-		feedback.received_first_packet = instance.now();
-	auto scene = weak_scene.lock();
-	if (scene)
+	const auto now = shards::receiver::clock::now();
+	for (auto & [number, frame]: recovery.frames)
+		if (const auto deadline = shards::stalled_recovery_deadline(frame); deadline and now >= *deadline)
+			request_missing(number, frame);
+}
+
+std::chrono::milliseconds shard_accumulator::recovery_timeout(shards::receiver::clock::time_point now, std::chrono::milliseconds maximum) const
+{
+	for (const auto & [number, frame]: recovery.frames)
+		maximum = shards::recovery_poll_timeout(now, shards::stalled_recovery_deadline(frame), maximum);
+	return maximum;
+}
+
+void shard_accumulator::send_feedback(from_headset::feedback & feedback)
+{
+	if (auto scene = weak_scene.lock())
 		scene->send_feedback(feedback);
 }
 } // namespace wyrm

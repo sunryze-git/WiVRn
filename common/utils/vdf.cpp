@@ -19,7 +19,6 @@
 #include "vdf.h"
 
 #include <boost/iostreams/device/mapped_file.hpp>
-#include <format>
 #include <iostream>
 
 namespace
@@ -133,31 +132,14 @@ bool wyrm::vdf::string::operator==(const char * b) const
 	return *b == '\0';
 }
 
-wyrm::vdf::keyvalue const & wyrm::vdf::keyvalue::operator[](const char * key) const
-{
-	for (auto const & kv: std::get<std::vector<keyvalue>>(value))
-	{
-		if (kv.key == key)
-			return kv;
-	}
-	throw std::out_of_range{std::format("no key {}", key)};
-}
-
 wyrm::vdf::root::root(const std::filesystem::path & file)
 {
-	try
-	{
-		boost::iostreams::mapped_file_source in{file};
-		opaque = in;
+	boost::iostreams::mapped_file in{file};
+	opaque = in;
 
-		const char * pos = in.begin();
-		key = read_string(pos, in.end());
-		value = read_value(pos, in.end());
-	}
-	catch (std::exception & e)
-	{
-		throw std::runtime_error(std::format("failed to parse {}: {}", file.native(), e.what()));
-	}
+	const char * pos = in.begin();
+	key = read_string(pos, in.end());
+	value = read_value(pos, in.end());
 }
 
 void dump(const wyrm::vdf::keyvalue & kv, int depth)

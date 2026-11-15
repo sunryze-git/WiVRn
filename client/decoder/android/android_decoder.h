@@ -104,7 +104,7 @@ private:
 	struct frame_info
 	{
 		wyrm::from_headset::feedback feedback;
-		wyrm::to_headset::video_stream_data_shard::view_info_t view_info;
+		wyrm::to_headset::video_frame_info::view_info_t view_info;
 	};
 	utils::sync_queue<frame_info> frame_infos;
 
@@ -133,7 +133,7 @@ public:
 
 	void frame_completed(
 	        const wyrm::from_headset::feedback & feedback,
-	        const wyrm::to_headset::video_stream_data_shard::view_info_t & view_info) override;
+	        const wyrm::to_headset::video_frame_info::view_info_t & view_info) override;
 
 	vk::Sampler sampler() override
 	{

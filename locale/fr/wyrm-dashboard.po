@@ -80,7 +80,7 @@ msgstr "Serveur Wyrm"
 
 #: dashboard/main.cpp:31
 #, kde-format
-msgid "(c) 2022-2026 WiVRn development team"
+msgid "(c) 2022-2026 Wyrm development team"
 msgstr "(c) 2022-2026 l'équipe de développement Wyrm"
 
 #: dashboard/main.cpp:46

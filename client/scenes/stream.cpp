@@ -1,3 +1,6 @@
+#ifndef __ANDROID__
+#include "linux/frame_shell.h"
+#endif
 /*
  * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
@@ -29,7 +32,9 @@
 #define GLM_FORCE_RADIANS
 
 #include "stream.h"
-
+#include "frame_selection.h"
+#include "wyrm_foveation.h"
+#include "xr/frame_foveated_projection.h"
 #include "application.h"
 #include "audio/audio.h"
 #include "boost/pfr/core.hpp"
@@ -40,7 +45,6 @@
 #include "utils/ranges.h"
 #include "wyrm_packets.h"
 #include <algorithm>
-#include <cmath>
 #include <mutex>
 #include <ranges>
 #include <thread>
@@ -54,140 +58,7 @@
 using namespace wyrm;
 using namespace beman::inplace_vector;
 
-// clang-format off
-static const std::unordered_map<std::string, device_id> device_ids = {
-	{"/user/hand/left/input/dpad_up/click",       device_id::DPAD_UP_CLICK},
-	{"/user/hand/left/input/dpad_up/touch",       device_id::DPAD_UP_TOUCH},
-	{"/user/hand/left/input/dpad_down/click",     device_id::LEFT_X_CLICK},
-	{"/user/hand/left/input/dpad_down/touch",     device_id::LEFT_X_TOUCH},
-	{"/user/hand/left/input/dpad_left/click",     device_id::DPAD_LEFT_CLICK},
-	{"/user/hand/left/input/dpad_left/touch",     device_id::DPAD_LEFT_TOUCH},
-	{"/user/hand/left/input/dpad_right/click",    device_id::LEFT_Y_CLICK},
-	{"/user/hand/left/input/dpad_right/touch",    device_id::LEFT_Y_TOUCH},
-	{"/user/hand/left/input/x/click",             device_id::LEFT_X_CLICK},
-	{"/user/hand/left/input/x/touch",             device_id::LEFT_X_TOUCH},
-	{"/user/hand/left/input/y/click",             device_id::LEFT_Y_CLICK},
-	{"/user/hand/left/input/y/touch",             device_id::LEFT_Y_TOUCH},
-	{"/user/hand/left/input/view/click",          device_id::VIEW_CLICK},
-	{"/user/hand/left/input/view/touch",          device_id::VIEW_TOUCH},
-	{"/user/hand/left/input/menu/click",          device_id::LEFT_MENU_CLICK},
-	{"/user/hand/left/input/system/click",        device_id::LEFT_MENU_CLICK},
-	{"/user/hand/left/input/system/touch",        device_id::LEFT_SYSTEM_TOUCH},
-	{"/user/hand/left/input/bumper/click",        device_id::LEFT_BUMPER_CLICK},
-	{"/user/hand/left/input/bumper/touch",        device_id::LEFT_BUMPER_TOUCH},
-	{"/user/hand/left/input/squeeze/click",       device_id::LEFT_SQUEEZE_CLICK},
-	{"/user/hand/left/input/squeeze/force",       device_id::LEFT_SQUEEZE_FORCE},
-	{"/user/hand/left/input/squeeze/touch",       device_id::LEFT_SQUEEZE_TOUCH},
-	{"/user/hand/left/input/squeeze/value",       device_id::LEFT_SQUEEZE_VALUE},
-	{"/user/hand/left/input/trigger/value",       device_id::LEFT_TRIGGER_VALUE},
-	{"/user/hand/left/input/trigger/click",       device_id::LEFT_TRIGGER_CLICK},
-	{"/user/hand/left/input/trigger/touch",       device_id::LEFT_TRIGGER_TOUCH},
-	{"/user/hand/left/input/trigger/proximity",   device_id::LEFT_TRIGGER_PROXIMITY},
-	{"/user/hand/left/input/trigger/proximity_fb",device_id::LEFT_TRIGGER_PROXIMITY},
-	{"/user/hand/left/input/trigger/proximity_meta",device_id::LEFT_TRIGGER_PROXIMITY},
-	{"/user/hand/left/input/trigger/curl_fb",     device_id::LEFT_TRIGGER_CURL},
-	{"/user/hand/left/input/trigger/curl_meta",   device_id::LEFT_TRIGGER_CURL},
-	{"/user/hand/left/input/trigger_curl/value",  device_id::LEFT_TRIGGER_CURL},
-	{"/user/hand/left/input/trigger/slide_fb",    device_id::LEFT_TRIGGER_SLIDE},
-	{"/user/hand/left/input/trigger/slide_meta",  device_id::LEFT_TRIGGER_SLIDE},
-	{"/user/hand/left/input/trigger_slide/value", device_id::LEFT_TRIGGER_SLIDE},
-	{"/user/hand/left/input/trigger/force",       device_id::LEFT_TRIGGER_FORCE},
-	{"/user/hand/left/input/thumbstick",          device_id::LEFT_THUMBSTICK_X},
-	{"/user/hand/left/input/thumbstick/click",    device_id::LEFT_THUMBSTICK_CLICK},
-	{"/user/hand/left/input/thumbstick/touch",    device_id::LEFT_THUMBSTICK_TOUCH},
-	{"/user/hand/left/input/thumbrest/touch",     device_id::LEFT_THUMBREST_TOUCH},
-	{"/user/hand/left/input/thumbrest/force",     device_id::LEFT_THUMBREST_FORCE},
-	{"/user/hand/left/input/thumb_resting_surfaces/proximity",device_id::LEFT_THUMB_PROXIMITY},
-	{"/user/hand/left/input/thumb_meta/proximity_meta",device_id::LEFT_THUMB_PROXIMITY},
-	{"/user/hand/left/input/trackpad",            device_id::LEFT_TRACKPAD_X},
-	{"/user/hand/left/input/trackpad/click",      device_id::LEFT_TRACKPAD_CLICK},
-	{"/user/hand/left/input/trackpad/touch",      device_id::LEFT_TRACKPAD_TOUCH},
-	{"/user/hand/left/input/trackpad/force",      device_id::LEFT_TRACKPAD_FORCE},
-	{"/user/hand/left/input/stylus/force",        device_id::LEFT_STYLUS_FORCE},
-	{"/user/hand/left/input/stylus_fb/force",     device_id::LEFT_STYLUS_FORCE},
-
-	{"/user/hand/right/input/a/click",             device_id::A_CLICK},
-	{"/user/hand/right/input/a/touch",             device_id::A_TOUCH},
-	{"/user/hand/right/input/b/click",             device_id::B_CLICK},
-	{"/user/hand/right/input/b/touch",             device_id::B_TOUCH},
-	{"/user/hand/right/input/x/click",             device_id::RIGHT_X_CLICK},
-	{"/user/hand/right/input/x/touch",             device_id::RIGHT_X_TOUCH},
-	{"/user/hand/right/input/y/click",             device_id::RIGHT_Y_CLICK},
-	{"/user/hand/right/input/y/touch",             device_id::RIGHT_Y_TOUCH},
-	{"/user/hand/right/input/system/click",        device_id::RIGHT_SYSTEM_CLICK},
-	{"/user/hand/right/input/system/touch",        device_id::RIGHT_SYSTEM_TOUCH},
-	{"/user/hand/right/input/menu/click",          device_id::RIGHT_MENU_CLICK},
-	{"/user/hand/right/input/menu/touch",          device_id::RIGHT_MENU_TOUCH},
-	{"/user/hand/right/input/bumper/click",        device_id::RIGHT_BUMPER_CLICK},
-	{"/user/hand/right/input/bumper/touch",        device_id::RIGHT_BUMPER_TOUCH},
-	{"/user/hand/right/input/squeeze/click",       device_id::RIGHT_SQUEEZE_CLICK},
-	{"/user/hand/right/input/squeeze/force",       device_id::RIGHT_SQUEEZE_FORCE},
-	{"/user/hand/right/input/squeeze/touch",       device_id::RIGHT_SQUEEZE_TOUCH},
-	{"/user/hand/right/input/squeeze/value",       device_id::RIGHT_SQUEEZE_VALUE},
-	{"/user/hand/right/input/trigger/value",       device_id::RIGHT_TRIGGER_VALUE},
-	{"/user/hand/right/input/trigger/click",       device_id::RIGHT_TRIGGER_CLICK},
-	{"/user/hand/right/input/trigger/touch",       device_id::RIGHT_TRIGGER_TOUCH},
-	{"/user/hand/right/input/trigger/proximity",   device_id::RIGHT_TRIGGER_PROXIMITY},
-	{"/user/hand/right/input/trigger/proximity_fb",device_id::RIGHT_TRIGGER_PROXIMITY},
-	{"/user/hand/right/input/trigger/proximity_meta",device_id::RIGHT_TRIGGER_PROXIMITY},
-	{"/user/hand/right/input/trigger/curl_fb",     device_id::RIGHT_TRIGGER_CURL},
-	{"/user/hand/right/input/trigger/curl_meta",   device_id::RIGHT_TRIGGER_CURL},
-	{"/user/hand/right/input/trigger_curl/value",  device_id::RIGHT_TRIGGER_CURL},
-	{"/user/hand/right/input/trigger/slide_fb",    device_id::RIGHT_TRIGGER_SLIDE},
-	{"/user/hand/right/input/trigger/slide_meta",  device_id::RIGHT_TRIGGER_SLIDE},
-	{"/user/hand/right/input/trigger_slide/value", device_id::RIGHT_TRIGGER_SLIDE},
-	{"/user/hand/right/input/trigger/force",       device_id::RIGHT_TRIGGER_FORCE},
-	{"/user/hand/right/input/thumbstick",          device_id::RIGHT_THUMBSTICK_X},
-	{"/user/hand/right/input/thumbstick/click",    device_id::RIGHT_THUMBSTICK_CLICK},
-	{"/user/hand/right/input/thumbstick/touch",    device_id::RIGHT_THUMBSTICK_TOUCH},
-	{"/user/hand/right/input/thumbrest/touch",     device_id::RIGHT_THUMBREST_TOUCH},
-	{"/user/hand/right/input/thumbrest/force",     device_id::RIGHT_THUMBREST_FORCE},
-	{"/user/hand/right/input/thumb_resting_surfaces/proximity",device_id::RIGHT_THUMB_PROXIMITY},
-	{"/user/hand/right/input/thumb_meta/proximity_meta",device_id::RIGHT_THUMB_PROXIMITY},
-	{"/user/hand/right/input/trackpad",            device_id::RIGHT_TRACKPAD_X},
-	{"/user/hand/right/input/trackpad/click",      device_id::RIGHT_TRACKPAD_CLICK},
-	{"/user/hand/right/input/trackpad/touch",      device_id::RIGHT_TRACKPAD_TOUCH},
-	{"/user/hand/right/input/trackpad/force",      device_id::RIGHT_TRACKPAD_FORCE},
-	{"/user/hand/right/input/stylus/force",        device_id::RIGHT_STYLUS_FORCE},
-	{"/user/hand/right/input/stylus_fb/force",     device_id::RIGHT_STYLUS_FORCE},
-
-	// XR_EXT_hand_interaction
-	{"/user/hand/left/input/pinch_ext/value",      device_id::LEFT_PINCH_VALUE},
-	{"/user/hand/left/input/pinch_ext/ready_ext",  device_id::LEFT_PINCH_READY},
-	{"/user/hand/left/input/aim_activate_ext/value",device_id::LEFT_AIM_ACTIVATE_VALUE},
-	{"/user/hand/left/input/aim_activate_ext/ready_ext",device_id::LEFT_AIM_ACTIVATE_READY},
-	{"/user/hand/left/input/grasp_ext/value",      device_id::LEFT_GRASP_VALUE},
-	{"/user/hand/left/input/grasp_ext/ready_ext",  device_id::LEFT_GRASP_READY},
-
-	{"/user/hand/right/input/pinch_ext/value",      device_id::RIGHT_PINCH_VALUE},
-	{"/user/hand/right/input/pinch_ext/ready_ext",  device_id::RIGHT_PINCH_READY},
-	{"/user/hand/right/input/aim_activate_ext/value",device_id::RIGHT_AIM_ACTIVATE_VALUE},
-	{"/user/hand/right/input/aim_activate_ext/ready_ext",device_id::RIGHT_AIM_ACTIVATE_READY},
-	{"/user/hand/right/input/grasp_ext/value",      device_id::RIGHT_GRASP_VALUE},
-	{"/user/hand/right/input/grasp_ext/ready_ext",  device_id::RIGHT_GRASP_READY},
-
-	{"/user/gamepad/input/menu/click",             device_id::GAMEPAD_MENU_CLICK},
-	{"/user/gamepad/input/view/click",             device_id::GAMEPAD_VIEW_CLICK},
-	{"/user/gamepad/input/a/click",                device_id::GAMEPAD_A_CLICK},
-	{"/user/gamepad/input/b/click",                device_id::GAMEPAD_B_CLICK},
-	{"/user/gamepad/input/x/click",                device_id::GAMEPAD_X_CLICK},
-	{"/user/gamepad/input/y/click",                device_id::GAMEPAD_Y_CLICK},
-	{"/user/gamepad/input/dpad_down/click",        device_id::GAMEPAD_DPAD_DOWN_CLICK},
-	{"/user/gamepad/input/dpad_right/click",       device_id::GAMEPAD_DPAD_RIGHT_CLICK},
-	{"/user/gamepad/input/dpad_up/click",          device_id::GAMEPAD_DPAD_UP_CLICK},
-	{"/user/gamepad/input/dpad_left/click",        device_id::GAMEPAD_DPAD_LEFT_CLICK},
-	{"/user/gamepad/input/shoulder_left/click",    device_id::GAMEPAD_SHOULDER_LEFT_CLICK},
-	{"/user/gamepad/input/shoulder_right/click",   device_id::GAMEPAD_SHOULDER_RIGHT_CLICK},
-	{"/user/gamepad/input/thumbstick_left/click",  device_id::GAMEPAD_THUMBSTICK_LEFT_CLICK},
-	{"/user/gamepad/input/thumbstick_right/click", device_id::GAMEPAD_THUMBSTICK_RIGHT_CLICK},
-	{"/user/gamepad/input/trigger_left/value",     device_id::GAMEPAD_TRIGGER_LEFT_VALUE},
-	{"/user/gamepad/input/trigger_right/value",    device_id::GAMEPAD_TRIGGER_RIGHT_VALUE},
-	{"/user/gamepad/input/thumbstick_left/x",      device_id::GAMEPAD_THUMBSTICK_LEFT_X},
-	{"/user/gamepad/input/thumbstick_left/y",      device_id::GAMEPAD_THUMBSTICK_LEFT_Y},
-	{"/user/gamepad/input/thumbstick_right/x",     device_id::GAMEPAD_THUMBSTICK_RIGHT_X},
-	{"/user/gamepad/input/thumbstick_right/y",     device_id::GAMEPAD_THUMBSTICK_RIGHT_Y},
-};
-// clang-format on
+#include "input_paths.h"
 
 static const std::array supported_color_formats = {
         vk::Format::eR8G8B8A8Srgb,
@@ -201,8 +72,7 @@ static const std::array supported_depth_formats{
 
 scenes::stream::stream(std::string server_name, scene & parent_scene) :
         scene_impl<stream>(supported_color_formats, supported_depth_formats, parent_scene),
-        apps{*this, std::move(server_name)},
-        foveation_center{instance, system, session, device, commandpool, queue, swapchain_format}
+        apps{*this, std::move(server_name)}
 {
 	auto views = system.view_configuration_views(viewconfig);
 	width = views[0].recommendedImageRectWidth;
@@ -237,157 +107,162 @@ static from_headset::visibility_mask_changed::masks get_visibility_mask(xr::inst
 	return res;
 }
 
-from_headset::headset_info_packet scenes::stream::headset_info(float guessed_fps) const
+from_headset::stream_settings scenes::stream::stream_settings()
 {
-	from_headset::headset_info_packet info{
-	        .language = application::get_messages_info().language,
-	        .country = application::get_messages_info().country,
-	        .variant = application::get_messages_info().variant,
-	};
-
 	const auto & config = application::get_config();
+	const auto & pc = pc_settings();
+	from_headset::stream_settings res{};
 
+	auto view = system.view_configuration_views(viewconfig)[0];
+	view = application::get_hmd_traits().override_view(view);
+	res.render_eye_width = view.recommendedImageRectWidth * pc.resolution_scale;
+	res.render_eye_height = view.recommendedImageRectHeight * pc.resolution_scale;
+
+	auto scale = config.get_stream_scale(pc);
+	res.stream_eye_width = res.render_eye_width * scale;
+	res.stream_eye_height = res.render_eye_height * scale;
+
+	if (pc.codec and decoder::supports_codec(*pc.codec))
 	{
-		auto view = system.view_configuration_views(viewconfig)[0];
-		view = application::get_hmd_traits().override_view(view);
-
-		info.render_eye_width = view.recommendedImageRectWidth * config.resolution_scale;
-		info.render_eye_height = view.recommendedImageRectHeight * config.resolution_scale;
-	}
-
-	{
-		auto scale = config.get_stream_scale();
-		info.stream_eye_width = info.render_eye_width * scale;
-		info.stream_eye_height = info.render_eye_height * scale;
-	}
-
-	if (instance.has_extension(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME))
-	{
-		if (not stable_refresh_rates)
-		{
-			stable_refresh_rates = session.get_refresh_rates();
-			const auto & panel_rates = application::get_hmd_traits().panel_refresh_rates;
-			stable_refresh_rates->insert(stable_refresh_rates->end(), panel_rates.begin(), panel_rates.end());
-			std::ranges::sort(*stable_refresh_rates);
-			stable_refresh_rates->erase(std::unique(stable_refresh_rates->begin(), stable_refresh_rates->end()), stable_refresh_rates->end());
-		}
-		info.available_refresh_rates = *stable_refresh_rates;
-		try
-		{
-			info.current_refresh_rate = session.get_current_refresh_rate();
-		}
-		catch (...)
-		{ /* Older runtimes may fail the query. */
-		}
-		info.refresh_rate_external = not application::get_hmd_traits().panel_refresh_rates.empty();
-		info.settings.preferred_refresh_rate = config.preferred_refresh_rate;
-		info.settings.minimum_refresh_rate = config.minimum_refresh_rate.value_or(0);
-	}
-	info.settings.fps_divider = config.fps_divider;
-
-	if (info.available_refresh_rates.empty())
-	{
-		spdlog::warn("Unable to detect refresh rates");
-		info.available_refresh_rates = {guessed_fps};
-		info.settings.preferred_refresh_rate = guessed_fps;
-	}
-
-	if (not std::isfinite(info.current_refresh_rate) or info.current_refresh_rate < 30 or info.current_refresh_rate > 300)
-		info.current_refresh_rate = guessed_fps;
-	observed_refresh_rate = info.current_refresh_rate;
-	info.settings.bitrate_bps = config.bitrate_bps;
-	info.settings.mirror_gamepad = config.forward_gamepad;
-	info.settings.enabled_body_parts = config.body_part_mask;
-
-	info.hand_tracking = config.check_feature(feature::hand_tracking);
-	info.eye_gaze = config.check_feature(feature::eye_gaze);
-
-	if (instance.has_extension(XR_EXT_USER_PRESENCE_EXTENSION_NAME))
-	{
-		info.user_presence = system.user_presence_properties().supportsUserPresence;
-	}
-
-	if (config.check_feature(feature::face_tracking))
-	{
-		switch (system.face_tracker_supported())
-		{
-			case xr::face_tracker_type::none:
-				info.face_tracking = from_headset::face_type::none;
-				break;
-			case xr::face_tracker_type::android:
-				info.face_tracking = from_headset::face_type::android;
-				break;
-			case xr::face_tracker_type::fb:
-			case xr::face_tracker_type::pico:
-				info.face_tracking = from_headset::face_type::fb2;
-				break;
-			case xr::face_tracker_type::htc:
-				info.face_tracking = from_headset::face_type::htc;
-				break;
-		}
-	}
-
-	if (config.check_feature(feature::body_tracking))
-	{
-		switch (system.body_tracker_supported())
-		{
-			case xr::body_tracker_type::none:
-				info.body_tracking = from_headset::body_type::none;
-				break;
-			case xr::body_tracker_type::fb:
-				info.body_tracking = from_headset::body_type::fb;
-				break;
-			case xr::body_tracker_type::meta:
-				info.body_tracking = from_headset::body_type::meta;
-				break;
-			case xr::body_tracker_type::pico:
-				info.body_tracking = from_headset::body_type::bd;
-				break;
-			case xr::body_tracker_type::htc:
-				info.body_tracking = from_headset::body_type::htc;
-				info.num_generic_trackers = application::get_generic_trackers().size();
-				break;
-		}
-	}
-
-	info.palm_pose = application::space(xr::spaces::palm_left) or application::space(xr::spaces::palm_right);
-	info.passthrough = system.passthrough_supported() != xr::passthrough_type::none;
-	info.system_name = std::string(system.properties().systemName);
-
-	audio::get_audio_description(info);
-	if (not(config.check_feature(feature::microphone)))
-		info.microphone = {};
-
-	if (config.codec)
-	{
-		const bool supports_10bit = decoder::supports_10bit(*config.codec);
-		info.supported_codecs = {{.codec = *config.codec, .supports_10bit = supports_10bit}};
-		switch (*config.codec)
+		const bool supports_10bit = decoder::supports_10bit(*pc.codec);
+		res.supported_codecs = {{.codec = *pc.codec, .supports_10bit = supports_10bit}};
+		switch (*pc.codec)
 		{
 			case h264:
 			case raw:
 				break;
 			case h265:
 			case av1:
-				info.bit_depth = supports_10bit ? config.bit_depth : 8;
+				res.bit_depth = supports_10bit ? config.bit_depth : 8;
 		}
 	}
 	else
 	{
-		info.supported_codecs = decoder::supported_codecs();
+		res.supported_codecs = decoder::supported_codecs();
 	}
-
-	return info;
+	return res;
 }
 
-std::shared_ptr<scenes::stream> scenes::stream::create(std::unique_ptr<wyrm_session> network_session, float guessed_fps, std::string server_name, scene & parent_scene)
+std::shared_ptr<scenes::stream> scenes::stream::create(std::unique_ptr<wyrm_session> network_session, float guessed_fps, std::string server_name, std::string cookie, scene & parent_scene, bool video_active)
 {
 	std::shared_ptr<stream> self{new stream{std::move(server_name), parent_scene}};
+	self->cookie = std::move(cookie);
+	self->video_active = video_active;
+	self->wanted_active = video_active;
 	self->network_session = std::move(network_session);
+#ifndef __ANDROID__
+	self->desktop = std::make_shared<frame_shell::desktop_receiver>(
+	        self->shell_source, self->device, self->physical_device, self->queue_family_index, frame_shell::desktop_receiver::link{
+	                                                                                                   .keyframe = [s = self.get()](from_headset::desktop_keyframe && packet) { s->network_session->send_control(std::move(packet)); },
+	                                                                                                   .nack = [s = self.get()](from_headset::video_nack && packet) { s->network_session->send_stream(std::move(packet)); },
+	                                                                                           });
+#endif
+	self->display_time_period = XrDuration(1'000'000'000.0 / std::max(guessed_fps, 1.0f));
 
-	auto info = self->headset_info(guessed_fps);
-	self->refresh_rate_external = info.refresh_rate_external;
-	self->network_session->send_control(std::move(info));
+	self->network_session->send_control([&]() {
+		from_headset::headset_info_packet info{
+		        .language = application::get_messages_info().language,
+		        .country = application::get_messages_info().country,
+		        .variant = application::get_messages_info().variant,
+		};
+
+		const auto & config = application::get_config();
+
+		auto stream = self->stream_settings();
+		info.render_eye_width = stream.render_eye_width;
+		info.render_eye_height = stream.render_eye_height;
+		info.stream_eye_width = stream.stream_eye_width;
+		info.stream_eye_height = stream.stream_eye_height;
+		info.supported_codecs = std::move(stream.supported_codecs);
+		info.bit_depth = stream.bit_depth;
+
+		if (self->instance.has_extension(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME))
+		{
+			info.available_refresh_rates = self->session.get_refresh_rates();
+			info.settings.preferred_refresh_rate = config.preferred_refresh_rate;
+			info.settings.minimum_refresh_rate = config.minimum_refresh_rate.value_or(0);
+		}
+		info.settings.fps_divider = config.fps_divider;
+
+		if (info.available_refresh_rates.empty())
+		{
+			spdlog::warn("Unable to detect refresh rates");
+			info.available_refresh_rates = {guessed_fps};
+			info.settings.preferred_refresh_rate = guessed_fps;
+		}
+
+		info.settings.bitrate_bps = self->pc_settings().bitrate_bps;
+		info.settings.mirror_gamepad = config.forward_gamepad;
+		info.settings.enabled_body_parts = config.body_part_mask;
+
+		info.hand_tracking = config.check_feature(feature::hand_tracking);
+		info.eye_gaze = config.check_feature(feature::eye_gaze);
+
+		if (self->instance.has_extension(XR_EXT_USER_PRESENCE_EXTENSION_NAME))
+		{
+			info.user_presence = self->system.user_presence_properties().supportsUserPresence;
+		}
+
+		if (config.check_feature(feature::face_tracking))
+		{
+			switch (self->system.face_tracker_supported())
+			{
+				case xr::face_tracker_type::none:
+					info.face_tracking = from_headset::face_type::none;
+					break;
+				case xr::face_tracker_type::android:
+					info.face_tracking = from_headset::face_type::android;
+					break;
+				case xr::face_tracker_type::fb:
+				case xr::face_tracker_type::pico:
+					info.face_tracking = from_headset::face_type::fb2;
+					break;
+				case xr::face_tracker_type::htc:
+					info.face_tracking = from_headset::face_type::htc;
+					break;
+			}
+		}
+
+		if (config.check_feature(feature::body_tracking))
+		{
+			switch (self->system.body_tracker_supported())
+			{
+				case xr::body_tracker_type::none:
+					info.body_tracking = from_headset::body_type::none;
+					break;
+				case xr::body_tracker_type::fb:
+					info.body_tracking = from_headset::body_type::fb;
+					break;
+				case xr::body_tracker_type::meta:
+					info.body_tracking = from_headset::body_type::meta;
+					break;
+				case xr::body_tracker_type::pico:
+					info.body_tracking = from_headset::body_type::bd;
+					break;
+				case xr::body_tracker_type::htc:
+					info.body_tracking = from_headset::body_type::htc;
+					info.num_generic_trackers = application::get_generic_trackers().size();
+					break;
+			}
+		}
+
+		info.palm_pose = application::space(xr::spaces::palm_left) or application::space(xr::spaces::palm_right);
+		info.passthrough = self->system.passthrough_supported() != xr::passthrough_type::none;
+		info.system_name = std::string(self->system.properties().systemName);
+
+		audio::get_audio_description(info);
+		if (not(config.check_feature(feature::microphone)))
+			info.microphone = {};
+
+		return info;
+	}());
+
+	if (not video_active)
+		self->network_session->send_control(from_headset::video_active{.active = false});
+#ifndef __ANDROID__
+	if (frame_shell::enabled())
+		frame_shell::connected(self->shell_source, true, video_active);
+#endif
 
 	self->network_session->send_control(from_headset::session_state_changed{
 	        .state = application::get_session_state(),
@@ -413,7 +288,19 @@ std::shared_ptr<scenes::stream> scenes::stream::create(std::unique_ptr<wyrm_sess
 		}
 	}
 
-	self->network_thread = utils::named_thread("network_thread", &stream::process_packets, self.get());
+	{
+		const auto & config = application::get_config();
+		self->override_foveation_enable = config.override_foveation_enable;
+		self->override_foveation_pitch = config.override_foveation_pitch;
+		self->override_foveation_distance = config.override_foveation_distance;
+
+		if (self->override_foveation_enable)
+			self->network_session->send_control(from_headset::override_foveation_center{
+			        .enabled = self->override_foveation_enable,
+			        .pitch = self->override_foveation_pitch,
+			        .distance = self->override_foveation_distance,
+			});
+	}
 
 	self->command_buffer = std::move(self->device.allocateCommandBuffers({
 	        .commandPool = *self->commandpool,
@@ -473,6 +360,7 @@ std::shared_ptr<scenes::stream> scenes::stream::create(std::unique_ptr<wyrm_sess
 	        });
 
 	self->wifi = application::get_wifi_lock().get_wifi_lock();
+	self->network_thread = utils::named_thread("network_thread", &stream::process_packets, self.get());
 
 	return self;
 }
@@ -623,6 +511,14 @@ void scenes::stream::on_unfocused()
 
 scenes::stream::~stream()
 {
+#ifndef __ANDROID__
+	if (frame_shell::enabled())
+	{
+		frame_shell::clear_stream_commands(shell_source, video_active);
+		frame_shell::forget_source(shell_source);
+		frame_shell::connected(shell_source, false, video_active);
+	}
+#endif
 	exit();
 
 	if (tracking_thread && tracking_thread->joinable())
@@ -630,49 +526,64 @@ scenes::stream::~stream()
 
 	if (network_thread.joinable())
 		network_thread.join();
+
+#if WYRM_FRAME_EYES
+	eye_tracker.reset();
+#endif
+
+	if (*fence)
+		wait_for_frame();
+	current_blit_handles.fill(nullptr);
+	selected_frames.fill(nullptr);
 }
 
 void scenes::stream::push_blit_handle(shard_accumulator * decoder, std::shared_ptr<shard_accumulator::blit_handle> handle)
 {
 	assert(handle);
 	if (!application::is_visible())
-	{
-		// Decoder readiness is independent of visibility. In particular, a
-		// headset removed during a handoff must still confirm decoded frames.
-		std::shared_lock lock(decoder_mutex);
-		const auto stream = handle->feedback.stream_index;
-		if (stream >= decoders.size() or decoder != decoders[stream].decoder.get() or
-		    handle->feedback.generation != stream_generation)
-			return;
-		handle->feedback.received_from_decoder = instance.now();
-		lock.unlock();
-		send_feedback(handle->feedback);
 		return;
-	}
 
-	std::optional<from_headset::feedback> decoded_feedback;
+	std::optional<from_headset::feedback> decoded;
+#ifndef __ANDROID__
+	XrTime decoded_display_time = 0;
+#endif
 	{
 		std::shared_lock lock(decoder_mutex);
 		std::unique_lock frame_lock(frames_mutex);
 		auto stream = handle->feedback.stream_index;
 		if (stream < decoders.size())
 		{
-			if (decoder != decoders[stream].decoder.get() or handle->feedback.generation != stream_generation)
+			if (decoder != decoders[stream].decoder.get())
 				return;
 			handle->feedback.received_from_decoder = instance.now();
-			decoded_feedback = handle->feedback;
-			std::swap(handle, decoders[stream].latest_frames[handle->feedback.frame_index % decoders[stream].latest_frames.size()]);
-		}
+			// Copied before the swap below takes the handle away
+			decoded = handle->feedback;
+#ifndef __ANDROID__
+			decoded_display_time = handle->view_info.display_time;
+#endif
+			auto frame_index = handle->feedback.frame_index;
+			std::swap(handle, decoders[stream].latest_frames[frame_index % decoders[stream].latest_frames.size()]);
 
-		if (state_ != state::streaming and not(decoders[0].empty() or decoders[1].empty()))
-		{
-			set_state(state::streaming);
-			spdlog::info("Stream scene ready at t={}", instance.now());
+			// Only once every eye has this frame: an eye left with an old one would stall the stream right away
+			if (state_ != state::streaming and std::ranges::all_of(std::views::iota(size_t(0), view_count), [&](size_t view) { return decoders[view].frame(frame_index) != nullptr; }))
+			{
+				set_state(state::streaming);
+				spdlog::info("Stream scene ready at t={}", instance.now());
+			}
 		}
 	}
 
-	if (decoded_feedback)
-		send_feedback(*decoded_feedback);
+	// Acknowledge the decoded frame now. The feedback sent when it is shown comes a whole pipeline later (50 ms or more),
+	// and the encoder can only move its references on as fast as it learns that frames decoded: at 144 fps its 16 reference
+	// frames are 111 ms, so a late acknowledgement leaves it without a reference, and it sends a keyframe and skips frames
+	if (decoded)
+	{
+#ifndef __ANDROID__
+		capture_decode(*decoded, false, decoded_display_time);
+#endif
+		send_feedback(*decoded);
+	}
+
 	if (handle and not handle->feedback.blitted)
 	{
 		send_feedback(handle->feedback);
@@ -694,52 +605,38 @@ std::array<std::shared_ptr<shard_accumulator::blit_handle>, 3> scenes::stream::c
 	if (decoders.empty())
 		return {};
 	std::unique_lock lock(frames_mutex);
-	inplace_vector<shard_accumulator::blit_handle *, decoder_count> common_frames;
-	const bool alpha = decoders[0].latest_frames[0] and decoders[0].latest_frames[0]->view_info.alpha;
-	for (size_t i = 0; i < view_count + alpha; ++i)
+	std::array<std::span<const std::shared_ptr<shard_accumulator::blit_handle>>, decoder_count> frames;
+	for (size_t i = 0; i < decoders.size(); ++i)
+		frames[i] = decoders[i].latest_frames;
+#ifndef __ANDROID__
+	struct captured_frame
 	{
-		if (i == 0)
-		{
-			for (const auto & h: decoders[i].latest_frames)
-				if (h)
-					common_frames.push_back(h.get());
-		}
-		else
-		{
-			// clang-format off
-			erase_if(common_frames,
-				[this, i](auto & left)
-				{
-					return std::ranges::none_of(
-						decoders[i].latest_frames,
-						[&left](auto & right)
-						{
-							return right and left->feedback.frame_index == right->feedback.frame_index;
-						});
-				});
-			// clang-format on
-		}
-	}
-	std::array<std::shared_ptr<shard_accumulator::blit_handle>, decoder_count> result;
-	if (not common_frames.empty())
+		int64_t index = -1;
+		uint64_t generation = 0;
+		XrTime target = 0;
+	};
+	const bool capture_selection = shell_capturing.load(std::memory_order_relaxed);
+	const auto capture_frame = [](const auto & frame) -> captured_frame {
+		if (not frame)
+			return {};
+		return {int64_t(frame->feedback.frame_index), frame->feedback.generation, frame->view_info.display_time};
+	};
+	std::array<captured_frame, decoder_count> previous;
+	std::array<std::array<captured_frame, image_buffer_size>, decoder_count> available;
+	XrTime selection_time = 0;
+	if (capture_selection)
 	{
-		auto min = std::ranges::min_element(common_frames,
-		                                    std::ranges::less{},
-		                                    [display_time](auto frame) {
-			                                    if (not frame)
-				                                    return std::numeric_limits<XrTime>::max();
-			                                    return std::abs(frame->view_info.display_time - display_time);
-		                                    });
-
-		assert(*min);
-		auto frame_index = (*min)->feedback.frame_index;
-		for (auto [i, decoder]: utils::enumerate(decoders))
+		for (size_t stream = 0; stream < decoder_count; ++stream)
 		{
-			if (alpha or i < view_count)
-				result[i] = decoder.frame(frame_index);
+			previous[stream] = capture_frame(selected_frames[stream]);
+			for (size_t slot = 0; slot < image_buffer_size; ++slot)
+				available[stream][slot] = capture_frame(decoders[stream].latest_frames[slot]);
 		}
+		selection_time = instance.now();
 	}
-	else
+#endif
+	auto result = wyrm::select_stereo_frame(frames, selected_frames, display_time);
+	if (not wyrm::stereo_frames_match(result))
 	{
 		spdlog::warn("Failed to find a common frame for all decoders, dumping available frames per decoder");
 		for (const auto & decoder: decoders)
@@ -754,22 +651,32 @@ std::array<std::shared_ptr<shard_accumulator::blit_handle>, 3> scenes::stream::c
 			}
 			spdlog::warn(frames);
 		}
-
-		for (auto [i, decoder]: utils::enumerate(decoders))
-		{
-			if (alpha or i < view_count)
-			{
-				auto min = std::ranges::min_element(decoder.latest_frames,
-				                                    std::ranges::less{},
-				                                    [display_time](auto frame) {
-					                                    if (not frame)
-						                                    return std::numeric_limits<XrTime>::max();
-					                                    return std::abs(frame->view_info.display_time - display_time);
-				                                    });
-				result[i] = *min;
-			}
-		}
 	}
+	selected_frames = result;
+#ifndef __ANDROID__
+	std::array<captured_frame, decoder_count> chosen;
+	if (capture_selection)
+		for (size_t stream = 0; stream < decoder_count; ++stream)
+			chosen[stream] = capture_frame(result[stream]);
+#endif
+	lock.unlock();
+#ifndef __ANDROID__
+	if (capture_selection)
+	{
+		const auto encode_frames = [](const auto & values) {
+			std::string json = "[";
+			for (const auto & frame: values)
+				json += fmt::format("{}[{},{},{}]", json.size() > 1 ? "," : "", frame.index, frame.generation, frame.target);
+			return json + "]";
+		};
+		std::string rings = "[";
+		for (const auto & ring: available)
+			rings += (rings.size() > 1 ? "," : "") + encode_frames(ring);
+		rings += "]";
+		capture_line(fmt::format(R"({{"k":"s","xr_ns":{},"target_ns":{},"previous":{},"chosen":{},"rings":{}}})",
+		                          selection_time, display_time, encode_frames(previous), encode_frames(chosen), rings));
+	}
+#endif
 	return result;
 }
 
@@ -865,79 +772,46 @@ bool scenes::stream::is_gui_interactable() const
 	return is_interactable(gui_status);
 }
 
-void scenes::stream::prepare_video_stream()
-{
-	std::optional<to_headset::video_stream_description> pending;
-	{
-		auto locked = pending_video_description.lock();
-		pending.swap(*locked);
-	}
-	if (pending)
-	{
-		try
-		{
-			setup(*pending);
-			video_change_grace_until = std::chrono::steady_clock::now() + std::chrono::seconds(2);
-			network_session->send_control(from_headset::video_stream_ready{.generation = pending->generation});
-			if (not tracking_thread)
-				tracking_thread = utils::named_thread("tracking_thread", &stream::tracking, this);
-		}
-		catch (const std::exception & e)
-		{
-			spdlog::error("Could not install video stream: {}", e.what());
-			video_stream_failed(pending->generation, e.what());
-		}
-	}
-}
-
 void scenes::stream::render(const XrFrameState & frame_state)
 {
-	if (state_ == state::shutdown)
+	render_into(frame_state, nullptr);
+}
+
+void scenes::stream::render_into(const XrFrameState & frame_state, scene * composition)
+{
+	frame_prepared = false;
+	if (composition && (state_ == state::shutdown || !video_active))
+		return;
+	if (!composition && state_ == state::shutdown)
 		application::pop_scene();
+
+#ifndef __ANDROID__
+	// The frame shell composes every PC's stream into the lobby's frame; a PC whose apps are all hidden adds nothing
+	if (composition && frame_shell::enabled())
+	{
+		const auto activity = frame_shell::activity(shell_source);
+		if (activity.known && !activity.visible)
+			return;
+	}
+#endif
 
 	display_time_phase = frame_state.predictedDisplayPeriod ? frame_state.predictedDisplayTime % frame_state.predictedDisplayPeriod : 0;
 	display_time_period = frame_state.predictedDisplayPeriod;
 	real_display_period = last_display_time ? frame_state.predictedDisplayTime - last_display_time : frame_state.predictedDisplayPeriod;
 	last_display_time = frame_state.predictedDisplayTime;
 
-	// Frame can change modes in SteamOS without sending an OpenXR event.
-	// Query the current rate, never re-enumerate a session's advertised list.
-	if (refresh_rate_external and std::chrono::steady_clock::now() >= refresh_rate_poll)
-	{
-		refresh_rate_poll = std::chrono::steady_clock::now() + std::chrono::seconds(1);
-		try
-		{
-			const auto rate = session.get_current_refresh_rate();
-			if (std::isfinite(rate) and rate >= 30 and rate <= 300 and std::abs(rate - observed_refresh_rate) > 0.1f)
-			{
-				network_session->send_control(from_headset::refresh_rate_changed{.from = observed_refresh_rate, .to = rate});
-				observed_refresh_rate = rate;
-			}
-		}
-		catch (const std::exception & e)
-		{
-			spdlog::debug("Refresh rate query failed: {}", e.what());
-		}
-	}
-
-	prepare_video_stream();
-	if (video_settings_changed and std::chrono::steady_clock::now() - *video_settings_changed >= std::chrono::milliseconds(300))
-	{
-		video_settings_changed.reset();
-		video_change_grace_until = std::chrono::steady_clock::now() + std::chrono::seconds(15);
-		network_session->send_control(headset_info(1'000'000'000.f / frame_state.predictedDisplayPeriod));
-	}
-
 	std::shared_lock lock(decoder_mutex);
 	if (not frame_state.shouldRender or decoders[0].empty() or decoders[1].empty() or state_ == state::shutdown)
 	{
 		// TODO: stop/restart video stream
+		if (composition)
+			return;
 		session.begin_frame();
 		session.end_frame(frame_state.predictedDisplayTime, {});
 		return;
 	}
 
-	if (state_ == state::stalled)
+	if (!composition && state_ == state::stalled)
 	{
 		network_session->send_control(from_headset::get_application_list{
 		        .language = application::get_messages_info().language,
@@ -949,8 +823,7 @@ void scenes::stream::render(const XrFrameState & frame_state)
 		application::pop_scene();
 	}
 
-	if (device.waitForFences(*fence, VK_TRUE, UINT64_MAX) == vk::Result::eTimeout)
-		throw std::runtime_error("Vulkan fence timeout");
+	wait_for_frame();
 
 	// We don't need those after vkWaitForFences
 	current_blit_handles.fill(nullptr);
@@ -973,34 +846,13 @@ void scenes::stream::render(const XrFrameState & frame_state)
 		}
 	}
 
-	// Search for frame with desired display time on all decoders
-	// If no such frame exists, use the latest frame for each decoder
 	current_blit_handles = common_frame(frame_state.predictedDisplayTime);
-	std::array<XrPosef, view_count> pose;
-	std::array<XrFovf, view_count> fov{};
-	std::array<bool, view_count> valid_fov{};
-	std::array<wyrm::to_headset::foveation_parameter, view_count> foveation;
-	std::array<XrExtent2Di, view_count> extents;
-	int32_t max_width = 0;
-	int32_t max_height = 0;
-	for (size_t i = 0; i < view_count; ++i)
-	{
-		auto & blit_handle = current_blit_handles[i];
-		if (!blit_handle)
-			continue;
+	if (composition && !wanted_background &&
+	    (!current_blit_handles[0] || !current_blit_handles[0]->view_info.alpha || !current_blit_handles[view_count]))
+		return;
 
-		fov[i] = blit_handle->view_info.fov[i];
-		valid_fov[i] = true;
-		foveation[i] = blit_handle->view_info.foveation[i];
-		extents[i] = stream_defoveator::defoveated_size(foveation[i]);
-		max_width = std::max(max_width, extents[i].width);
-		max_height = std::max(max_height, extents[i].height);
-	}
-
-	if (max_width > 0 and max_height > 0)
-		ensure_foveation_mode(foveation_center.is_cropped(fov, valid_fov), max_width, max_height);
-
-	session.begin_frame();
+	if (!composition)
+		session.begin_frame();
 
 #if WYRM_FEATURE_RENDERDOC
 	renderdoc_begin(*vk_instance);
@@ -1015,6 +867,9 @@ void scenes::stream::render(const XrFrameState & frame_state)
 	command_buffer.resetQueryPool(*query_pool, 0, size_gpu_timestamps);
 	command_buffer.writeTimestamp(vk::PipelineStageFlagBits::eTopOfPipe, *query_pool, 0);
 
+	std::array<XrPosef, view_count> pose;
+	std::array<XrFovf, view_count> fov;
+	std::array<wyrm::foveation_description, view_count> foveation;
 	bool use_alpha = false;
 
 	std::array<stream_defoveator::input, view_count> images;
@@ -1029,11 +884,24 @@ void scenes::stream::render(const XrFrameState & frame_state)
 		}
 
 		blit_handle->feedback.blitted = instance.now();
-		if (blit_handle->feedback.blitted - blit_handle->feedback.received_from_decoder > 1'000'000'000 and
-		    std::chrono::steady_clock::now() > video_change_grace_until)
+		if (blit_handle->feedback.blitted - blit_handle->feedback.received_from_decoder > 1'000'000'000)
 			set_state(state::stalled);
 		++blit_handle->feedback.times_displayed;
 		blit_handle->feedback.displayed = frame_state.predictedDisplayTime;
+		// A stream frame shown again: a jump while the picture moves
+		if (i == 0 and blit_handle->feedback.frame_index == gaps.frame[0])
+			++gaps.repeats;
+		if (i < view_count and blit_handle->feedback.frame_index != gaps.frame[i])
+		{
+			auto now = frame_state.predictedDisplayTime;
+			if (gaps.since[i])
+			{
+				gaps.longest[i] = std::max(gaps.longest[i], now - gaps.since[i]);
+				gaps.over_50ms[i] += now - gaps.since[i] > 50'000'000;
+			}
+			gaps.frame[i] = blit_handle->feedback.frame_index;
+			gaps.since[i] = now;
+		}
 
 		use_alpha = blit_handle->view_info.alpha;
 
@@ -1128,18 +996,42 @@ void scenes::stream::render(const XrFrameState & frame_state)
 	    std::ranges::any_of(current_blit_handles, [](const auto & h) { return h and h->feedback.times_displayed < 2; }) or
 	    is_gui_interactable())
 	{
-		assert(swapchain);
-
-		// Swapchains only recreated when switching between cropped/full
-		// Otherwise we clamp and resize the existing one
-		for (size_t i = 0; i < view_count; ++i)
+		XrExtent2Di extents[view_count];
 		{
-			extents[i].width = std::min(extents[i].width, swapchain.width());
-			extents[i].height = std::min(extents[i].height, swapchain.height());
+			int32_t max_width = 0;
+			int32_t max_height = 0;
+			for (size_t i = 0; i < view_count; ++i)
+			{
+				extents[i] = stream_defoveator::defoveated_size(foveation[i]);
+				max_width = std::max(max_width, extents[i].width);
+				max_height = std::max(max_height, extents[i].height);
+			}
+			if (not swapchain)
+				setup_reprojection_swapchain(max_width, max_height);
+			else if (swapchain.width() < max_width or swapchain.height() < max_height)
+			{
+				// If the defoveated image is larger than the swapchain, try to reallocate one
+				try
+				{
+					spdlog::info("Recreating swapchain, from {}x{} to {}x{}",
+					             swapchain.width(),
+					             swapchain.height(),
+					             max_width,
+					             max_height);
+					setup_reprojection_swapchain(max_width, max_height);
+				}
+				catch (std::exception & e)
+				{
+					spdlog::warn("failed to increase swapchain size");
+					for (size_t i = 0; i < view_count; ++i)
+					{
+						extents[i].width = std::min(extents[i].width, swapchain.width());
+						extents[i].height = std::min(extents[i].height, swapchain.height());
+					}
+				}
+			}
 		}
-
-		foveation_center.update(fov, valid_fov, swapchain, frame_state.predictedDisplayTime);
-
+		assert(swapchain);
 		// defoveate the image, apply scale/bias
 		int image_index = swapchain.acquire();
 		swapchain.wait();
@@ -1166,8 +1058,46 @@ void scenes::stream::render(const XrFrameState & frame_state)
 		const float scale = std::lerp(1, constants::stream::dimming_scale, x);
 		const float bias = std::lerp(0, constants::stream::dimming_bias, x);
 
+		// The runtime expands the foveated image itself (XR_FRAME_foveated_projection): copy it 1:1 and attach the
+		// mapping, instead of expanding it to the full render size here and resampling that again in the runtime
+		bool foveated_layer = application::get_config().runtime_defoveation and
+		                      instance.has_extension(XR_FRAME_FOVEATED_PROJECTION_EXTENSION_NAME) and not use_alpha and
+		                      scale == 1 and bias == 0;
+#ifndef __ANDROID__
+		foveated_layer = foveated_layer and not frame_shell::foveation_debug.load(std::memory_order_relaxed);
+#endif
+		auto copy_foveation = foveation;
+		for (size_t view = 0; foveated_layer and view < view_count; view++)
+		{
+			if (foveated_layer_cache[view] != foveation[view])
+			{
+				wyrm::foveation_parameter tables;
+				wyrm::generate_foveation(foveation[view], tables);
+				foveated_layer_sharpening[view] = wyrm::make_sharpening_region(
+				        tables.x, tables.y, foveation[view].x.encoded_size, foveation[view].y.encoded_size);
+				auto & info = foveated_layer_info[view];
+				info = {.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_FOVEATION_FRAME};
+				foveated_layer_valid[view] = tables.x.size() <= XR_FOVEATION_MAX_SEGMENTS_FRAME and
+				                             tables.y.size() <= XR_FOVEATION_MAX_SEGMENTS_FRAME;
+				for (auto [axis, counts]: {std::pair{&info.x, &tables.x}, std::pair{&info.y, &tables.y}})
+				{
+					axis->segmentCount = std::min<size_t>(counts->size(), XR_FOVEATION_MAX_SEGMENTS_FRAME);
+					axis->centerSegment = (counts->size() - 1) / 2;
+					std::copy_n(counts->begin(), axis->segmentCount, axis->pixelCounts);
+				}
+				foveated_layer_cache[view] = foveation[view];
+			}
+			foveated_layer = foveated_layer and foveated_layer_valid[view];
+			copy_foveation[view].x.source_size = foveation[view].x.encoded_size;
+			copy_foveation[view].y.source_size = foveation[view].y.encoded_size;
+		}
+		if (foveated_layer)
+			for (size_t view = 0; view < view_count; view++)
+				extents[view] = {copy_foveation[view].x.source_size, copy_foveation[view].y.source_size};
+
 		defoveator->defoveate(command_buffer,
-		                      foveation,
+		                      foveated_layer ? copy_foveation : foveation,
+		                      foveated_layer ? &foveated_layer_sharpening : nullptr,
 		                      images,
 		                      {scale, scale, scale, 1.},
 		                      {bias, bias, bias, 0.},
@@ -1242,16 +1172,15 @@ void scenes::stream::render(const XrFrameState & frame_state)
 #endif
 		swapchain.release();
 
-		if (use_alpha)
-			session.enable_passthrough(system);
-		else
-			session.disable_passthrough();
+		if (!composition)
+		{
+			if (use_alpha)
+				session.enable_passthrough(system);
+			else
+				session.disable_passthrough();
+		}
 
-		render_start(use_alpha, frame_state.predictedDisplayTime);
-
-		// full-FOV dummy layer for Meta foveation, used when cropping FOV
-		if (auto layer = foveation_center.get_layer())
-			add_projection_layer(layer->flags, layer->space, layer->views);
+		render_start(use_alpha, frame_state.predictedDisplayTime, !composition);
 
 		// Add the layer with the streamed content
 		std::array<XrCompositionLayerProjectionView, view_count> layer_view;
@@ -1260,6 +1189,7 @@ void scenes::stream::render(const XrFrameState & frame_state)
 			layer_view[view] =
 			        {
 			                .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW,
+			                .next = foveated_layer ? &foveated_layer_info[view] : nullptr,
 			                .pose = pose[view],
 			                .fov = fov[view],
 
@@ -1283,12 +1213,27 @@ void scenes::stream::render(const XrFrameState & frame_state)
 			set_layer_settings(openxr_post_processing.sharpening | openxr_post_processing.super_sampling);
 
 		accumulate_metrics(frame_state.predictedDisplayTime, current_blit_handles, timestamps);
+		if (frame_state.predictedDisplayTime - gaps.window_start > 5'000'000'000)
+		{
+			if (gaps.window_start)
+			{
+				std::scoped_lock lock(shell_vr_debug_mutex);
+				shell_vr_debug = fmt::format(R"({{"repeats":{},"freezes":{},"longest_ms":{:.0f}}})", gaps.repeats, std::max(gaps.over_50ms[0], gaps.over_50ms[1]), std::max(gaps.longest[0], gaps.longest[1]) / 1e6);
+			}
+			gaps.window_start = frame_state.predictedDisplayTime;
+			gaps.longest = {};
+			gaps.over_50ms = {};
+			gaps.repeats = 0;
+		}
 
 		draw_gui(frame_state.predictedDisplayTime, frame_state.predictedDisplayPeriod);
 
 		try
 		{
-			render_end();
+			if (composition)
+				composition->append_layers(*this);
+			else
+				render_end();
 		}
 		catch (std::system_error & e)
 		{
@@ -1299,12 +1244,20 @@ void scenes::stream::render(const XrFrameState & frame_state)
 		}
 	}
 
+	frame_prepared = true;
+	if (!composition)
+		finish_frame(frame_state);
+}
+
+void scenes::stream::finish_frame(const XrFrameState & frame_state)
+{
+	if (!std::exchange(frame_prepared, false))
+		return;
 	// Network operations may be blocking, do them once everything was submitted
 	{
 		// Keep a copy of the feedback packets as they can be modified if they're encrypted
 		inplace_vector<from_headset::feedback, decoder_count> feedbacks;
-		// +1 for optional foveation packet
-		inplace_vector<serialization_packet, decoder_count + 1> packets;
+		inplace_vector<serialization_packet, decoder_count> packets;
 
 		feedbacks.reserve(current_blit_handles.size());
 		packets.reserve(current_blit_handles.size());
@@ -1314,18 +1267,14 @@ void scenes::stream::render(const XrFrameState & frame_state)
 			if (handle)
 			{
 				auto & packet = packets.emplace_back();
-				wyrm_session::control_socket_t::serialize(packet, feedbacks.emplace_back(handle->feedback));
+				wyrm_session::stream_socket_t::serialize(packet, feedbacks.emplace_back(handle->feedback));
 			}
-		}
-		if (auto foveation_packet = foveation_center.take_packet())
-		{
-			auto & packet = packets.emplace_back();
-			wyrm_session::control_socket_t::serialize(packet, *foveation_packet);
 		}
 		if (not packets.empty())
 		{
 			try
 			{
+				// Over UDP: a TCP resend would hold back the encoder's acknowledgements and the pacer's timing
 				network_session->send_stream(std::span(packets));
 			}
 			catch (std::exception & e)
@@ -1337,6 +1286,11 @@ void scenes::stream::render(const XrFrameState & frame_state)
 
 	read_actions();
 
+	query_pool_filled = true;
+#ifndef __ANDROID__
+	if (frame_shell::enabled())
+		return;
+#endif
 	if (application::get_config().enable_stream_gui)
 	{
 		XrActionStateGetInfo get_info{
@@ -1362,94 +1316,116 @@ void scenes::stream::render(const XrFrameState & frame_state)
 				next_gui_status = stream_tab::applications;
 		}
 	}
-
-	query_pool_filled = true;
 }
 
 void scenes::stream::exit()
 {
 	state_ = state::shutdown;
+	if (network_session)
+		network_session->shutdown();
 }
 
-void scenes::stream::setup(const to_headset::video_stream_description & description)
+void scenes::stream::wait_for_frame()
 {
-	spdlog::info("setup generation {}, refresh rate {}", description.generation, description.refresh_rate);
-	std::optional<to_headset::video_stream_description> previous;
-	{
-		std::shared_lock lock(decoder_mutex);
-		previous = video_stream_description;
-	}
-	if (previous == description)
-		return;
-	{
-		auto queue_lock = queue.lock();
-		device.waitIdle();
-	}
-	current_blit_handles.fill(nullptr);
+	if (device.waitForFences(*fence, VK_TRUE, UINT64_MAX) != vk::Result::eSuccess)
+		throw std::runtime_error("Failed to wait for the stream frame fence");
+}
 
-	// Identical formats can reuse their decoder, including rollback after a
-	// failed replacement. A fresh keyframe starts the new bitstream sequence.
-	const bool replace_decoders = not previous or
-	                              previous->width != description.width or
-	                              previous->height != description.height or
-	                              previous->codec != description.codec or
-	                              previous->bit_depth != description.bit_depth or
-	                              failed_generation.load() >= previous->generation;
-	std::array<accumulator_images, decoder_count> replacement{};
-	if (replace_decoders)
-	{
-		for (size_t i = 0; i < decoder_count; ++i)
-			replacement[i].decoder = std::make_unique<shard_accumulator>(device, physical_device, instance, queue_family_index, description, weak_from_this(), i);
-	}
-	if (not refresh_rate_external)
-		session.set_refresh_rate(description.refresh_rate);
+// Standby: the video decoders go (iris has few sessions) until the PC presents VR again
+void scenes::stream::teardown_video()
+{
+	video_generation = 0;
+	std::array<accumulator_images, decoder_count> retired;
 	{
 		std::unique_lock lock(decoder_mutex);
-		std::unique_lock frame_lock(frames_mutex);
-		for (auto & current: decoders)
-			current.latest_frames.fill(nullptr);
-		if (replace_decoders)
-			decoders.swap(replacement);
-		video_stream_description = description;
-		stream_generation = description.generation;
+		wait_for_frame();
+		current_blit_handles.fill(nullptr);
+		selected_frames.fill(nullptr);
+		decoders.swap(retired);
+		video_stream_description.reset();
+	}
+	for (auto & item: retired)
+	{
+		item.latest_frames.fill(nullptr);
+		item.decoder.reset();
+	}
+	if (state_ == state::streaming)
+		set_state(state::stalled);
+}
+
+void scenes::stream::setup(const to_headset::video_stream_description & description) noexcept
+{
+	try
+	{
+		spdlog::info("setup, refresh rate {}", description.refresh_rate);
+		session.set_refresh_rate(description.refresh_rate);
+
+		// Close old hardware sessions outside the callback lock before creating replacements.
+		std::array<accumulator_images, decoder_count> retired;
+		std::unique_lock lock(decoder_mutex);
+		if (video_stream_description == description)
+		{
+			lock.unlock();
+			network_session->send_control(from_headset::video_stream_ready{.generation = description.generation});
+			return;
+		}
+		video_generation = 0;
+		wait_for_frame();
+		current_blit_handles.fill(nullptr);
+		selected_frames.fill(nullptr);
 		if (defoveator)
 			defoveator->reset_pipelines();
+		decoders.swap(retired);
+		lock.unlock();
+		for (auto & item: retired)
+		{
+			item.latest_frames.fill(nullptr);
+			item.decoder.reset();
+		}
+		lock.lock();
+
+		spdlog::info("Creating decoders, size {}x{}", description.width, description.height);
+		video_generation = description.generation;
+		video_stream_description = description;
+
+		for (const auto & [stream_index, item]: utils::enumerate(decoders))
+		{
+			item = accumulator_images{
+			        .decoder = std::make_unique<shard_accumulator>(device, physical_device, instance, queue_family_index, description, weak_from_this(), stream_index),
+			};
+		}
+
+		lock.unlock();
+		network_session->send_control(from_headset::video_stream_ready{.generation = description.generation});
 	}
-	// Decoder workers can call push_blit_handle while being shut down. Release
-	// their frames and join them without holding decoder_mutex or frames_mutex.
-	for (auto & old: replacement)
+	catch (const std::exception & error)
 	{
-		old.latest_frames.fill(nullptr);
-		old.decoder.reset();
+		video_generation = description.generation;
+		video_stream_failed(description.generation, error.what());
 	}
 }
 
-void scenes::stream::setup_reprojection_swapchain(uint32_t swapchain_width, uint32_t swapchain_height, bool foveation)
+void scenes::stream::setup_reprojection_swapchain(uint32_t swapchain_width, uint32_t swapchain_height)
 {
 	assert(swapchain_width);
 	assert(swapchain_height);
 	device.waitIdle();
-	spdlog::info("swapchain setup {}x{}, foveation {}, refresh rate {}", swapchain_width, swapchain_height, foveation, video_stream_description->refresh_rate);
-	if (not refresh_rate_external)
-		session.set_refresh_rate(video_stream_description->refresh_rate);
+	spdlog::info("swapchain setup, refresh rate {}", video_stream_description->refresh_rate);
+	session.set_refresh_rate(video_stream_description->refresh_rate);
 
 	auto views = system.view_configuration_views(viewconfig);
 
-	swapchain = xr::swapchain(
-	        instance,
-	        session,
-	        device,
-	        swapchain_format,
-	        swapchain_width,
-	        swapchain_height,
-	        1,
-	        views.size(),
-	        foveation);
-	spdlog::info(
-	        "Created stream swapchain: {}x{}{}",
-	        swapchain.width(),
-	        swapchain.height(),
-	        foveation ? " with eye-tracked foveation" : "");
+	// The defoveator writes the decoded (sRGB encoded) colours through a UNORM view instead of converting them to linear
+	vk::Format unorm_format = vk::Format::eUndefined;
+	if (application::get_hmd_traits().needs_srgb_conversion)
+	{
+		if (swapchain_format == vk::Format::eR8G8B8A8Srgb)
+			unorm_format = vk::Format::eR8G8B8A8Unorm;
+		else if (swapchain_format == vk::Format::eB8G8R8A8Srgb)
+			unorm_format = vk::Format::eB8G8R8A8Unorm;
+	}
+	swapchain = xr::swapchain(instance, session, device, swapchain_format, swapchain_width, swapchain_height, 1, views.size(), unorm_format);
+	spdlog::info("Created stream swapchain: {}x{}, written as {}", swapchain.width(), swapchain.height(), vk::to_string(swapchain.view_format()));
 	for (auto view: views)
 	{
 		if (swapchain.width() > view.maxImageRectWidth or swapchain.height() > view.maxImageRectHeight)
@@ -1464,29 +1440,7 @@ void scenes::stream::setup_reprojection_swapchain(uint32_t swapchain_width, uint
 	        physical_device,
 	        swapchain.images(),
 	        extent,
-	        swapchain.format());
-}
-
-void scenes::stream::ensure_foveation_mode(bool cropped, uint32_t width, uint32_t height)
-{
-	// Foveation rounding moves the defoveated size by a pixel between frames, and rendering
-	// clamps to the swapchain, so within one stream generation the swapchain only grows.
-	const uint64_t generation = stream_generation;
-	if (swapchain and swapchain_generation == generation)
-	{
-		width = std::max<uint32_t>(width, swapchain.width());
-		height = std::max<uint32_t>(height, swapchain.height());
-	}
-	if (!swapchain or swapchain.width() != width or swapchain.height() != height or foveation_center.needs_swapchain_recreation(cropped))
-	{
-		setup_reprojection_swapchain(width, height, foveation_center.use_meta_swapchain(cropped));
-		foveation_center.on_swapchain_recreated(cropped);
-		swapchain_generation = generation;
-	}
-	else
-	{
-		foveation_center.set_cropped(cropped);
-	}
+	        swapchain.view_format());
 }
 
 scene::meta & scenes::stream::get_meta_scene()
@@ -1591,7 +1545,6 @@ void scenes::stream::on_xr_event(const xr::event & event)
 				recenter_requested = true;
 			break;
 		case XR_TYPE_EVENT_DATA_DISPLAY_REFRESH_RATE_CHANGED_FB:
-			observed_refresh_rate = event.refresh_rate_changed.toDisplayRefreshRate;
 			network_session->send_control(from_headset::refresh_rate_changed{
 			        .from = event.refresh_rate_changed.fromDisplayRefreshRate,
 			        .to = event.refresh_rate_changed.toDisplayRefreshRate,
@@ -1619,6 +1572,10 @@ void scenes::stream::on_xr_event(const xr::event & event)
 			        .present = (bool)event.user_presence_changed.isUserPresent,
 			        .change_time = instance.now(),
 			});
+#if WYRM_FRAME_EYES
+			if (eye_tracker)
+				eye_tracker->set_present(event.user_presence_changed.isUserPresent);
+#endif
 			break;
 		case XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED:
 			on_interaction_profile_changed(event.interaction_profile_changed);
@@ -1660,4 +1617,18 @@ bool scenes::stream::on_input_button_up(uint8_t button)
 bool scenes::stream::on_input_scroll(float h, float v)
 {
 	return forward_hid_input(from_headset::hid::mouse_scroll{h, v}, application::get_config().forward_mouse);
+}
+
+void scenes::stream::video_stream_failed(uint64_t generation, const std::string & error)
+{
+	if (generation != video_generation.load())
+		return;
+	try
+	{
+		network_session->send_control(from_headset::video_stream_ready{.generation = generation, .accepted = false, .error = error});
+	}
+	catch (const std::exception &)
+	{}
+	stream_error_queue.lock()->push("Video decoding stopped: " + error);
+	exit();
 }

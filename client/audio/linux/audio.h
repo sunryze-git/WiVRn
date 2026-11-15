@@ -19,6 +19,7 @@
 #pragma once
 
 #include "utils/ring_buffer.h"
+#include "audio_link.h"
 #include "wyrm_packets.h"
 
 #include <atomic>
@@ -27,6 +28,7 @@
 #include <memory>
 #include <mutex>
 #include <thread>
+#include <string>
 
 struct pw_main_loop;
 struct pw_stream;
@@ -76,6 +78,10 @@ class audio
 	utils::ring_buffer<wyrm::audio_data, 100> speaker_samples;
 	std::atomic<size_t> speaker_buffer_size_bytes = 0;
 	wyrm::audio_data speaker_current;
+	bool speaker_primed = false;
+	// Over the stream socket: microphone chunks out, speaker chunks back in order (network thread)
+	wyrm::audio_link::sender microphone_link;
+	wyrm::audio_link::receiver speaker_link;
 
 	utils::ring_buffer<wyrm::audio_data, 100> microphone_samples;
 	std::atomic<size_t> microphone_buffer_size_bytes = 0;

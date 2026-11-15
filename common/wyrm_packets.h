@@ -36,6 +36,7 @@
 #include "network.h"
 #include "packed_quaternion.h"
 #include "smp.h"
+#include "wyrm_foveation.h"
 #include "wyrm_serialization_types.h"
 
 namespace wyrm
@@ -248,6 +249,8 @@ struct audio_data
 	XrTime timestamp;
 	std::span<uint8_t> payload;
 	data_holder data;
+	// Order on the stream socket, where chunks arrive twice (audio_link.h)
+	uint32_t sequence = 0;
 };
 
 namespace from_headset
@@ -373,7 +376,6 @@ struct handshake
 	// Sending this on TCP means connection will be TCP only
 };
 
-// Sent after the client has installed the decoders for this stream generation.
 struct video_stream_ready
 {
 	uint64_t generation;
@@ -410,11 +412,6 @@ inline uint8_t to_pose_flags(XrSpaceLocationFlags location_flags, XrSpaceVelocit
 	return flags;
 }
 
-struct foveation
-{
-	std::array<XrVector2f, 2> angles; // Per-eye x/y view angles in radians
-};
-
 struct tracking
 {
 	enum state_flags : uint8_t
@@ -449,6 +446,9 @@ struct tracking
 
 	std::array<view, 2> views;
 	std::vector<pose> device_poses;
+	// Frame shell: poses are in the calibrated space without the shell's space drag, this is the drag
+	// (floor-from-stage) for the server to apply as its tracking origin offset
+	XrPosef drag_offset{{0, 0, 0, 1}, {0, 0, 0}};
 
 	struct android_face
 	{
@@ -659,7 +659,7 @@ struct timesync_response
 
 struct feedback
 {
-	uint64_t generation = 0;
+	uint32_t generation = 0;
 	uint64_t frame_index;
 	uint8_t stream_index;
 
@@ -677,6 +677,10 @@ struct feedback
 	XrTime display_deadline = 0;
 
 	uint8_t times_displayed;
+	uint16_t fec_recovered;
+	bool partial = false;
+	// Completed by shards sent again (video_nack): late by a round trip, not a measure of the usual timing
+	bool resent = false;
 };
 
 struct battery
@@ -708,6 +712,13 @@ struct stream_tab_changed
 	stream_tab tab;
 };
 
+struct override_foveation_center
+{
+	bool enabled;
+	float pitch;
+	float distance;
+};
+
 struct get_application_list
 {
 	std::string language;
@@ -726,6 +737,78 @@ struct get_running_applications
 struct set_active_application
 {
 	uint32_t id;
+};
+
+// A message for the PC's frame shell host services (frame_abi.h), opaque here
+struct shell_message
+{
+	std::vector<uint8_t> payload;
+};
+
+// Part of a desktop surface's video was lost: the decoder waits for a keyframe
+struct desktop_keyframe
+{
+	uint32_t surface;
+};
+
+// Parity shards per video frame, in percent of its data shards (0: none), and the frame margin: how much earlier
+// than the slowest 0.5% of frames need the PC aims to have frames decoded before the headset picks them (ms)
+struct link_settings
+{
+	uint8_t fec_percent;
+	uint8_t frame_margin_ms;
+};
+
+// Steam Frame eyes: per-eye gaze from Valve's eye tracker, lids and pupils from Babble's eye model
+struct frame_eyes
+{
+	XrTime timestamp;
+	// Left and right eye of the wearer, head space (-Z forward)
+	std::array<XrVector3f, 2> gaze;
+	bool gaze_valid;
+	// 0 closed to 1 at the wearer's neutral opening; widen is 0..1 beyond it
+	std::array<float, 2> openness;
+	std::array<float, 2> widen;
+	bool lids_valid;
+	// 0..1 with 0.5 at the wearer's baseline, negative until a baseline exists
+	std::array<float, 2> dilation;
+};
+
+// Data shards of a video frame (to_headset::video_shard) that didn't arrive, for the server to send again
+struct video_nack
+{
+	uint32_t stream;
+	uint32_t generation;
+	uint64_t frame;
+	std::vector<uint16_t> shards;
+};
+
+// Stream size or codec changed during a session; the server rebuilds its encoders
+struct stream_settings
+{
+	uint16_t render_eye_width;
+	uint16_t render_eye_height;
+	uint16_t stream_eye_width;
+	uint16_t stream_eye_height;
+	std::vector<video_codec_capability> supported_codecs;
+	std::optional<uint8_t> bit_depth;
+};
+
+struct shell_input
+{
+	uint32_t kind;
+	uint32_t code;
+	float x;
+	float y;
+	// Desktop surface a pointer position (kind 2) is on, as announced in to_headset::desktop_surface
+	uint32_t surface;
+};
+
+// Frame shell: whether this PC presents VR. Connected to several PCs, the headset shows one; the others don't
+// encode VR video until made active (they keep their sessions, monitors and applications).
+struct video_active
+{
+	bool active;
 };
 
 struct stop_application
@@ -758,13 +841,21 @@ using packets = std::variant<
         session_state_changed,
         user_presence_changed,
         stream_tab_changed,
+        override_foveation_center,
         get_application_list,
         start_app,
         get_running_applications,
         set_active_application,
         hid::input,
         stop_application,
-        foveation,
+        shell_input,
+        shell_message,
+        desktop_keyframe,
+        link_settings,
+        stream_settings,
+        video_nack,
+        frame_eyes,
+        video_active,
         video_stream_ready>;
 } // namespace from_headset
 
@@ -822,22 +913,6 @@ struct server_message
 	std::string msg;
 };
 
-struct foveation_parameter
-{
-	// The number of source pixels for each ratio,
-	// the middle one is 1:1
-	//
-	// how to read it:
-	// 1, 4, 5, 3, 1 means:
-	// the first output pixel has 3 source pixels
-	// the 4 that come after have 2 source pixels
-	// then 5 with 1 source pixel
-	// 3 with 2 source pixels
-	// 1 with 3 source pixels
-	std::vector<uint16_t> x;
-	std::vector<uint16_t> y;
-};
-
 struct audio_stream_description
 {
 	struct device
@@ -851,7 +926,7 @@ struct audio_stream_description
 
 struct video_stream_description
 {
-	uint64_t generation = 1;
+	uint32_t generation = 0;
 	// dimensions of the video stream per eye
 	// alpha is half resolution
 	uint16_t width;
@@ -864,22 +939,9 @@ struct video_stream_description
 	bool operator==(const video_stream_description &) const = default;
 };
 
-class video_stream_data_shard
+// What a VR frame carries besides its video, serialized at the start of its data
+struct video_frame_info
 {
-public:
-	inline static const size_t max_payload_size = 1400;
-	uint64_t generation = 1;
-	// Identifier of stream:
-	// 0 left
-	// 1 right
-	// 2 alpha
-	uint8_t stream_item_idx;
-	// Counter increased for each frame
-	uint64_t frame_idx;
-	// Identifier of the shard within the frame
-	uint16_t shard_idx;
-
-	// Position information, must be present on first video shard
 	struct view_info_t
 	{
 		// ns in headset time referential
@@ -887,13 +949,12 @@ public:
 
 		std::array<XrPosef, 2> pose;
 		std::array<XrFovf, 2> fov;
-		std::array<foveation_parameter, 2> foveation;
+		std::array<foveation_description, 2> foveation;
 		// True when the frame contains an alpha channel
 		bool alpha;
 	};
-	std::optional<view_info_t> view_info;
+	view_info_t view_info;
 
-	// Information about timing, on last video shard
 	struct timing_info_t
 	{
 		XrTime encode_begin;
@@ -901,12 +962,27 @@ public:
 		XrTime send_begin;
 		XrTime send_end;
 	};
-	std::optional<timing_info_t> timing_info;
-	// Actual video data, may contain multiple NAL units
-	std::span<uint8_t> payload;
+	timing_info_t timing_info;
+};
 
-	// Container for the data, read payload instead
-	data_holder data;
+// One shard of a video frame, VR or a PC monitor, on the stream socket (shard_stream.h): data shards, then parity
+struct video_shard
+{
+	// Room for a parity block (fec.h); data shards are no larger
+	inline static const size_t max_payload_size = 1408;
+	// VR: 0 left, 1 right, 2 alpha; a PC monitor's video is desktop_streams + its surface
+	inline static const uint32_t desktop_streams = 0x100;
+	uint32_t stream;
+	// VR: the video_stream_description it was encoded for; 0 for monitors
+	uint32_t generation = 0;
+	uint64_t frame;
+	// The frame sent before it on this stream (-1: none), so a frame lost whole is told from one never sent
+	uint64_t previous;
+	uint16_t index;
+	uint16_t data_count;
+	uint16_t parity_count;
+	uint32_t frame_size;
+	std::vector<uint8_t> payload;
 };
 
 struct haptics
@@ -974,6 +1050,25 @@ struct application_icon
 	std::vector<std::byte> image; // In PNG
 };
 
+// A PC monitor streamed to the shell as H.264/HEVC (video_shard); sent before its first frame and again when it
+// changes or goes away.
+struct desktop_surface
+{
+	uint32_t surface;
+	uint16_t width;
+	uint16_t height;
+	std::string name;   // monitor (output name)
+	std::string source; // PC (hostname)
+	bool removed;
+	video_codec codec = video_codec::h264;
+};
+
+// A message from the PC's frame shell host services for the shell (frame_abi.h), opaque here
+struct shell_message
+{
+	std::vector<uint8_t> payload;
+};
+
 struct network_report
 {
 	struct link
@@ -1023,7 +1118,7 @@ using packets = std::variant<
         audio_stream_description,
         video_stream_description,
         audio_data,
-        video_stream_data_shard,
+        video_shard,
         haptics,
         timesync_query,
         tracking_control,
@@ -1033,6 +1128,8 @@ using packets = std::variant<
         application_list,
         application_icon,
         running_applications,
+        desktop_surface,
+        shell_message,
         network_report>;
 } // namespace to_headset
 } // namespace wyrm

@@ -21,10 +21,9 @@
 
 #include "driver/clock_offset.h"
 #include "idr_handler.h"
+#include "shard_stream.h"
 #include "wyrm_packets.h"
 
-#include "decode_budget.h"
-#include <algorithm>
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
@@ -56,7 +55,7 @@ protected:
 		video_encoder * encoder;
 		std::span<uint8_t> span;
 		std::shared_ptr<void> mem;
-		// Keyframes receive reliable delivery on a separate channel.
+		// true if data should be sent over reliable (TCP) socket
 		bool prefer_control = false;
 	};
 
@@ -78,6 +77,7 @@ private:
 
 public:
 	const uint8_t stream_idx;
+	uint32_t generation = 0;
 	const uint32_t target_queue;
 	const bool need_transfer;
 	// Layout the encoder needs y_cbcr to arrive in. Set during construction
@@ -97,30 +97,17 @@ private:
 	uint8_t encode_slot = 0;
 
 	std::mutex mutex;
+	shards::sender recovery;
+	wyrm_session * cnx = nullptr;
+	uint64_t frame_index = 0;
+	to_headset::video_frame_info frame_info;
+	std::vector<uint8_t> frame_data;
+	bool frame_control = false;
+	uint8_t fec_percent = 0;
 
-	// temporary data
-	wyrm_session * cnx;
-
-	// shard to send
-	to_headset::video_stream_data_shard shard;
-
-	to_headset::video_stream_data_shard::timing_info_t timing_info;
 	clock_offset clock;
-	std::chrono::steady_clock::time_point network_deadline;
-	std::mutex feedback_mutex;
-	decode_budget decode_timing;
-	std::atomic<int64_t> decode_reserve_ns = 2'000'000;
-	std::atomic<uint64_t> submitted_frames = 0, decoded_frames = 0, late_frames = 0;
-	uint64_t feedback_generation = 0, feedback_frame = 0;
-	// Encode start to display time of recent frames, for WYRM_NETWORK_DIAGNOSTICS
-	mutable std::mutex latency_mutex;
-	std::vector<int64_t> latency_ns;
-	size_t latency_next = 0;
-	uint64_t latency_frame = 0;
 
 	std::ofstream video_dump;
-	std::ofstream video_dump_index; // "frame offset size" per encoded frame
-	std::streamoff video_dump_frame_start = 0;
 
 	std::shared_ptr<sender> shared_sender;
 
@@ -131,16 +118,6 @@ protected:
 	const vk::Extent2D extent;
 
 public:
-	// Median and 95th percentile in milliseconds, zero without samples
-	std::pair<double, double> frame_latency_ms() const;
-
-	void network_statistics(to_headset::network_report & report) const
-	{
-		report.submitted_frames += submitted_frames.load();
-		report.decoded_frames += decoded_frames.load();
-		report.late_frames += late_frames.load();
-		report.decode_budget_ms = std::max(report.decode_budget_ms, float(decode_reserve_ns.load() / 1e6));
-	}
 	static std::unique_ptr<video_encoder> create(
 	        wyrm::vk_bundle &,
 	        const encoder_settings & settings,
@@ -154,12 +131,9 @@ public:
 	                   uint64_t frame_index);
 
 	void on_feedback(const from_headset::feedback &);
+	void resend(const from_headset::video_nack &);
 	void reset();
 	void wait_idle();
-	void set_generation(uint64_t generation)
-	{
-		shard.generation = generation;
-	}
 
 	// bitrate_bps is the bitrate for the whole stream
 	// the encoder bitrate will be scaled accordingly
@@ -167,7 +141,7 @@ public:
 	void set_framerate(float framerate);
 
 	void encode(wyrm_session & cnx,
-	            const to_headset::video_stream_data_shard::view_info_t & view_info,
+	            const to_headset::video_frame_info::view_info_t & view_info,
 	            uint64_t frame_index);
 
 protected:

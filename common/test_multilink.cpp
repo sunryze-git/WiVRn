@@ -17,6 +17,18 @@
 using namespace wyrm;
 using namespace std::chrono_literals;
 
+static std::atomic<unsigned> observed_video_drops = 0;
+static video_queue_drop observed_video_drop{};
+static std::vector<uint8_t> observed_video_packet;
+
+static void observe_video_drop(const video_queue_drop & drop)
+{
+	observed_video_packet.assign(drop.packet.begin(), drop.packet.end());
+	observed_video_drop = drop;
+	observed_video_drop.packet = observed_video_packet;
+	observed_video_drops.fetch_add(1, std::memory_order_release);
+}
+
 static void check(bool value, std::source_location where = std::source_location::current())
 {
 	if (not value)
@@ -60,6 +72,38 @@ int main(int argc, char ** argv)
 {
 	const bool single_link_control = argc == 2 and std::string_view(argv[1]) == "--single-link-control";
 	const bool discover_path_control = argc == 2 and std::string_view(argv[1]) == "--discover-path-control";
+	{
+		multilink source(true, multilink::random_key(), {{"127.0.0.1", "lo"}}, {}, false, false);
+		const auto send_marker = [&](uint64_t marker, auto deadline) {
+			serialization_packet packet;
+			packet.serialize(marker);
+			check(source.send_video_raw(std::move(packet), deadline) == sizeof(marker));
+		};
+		send_marker(1, std::chrono::steady_clock::now() - 1ms);
+		check(wait_for([&] { return source.diagnostics().expired_video == 1; }));
+		check(observed_video_drops.load(std::memory_order_acquire) == 0);
+		source.set_video_queue_drop_observer(observe_video_drop);
+		const auto target = std::chrono::steady_clock::now() + 100ms;
+		send_marker(2, target);
+		check(wait_for([&] { return observed_video_drops.load(std::memory_order_acquire) == 1; }));
+		check(observed_video_drop.reason == video_queue_drop_reason::deadline);
+		check(observed_video_drop.target_deadline == target);
+		check(observed_video_drop.deadline == target);
+		check(observed_video_drop.dropped_at >= target);
+		check(observed_video_drop.fragment_cursor == 0 and observed_video_drop.queued_bytes == sizeof(uint64_t));
+		check(deserialization_packet({}, observed_video_packet).deserialize<uint64_t>() == 2);
+		const auto vr_target = std::chrono::steady_clock::now() + 25ms;
+		send_marker(3, vr_target);
+		check(wait_for([&] { return observed_video_drops.load(std::memory_order_acquire) == 2; }));
+		check(observed_video_drop.deadline == vr_target);
+		send_marker(4, std::chrono::steady_clock::time_point{});
+		check(wait_for([&] { return observed_video_drops.load(std::memory_order_acquire) == 3; }));
+		check(observed_video_drop.deadline == observed_video_drop.enqueued_at + 25ms);
+		source.set_video_queue_drop_observer(nullptr);
+		send_marker(5, std::chrono::steady_clock::now() - 1ms);
+		check(wait_for([&] { return source.diagnostics().expired_video == 5; }));
+		check(observed_video_drops.load(std::memory_order_acquire) == 3);
+	}
 	{
 		const auto key = multilink::random_key();
 		const int reserved = open_network_socket({"127.0.0.1", "lo"});

@@ -1,3 +1,4 @@
+#include "frame_timing.h"
 /*
  * Wyrm VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
@@ -18,7 +19,6 @@
  */
 
 #include "pacer.h"
-#include "frame_timing.h"
 
 #include "driver/clock_offset.h"
 
@@ -52,14 +52,14 @@ pacer::pacer(uint64_t frame_duration) :
 	        while (not t.stop_requested())
 	        {
 		        samples.clear();
-		        uint64_t sample_epoch;
+		        uint64_t generation;
 		        {
 			        std::unique_lock lock(compute_mutex);
-			        compute_cv.wait(lock, [&] { return compute_pending or t.stop_requested(); });
+			        compute_cv.wait(lock, [&] { return t.stop_requested() or compute_pending; });
 			        if (t.stop_requested())
 				        return;
 			        compute_pending = false;
-			        sample_epoch = compute_epoch;
+			        generation = timing_generation;
 			        for (const auto & time: frame_times_compute)
 			        {
 				        if (time.decoded > time.present)
@@ -72,8 +72,9 @@ pacer::pacer(uint64_t frame_duration) :
 		        std::ranges::nth_element(samples, it);
 
 		        std::unique_lock lock(mutex);
-		        if (sample_epoch == epoch)
-			        safe_present_to_decoded_ns = std::min<int64_t>(*it + client_margin_ms.val * U_TIME_1MS_IN_NS, 3 * frame_duration_ns);
+		        if (generation != timing_generation)
+			        continue;
+		        safe_present_to_decoded_ns = *it + client_margin_ms.val * U_TIME_1MS_IN_NS;
 	        }
         })
 {
@@ -84,17 +85,8 @@ pacer::pacer(uint64_t frame_duration) :
 pacer::~pacer()
 {
 	u_var_remove_root(this);
-	{
-		std::lock_guard lock(compute_mutex);
-		worker.request_stop();
-	}
+	worker.request_stop();
 	compute_cv.notify_all();
-}
-
-int64_t pacer::present_to_decoded_ns() const
-{
-	std::lock_guard lock(mutex);
-	return safe_present_to_decoded_ns;
 }
 
 uint64_t pacer::get_frame_duration() const
@@ -105,8 +97,8 @@ uint64_t pacer::get_frame_duration() const
 
 void pacer::set_frame_duration(uint64_t frame_duration_ns)
 {
-	std::lock_guard lock(mutex);
-	if (this->frame_duration_ns != int64_t(frame_duration_ns))
+	std::scoped_lock lock(mutex, compute_mutex);
+	if (this->frame_duration_ns != frame_duration_ns)
 	{
 		this->frame_duration_ns = frame_duration_ns;
 		reset_locked();
@@ -140,20 +132,28 @@ void pacer::predict(
 	        .frame_id = frame_id,
 	        .present_ns = out_desired_present_time_ns,
 	        .predicted_display_time = out_predicted_display_time_ns,
-	        .epoch = epoch,
+	        .generation = timing_generation,
 	};
 
 	out_present_slop_ns = slop_ns;
 }
 
+void pacer::set_client_margin(float ms)
+{
+	std::scoped_lock lock(mutex, compute_mutex);
+	// Applied by the next percentile update (every 100 frames)
+	client_margin_ms.val = ms;
+}
+
 void pacer::on_feedback(const wyrm::from_headset::feedback & feedback, const clock_offset & offset)
 {
-	if (feedback.times_displayed > 1 or not feedback.blitted)
+	// Frames completed by a resend are late by a round trip: counting them would delay every frame
+	if (feedback.times_displayed > 1 or not feedback.blitted or feedback.resent)
 		return;
 
 	std::lock_guard lock(mutex);
 	auto & when = in_flight_frames[feedback.frame_index % in_flight_frames.size()];
-	if (when.frame_id != feedback.frame_index or when.epoch != epoch)
+	if (when.frame_id != feedback.frame_index or when.generation != timing_generation)
 		return;
 
 	auto & times = frame_times[feedback.frame_index % frame_times.size()];
@@ -171,7 +171,6 @@ void pacer::on_feedback(const wyrm::from_headset::feedback & feedback, const clo
 		{
 			std::unique_lock lock(compute_mutex);
 			std::swap(frame_times, frame_times_compute);
-			compute_epoch = epoch;
 			compute_pending = true;
 			compute_cv.notify_all();
 		}
@@ -206,13 +205,12 @@ void pacer::mark_timing_point(
 			return;
 
 		//! Just after submitting work to the GPU.
-		case COMP_TARGET_TIMING_POINT_SUBMIT_END: {
-			std::lock_guard lock(mutex);
+		case COMP_TARGET_TIMING_POINT_SUBMIT_END:
 			if (when_ns > last_wake_up_ns and when_ns < last_wake_up_ns + 100'000'000)
 			{
+				std::lock_guard lock(mutex);
 				mean_wake_up_to_present_ns = std::lerp(mean_wake_up_to_present_ns, when_ns - last_wake_up_ns, 0.1);
 			}
-		}
 	}
 }
 
@@ -230,21 +228,20 @@ pacer::frame_info pacer::present_to_info(int64_t present)
 
 void pacer::reset()
 {
-	std::lock_guard lock(mutex);
+	std::scoped_lock lock(mutex, compute_mutex);
 	reset_locked();
 }
 
 void pacer::reset_locked()
 {
-	++epoch;
+	++timing_generation;
 	last_ns = 0;
 	last_wake_up_ns = 0;
 	mean_wake_up_to_present_ns = 1'000'000;
-	safe_present_to_decoded_ns = 0;
 	mean_render_to_display_ns = 0;
-	std::ranges::fill(frame_times, frame_time{});
-	std::lock_guard lock(compute_mutex);
-	std::ranges::fill(frame_times_compute, frame_time{});
 	compute_pending = false;
+	std::ranges::fill(frame_times, frame_time{});
+	std::ranges::fill(frame_times_compute, frame_time{});
+	safe_present_to_decoded_ns = 0;
 }
 } // namespace wyrm

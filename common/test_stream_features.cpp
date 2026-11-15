@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "foveated_sharpening.h"
+#include "frame_selection.h"
 #include "frame_timing.h"
+#include "network_poll.h"
 #include "nvenc_options.h"
 #include "packet_pacer.h"
 #include "panel_mode.h"
 #include "quad_view.h"
+#include "queue_family_transfer.h"
+#include "shard_recovery.h"
 #include "stream_recovery.h"
 #include <cstdlib>
 #include <iostream>
@@ -30,8 +35,186 @@ static void rejects(std::map<std::string, std::string> settings)
 	}
 	check(rejected);
 }
+
+static void test_frame_selection()
+{
+	struct frame
+	{
+		from_headset::feedback feedback;
+		struct
+		{
+			int64_t display_time;
+			bool alpha;
+		} view_info;
+	};
+	using handle = std::shared_ptr<frame>;
+	std::array<std::array<handle, 3>, 3> decoded{};
+	std::array<handle, 3> selected{};
+	const auto make_frame = [](uint64_t index, int64_t time, bool alpha = false) {
+		return std::make_shared<frame>(frame{{.frame_index = index}, {time, alpha}});
+	};
+	const auto select = [&](int64_t time) {
+		std::array<std::span<const handle>, 3> available;
+		for (size_t i = 0; i < decoded.size(); ++i)
+			available[i] = decoded[i];
+		selected = select_stereo_frame(available, selected, time);
+	};
+	decoded[0][0] = make_frame(30020, 27'776'990'000);
+	decoded[1][0] = make_frame(30020, 27'776'990'000);
+	select(27'776'990'000);
+	check(stereo_frames_match(selected) and selected[0]->feedback.frame_index == 30020);
+	const auto held = selected;
+
+	// Captured IDs regressed from 30020 to 30019 while newer eyes no longer matched.
+	decoded[0] = {make_frame(30019, 27'770'000'000), make_frame(30021, 27'784'000'000), {}};
+	decoded[1] = {make_frame(30019, 27'770'000'000), make_frame(30022, 27'791'000'000), {}};
+	select(30'610'550'000);
+	check(selected == held);
+	decoded[0] = {make_frame(31000, 35'000'000'000), {}, {}};
+	decoded[1] = {make_frame(31001, 35'007'000'000), {}, {}};
+	select(39'193'810'000);
+	check(selected == held);
+	decoded[0][1] = make_frame(31631, 39'200'760'000);
+	decoded[1][1] = make_frame(31631, 39'200'760'000);
+	select(39'200'760'000);
+	check(stereo_frames_match(selected) and selected[0]->feedback.frame_index == 31631);
+
+	// A display-time adjustment must not reverse the selected frame.
+	decoded[0][2] = make_frame(31630, 39'190'000'000);
+	decoded[1][2] = make_frame(31630, 39'190'000'000);
+	select(39'190'000'000);
+	check(selected[0]->feedback.frame_index == 31631);
+
+	// Stream replacement clears the retained frames and permits a fresh frame counter.
+	selected = {};
+	decoded = {};
+	decoded[0][0] = make_frame(100, 100);
+	decoded[1][0] = make_frame(101, 101);
+	select(101);
+	check(selected[0]->feedback.frame_index == 100 and selected[1]->feedback.frame_index == 101);
+	decoded[0][1] = make_frame(99, 99);
+	decoded[1][1] = make_frame(99, 99);
+	select(99);
+	check(selected[0]->feedback.frame_index == 100 and selected[1]->feedback.frame_index == 101);
+	decoded[0][2] = make_frame(102, 102);
+	decoded[1][2] = make_frame(102, 102);
+	select(102);
+	check(stereo_frames_match(selected) and selected[0]->feedback.frame_index == 102);
+
+	decoded = {};
+	decoded[0][0] = make_frame(103, 103, true);
+	decoded[1][0] = make_frame(103, 103, true);
+	decoded[2][0] = make_frame(102, 102, true);
+	select(103);
+	check(selected[0]->feedback.frame_index == 102 and not selected[2]);
+	decoded[2][1] = make_frame(103, 103, true);
+	select(103);
+	check(stereo_frames_match(selected) and selected[2]->feedback.frame_index == 103);
+	decoded[0][1] = make_frame(104, 104);
+	decoded[1][1] = make_frame(104, 104);
+	select(104);
+	check(stereo_frames_match(selected) and selected[0]->feedback.frame_index == 104 and not selected[2]);
+
+	decoded = {};
+	decoded[0] = {make_frame(104, 104), make_frame(105, 200), {}};
+	decoded[1] = {make_frame(104, 104), make_frame(105, 200), {}};
+	select(110);
+	check(selected[0]->feedback.frame_index == 104);
+	// Early decoded pairs must advance after the preceding pair leaves the rolling buffer.
+	decoded[0][0].reset();
+	decoded[1][0].reset();
+	select(110);
+	check(stereo_frames_match(selected) and selected[0]->feedback.frame_index == 105);
+	select(190);
+	check(selected[0]->feedback.frame_index == 105);
+	decoded[0] = {make_frame(106, 300), {}, {}};
+	decoded[1] = {make_frame(106, 300), {}, {}};
+	select(190);
+	check(stereo_frames_match(selected) and selected[0]->feedback.frame_index == 106);
+}
+
+static void test_shard_recovery_deadline()
+{
+	using namespace std::chrono_literals;
+	const shards::receiver::clock::time_point start(1s);
+	std::optional<std::variant<int>> pending = 1;
+	shards::receiver::frame queued_frame;
+	auto timeout = dispatch_pending_packets(
+	        [&] { return std::exchange(pending, std::nullopt); },
+	        [&](int) {
+		        queued_frame.data = {{1}, {}};
+		        queued_frame.requested = {0, 0};
+		        queued_frame.last_shard = start;
+	        },
+	        20ms);
+	check(timeout == 0ms);
+	check(shards::recovery_poll_timeout(start + timeout, shards::stalled_recovery_deadline(queued_frame), 20ms) == 3ms);
+	check(dispatch_pending_packets([&] { return pending; }, [](int) {}, 20ms) == 20ms);
+	shards::receiver::frame frame{
+	        .data = {{1}, {}, {}},
+	        .requested = {0, 0, 0},
+	        .last_shard = start,
+	};
+	check(shards::stalled_recovery_deadline(frame) == start + 3ms);
+	auto now = start;
+	now += shards::recovery_poll_timeout(now, shards::stalled_recovery_deadline(frame), 20ms);
+	check(now == start + 3ms);
+	check(shards::recovery_poll_timeout(now, shards::stalled_recovery_deadline(frame), 20ms) == 0ms);
+	frame.requested = {0, 1, 1};
+	frame.last_request = now;
+	check(shards::stalled_recovery_deadline(frame) == start + 11ms);
+	check(shards::recovery_poll_timeout(now, shards::stalled_recovery_deadline(frame), 20ms) == 8ms);
+	check(shards::recovery_poll_timeout(now + 7ms + 1us, shards::stalled_recovery_deadline(frame), 20ms) == 1ms);
+	now += shards::recovery_poll_timeout(now, shards::stalled_recovery_deadline(frame), 20ms);
+	check(now == start + 11ms);
+	frame.requested = {0, 2, 2};
+	frame.last_request = now;
+	check(not shards::stalled_recovery_deadline(frame));
+	check(shards::recovery_poll_timeout(now, shards::stalled_recovery_deadline(frame), 20ms) == 20ms);
+	frame.requested[2] = 1;
+	frame.last_shard = now + 7ms;
+	check(shards::stalled_recovery_deadline(frame) == now + 10ms);
+	frame.data[2] = {2};
+	check(not shards::stalled_recovery_deadline(frame));
+	frame.requested[1] = 0;
+	frame.complete = true;
+	check(not shards::stalled_recovery_deadline(frame));
+}
+
 int main()
 {
+	check(parse_sharpening_strength("0.25") == 0.25f);
+	check(parse_sharpening_strength("1") == 1);
+	for (auto value: {"", "nan", "inf", "-1", "1.1", "0.25junk"})
+		check(parse_sharpening_strength(value) == 0);
+	const std::array<uint16_t, 7> symmetric{10, 20, 40, 60, 40, 20, 10};
+	check(sharpening_axis_bounds(symmetric, 200) == std::array<float, 4>{30, 70, 130, 170});
+	const std::array<uint16_t, 3> shifted{5, 30, 10};
+	check(sharpening_axis_bounds(shifted, 45) == std::array<float, 4>{0, 5, 35, 45});
+	const std::array<uint16_t, 1> uniform{45};
+	check(sharpening_axis_bounds(uniform, 45) == std::array<float, 4>{0, 0, 45, 45});
+	check(not sharpening_axis_bounds(symmetric, 199));
+	check(not sharpening_axis_bounds({}, 0));
+	check(not sharpening_axis_bounds(std::span(symmetric).first(6), 190));
+	const std::array<uint16_t, 3> zero_native{5, 0, 5};
+	check(not sharpening_axis_bounds(zero_native, 10));
+	const std::array<uint16_t, 5> missing_fade{10, 0, 20, 0, 10};
+	check(not sharpening_axis_bounds(missing_fade, 40));
+	const auto region = make_sharpening_region(symmetric, shifted, 200, 45);
+	check(region.extent == std::array<int32_t, 2>{200, 45});
+	check(region.inner == std::array<float, 4>{70, 5, 130, 35});
+	check(region.outer == std::array<float, 4>{30, 0, 170, 45});
+	test_frame_selection();
+	test_shard_recovery_deadline();
+	check(image_queue_transfer_is_implicit(2, 2));
+	check(image_queue_transfer_is_implicit(UINT32_MAX, 2));
+	check(image_queue_transfer_is_implicit(2, UINT32_MAX));
+	check(not image_queue_transfer_is_implicit(0, 2));
+	check(not image_queue_transfer_is_implicit(0, 2, false, 1u << 2));
+	check(not image_queue_transfer_is_implicit(0, 2, true, 1u << 1));
+	check(image_queue_transfer_is_implicit(0, 2, true, 1u << 2));
+	check(not image_queue_transfer_is_implicit(2, 0, true, 1u << 2));
+	check(not image_queue_transfer_is_implicit(0, 32, true, UINT32_MAX));
 	{
 		struct reference
 		{

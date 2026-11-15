@@ -20,9 +20,11 @@
 #pragma once
 
 #include "app_pacer.h"
+#include "audio_link.h"
 #include "clock_offset.h"
 #include "compositor/compositor.h"
-#include "configuration.h"
+#include "desktop_link.h"
+#include "eye_osc.h"
 #include "inplace_vector.hpp"
 #include "packet_pacer.h"
 #include "tracking_control.h"
@@ -68,11 +70,9 @@ class wyrm_session : public xrt_system_devices
 {
 	std::unique_ptr<wyrm_connection> connection;
 	from_headset::headset_info_packet headset_info;
-	std::optional<std::array<uint32_t, 6>> last_warned_capabilities;
 	// run-time editable settings
 	thread_safe<from_headset::settings_changed> settings;
 
-	std::atomic<float> observed_refresh_rate = headset_info.current_refresh_rate > 0 ? headset_info.current_refresh_rate : headset_info.available_refresh_rates.back();
 	packet_pacer video_pacer;
 	const float video_pacing = configuration().video_pacing;
 	wyrm::compositor compositor;
@@ -93,6 +93,10 @@ class wyrm_session : public xrt_system_devices
 
 	tracking_control control;
 
+	// Frame shell space drag, see apply_drag_offset
+	XrPosef applied_drag{{0, 0, 0, 1}, {0, 0, 0}};
+	std::optional<xrt_pose> base_origin_offset;
+	void apply_drag_offset(const XrPosef & drag);
 	wyrm_hmd hmd;
 	wyrm_controller left_controller;
 	int32_t left_controller_index;
@@ -116,12 +120,15 @@ class wyrm_session : public xrt_system_devices
 	std::atomic<XrDuration> tracking_latency; // production to reception time
 
 	std::unique_ptr<audio_device> audio_handle;
+	audio_link::receiver mic_link;
 
 	// when sessions shall be destroyed, key is client id, value is timestamp
 	thread_safe<std::map<uint32_t, int64_t>> session_loss;
 
 	std::jthread net_thread;
 	std::jthread worker_thread;
+	std::unique_ptr<desktop_link<wyrm_session>> desktop;
+	std::unique_ptr<eye_osc> eye_osc_sender;
 
 	thread_safe<std::exception_ptr> net_exception;
 
@@ -145,19 +152,6 @@ public:
 
 	clock_offset get_offset();
 	bool connected();
-	float get_display_refresh_rate() const
-	{
-		return observed_refresh_rate;
-	}
-	void set_video_bitrate(uint64_t bitrate)
-	{
-		video_pacer.set_rate(bitrate * video_pacing);
-	}
-	void pace_video(size_t bytes)
-	{
-		video_pacer.pace(bytes);
-	}
-	std::atomic<int64_t> last_tracking_received = 0;
 	const from_headset::headset_info_packet & get_info() const
 	{
 		return headset_info;
@@ -182,11 +176,11 @@ public:
 	void operator()(from_headset::pin_check_1 &&) {}
 	void operator()(from_headset::pin_check_3 &&) {}
 	void operator()(from_headset::headset_info_packet &&);
-	void operator()(const from_headset::video_stream_ready &);
 	void operator()(const from_headset::settings_changed &);
+	void operator()(const from_headset::video_stream_ready &);
+	void operator()(from_headset::stream_settings &&);
 	void operator()(from_headset::handshake &&) {}
 	void operator()(const from_headset::tracking &);
-	void operator()(const from_headset::foveation &);
 	void operator()(from_headset::derived_pose &&);
 	void operator()(from_headset::hand_tracking &&);
 	void operator()(from_headset::meta_body &&);
@@ -195,6 +189,13 @@ public:
 	void operator()(from_headset::htc_body &&);
 	void operator()(from_headset::inputs &&);
 	void operator()(from_headset::hid::input && e);
+	void operator()(from_headset::shell_input && e);
+	void operator()(from_headset::shell_message && e);
+	void operator()(from_headset::desktop_keyframe && e);
+	void operator()(from_headset::link_settings && e);
+	void operator()(from_headset::video_nack &&);
+	void operator()(from_headset::frame_eyes &&);
+	void operator()(from_headset::video_active &&);
 	void operator()(from_headset::timesync_response &&);
 	void operator()(from_headset::feedback &&);
 	void operator()(from_headset::battery &&);
@@ -203,6 +204,7 @@ public:
 	void operator()(from_headset::user_presence_changed &&);
 	void operator()(from_headset::refresh_rate_changed &&);
 	void operator()(from_headset::stream_tab_changed &&);
+	void operator()(from_headset::override_foveation_center &&);
 	void operator()(from_headset::get_application_list &&);
 	void operator()(const from_headset::start_app &);
 	void operator()(const from_headset::get_running_applications &);
@@ -214,6 +216,15 @@ public:
 	void operator()(to_monado::disconnect &&);
 	void operator()(to_monado::set_bitrate &&);
 	void operator()(to_headset::stream_tab_change &&);
+
+	void set_video_bitrate(uint64_t bitrate)
+	{
+		video_pacer.set_rate(bitrate * video_pacing);
+	}
+	void pace_video(size_t bytes)
+	{
+		video_pacer.pace(bytes);
+	}
 
 	bool has_stream()
 	{
@@ -232,6 +243,9 @@ public:
 			throw;
 		}
 	}
+
+	// Parity per frame in percent of its shards, from the headset (from_headset::link_settings)
+	std::atomic<uint8_t> fec_percent = 0;
 
 	template <typename T>
 	void send_control(T && packet)

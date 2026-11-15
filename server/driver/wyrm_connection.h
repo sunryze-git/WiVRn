@@ -53,6 +53,7 @@ private:
 	typed_socket<TCP, from_headset::packets, to_headset::packets> control;
 	typed_socket<multilink, from_headset::packets, to_headset::packets> stream;
 	std::atomic<bool> active = false;
+	std::chrono::steady_clock::time_point last_received{};
 	std::string pin;
 	encryption_state state;
 
@@ -99,7 +100,7 @@ public:
 			{
 				if (stream)
 				{
-					if constexpr (std::is_same_v<std::decay_t<T>, to_headset::video_stream_data_shard>)
+					if constexpr (std::is_same_v<std::decay_t<T>, to_headset::video_shard>)
 						stream.send_protected_video(std::forward<T>(packet), std::chrono::steady_clock::now() + std::chrono::milliseconds(25));
 					else if constexpr (std::is_same_v<std::decay_t<T>, to_headset::application_icon>)
 						stream.send_bulk(std::forward<T>(packet));
@@ -146,8 +147,8 @@ public:
 			{
 				if (stream)
 				{
-					if constexpr (std::is_same_v<std::decay_t<T>, to_headset::video_stream_data_shard>)
-						stream.send_video(std::forward<T>(packet), deadline, protect);
+					if constexpr (std::is_same_v<std::decay_t<T>, to_headset::video_shard>)
+						stream.send_video(std::forward<T>(packet), deadline == std::chrono::steady_clock::time_point{} ? std::chrono::steady_clock::now() + std::chrono::milliseconds(packet.stream < to_headset::video_shard::desktop_streams ? 25 : 100) : deadline, protect);
 					else
 						stream.send(std::forward<T>(packet));
 				}
@@ -181,15 +182,29 @@ public:
 		fds[2].events = POLLIN;
 
 		while (auto packet = stream.receive_pending())
+		{
+			last_received = std::chrono::steady_clock::now();
 			std::visit(std::forward<T>(visitor), std::move(*packet));
+		}
 		while (auto packet = stream ? std::nullopt : control.receive_pending())
+		{
+			if (not stream)
+				last_received = std::chrono::steady_clock::now();
 			std::visit(std::forward<T>(visitor), std::move(*packet));
+		}
 
 		int r = ::poll(fds, std::size(fds), timeout);
 		if (r < 0)
 			throw std::system_error(errno, std::system_category());
 
-		if (fds[0].revents & (POLLHUP | POLLERR))
+		// UDP reports ICMP errors (e.g. a stray port-unreachable): transient, a dead path shows as silence instead
+		if (fds[0].revents & POLLERR)
+		{
+			int error = 0;
+			socklen_t size = sizeof(error);
+			getsockopt(stream.get_fd(), SOL_SOCKET, SO_ERROR, &error, &size);
+		}
+		if (fds[0].revents & POLLHUP)
 			throw std::runtime_error("Error on stream socket");
 
 		if (fds[1].revents & (POLLHUP | POLLERR))
@@ -202,12 +217,16 @@ public:
 		{
 			auto packet = stream.receive();
 			if (packet)
+				last_received = std::chrono::steady_clock::now();
+			if (packet)
 				std::visit(std::forward<T>(visitor), std::move(*packet));
 		}
 
 		if (fds[1].revents & POLLIN)
 		{
 			auto packet = control.receive();
+			if (packet and not stream)
+				last_received = std::chrono::steady_clock::now();
 			if (packet)
 				std::visit(std::forward<T>(visitor), std::move(*packet));
 		}
@@ -218,6 +237,8 @@ public:
 			if (packet)
 				std::visit(std::forward<T>(visitor), std::move(*packet));
 		}
+		if (std::chrono::steady_clock::now() - last_received > std::chrono::seconds(1))
+			throw std::runtime_error("Nothing received from the headset for a second");
 		return r;
 	}
 };

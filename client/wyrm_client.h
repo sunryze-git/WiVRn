@@ -21,6 +21,7 @@
 
 #include "crypto.h"
 #include "multilink.h"
+#include "network_poll.h"
 #include "wyrm_packets.h"
 #include "wyrm_sockets.h"
 #include <chrono>
@@ -99,16 +100,22 @@ public:
 		fds[1].events = POLLIN;
 		fds[1].fd = stream ? -1 : control.get_fd();
 
-		while (auto packet = stream.receive_pending(&bytes_received_))
-			std::visit(std::forward<T>(visitor), std::move(*packet));
-		while (auto packet = stream ? std::nullopt : control.receive_pending(&bytes_received_))
-			std::visit(std::forward<T>(visitor), std::move(*packet));
+		timeout = dispatch_pending_packets([&] { return stream.receive_pending(&bytes_received_); }, std::forward<T>(visitor), timeout);
+		if (not stream)
+			timeout = dispatch_pending_packets([&] { return control.receive_pending(&bytes_received_); }, std::forward<T>(visitor), timeout);
 
 		int r = ::poll(fds, std::size(fds), timeout.count());
 		if (r < 0)
 			throw std::system_error(errno, std::system_category());
 
-		if (fds[0].revents & (POLLHUP | POLLERR))
+		// UDP reports ICMP errors (e.g. a stray port-unreachable): transient, a dead path shows as silence instead
+		if (fds[0].revents & POLLERR)
+		{
+			int error = 0;
+			socklen_t size = sizeof(error);
+			getsockopt(stream.get_fd(), SOL_SOCKET, SO_ERROR, &error, &size);
+		}
+		if (fds[0].revents & POLLHUP)
 			throw std::runtime_error("Error on stream socket");
 
 		if (fds[1].revents & (POLLHUP | POLLERR))
@@ -133,6 +140,17 @@ public:
 		return r;
 	}
 
+	void shutdown()
+	{
+		::shutdown(control.get_fd(), SHUT_RDWR);
+		stream.shutdown();
+	}
+
+	int control_fd()
+	{
+		return control.get_fd();
+	}
+
 	const std::string & server_id() const
 	{
 		return server_id_;
@@ -150,6 +168,13 @@ public:
 		if (not stream.set_multilink_enabled(enabled))
 			return false;
 		multilink_enabled_ = enabled;
+		return true;
+	}
+	bool set_single_interface(std::string_view interface)
+	{
+		if (not stream.set_single_interface(interface))
+			return false;
+		multilink_enabled_ = false;
 		return true;
 	}
 	multilink_diagnostics network_diagnostics() const

@@ -162,11 +162,9 @@ void systemd_units_manager::on_unit_result(
         void * self_)
 {
 	auto self = (systemd_units_manager *)(self_);
-	const char * state = unit_unit_get_active_state(unit);
-	if (state == nullptr)
-		return;
+	std::string_view state = unit_unit_get_active_state(unit);
 	bool empty = self->units.empty();
-	if (state == std::string_view("inactive") or state == std::string_view("failed"))
+	if (state == "inactive" or state == "failed")
 		std::erase_if(self->units, [&](auto & o) { return o.get() == unit; });
 	if (self->state_changed_cb and self->units.empty() and not empty)
 		self->state_changed_cb();

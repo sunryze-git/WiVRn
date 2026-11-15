@@ -25,7 +25,13 @@
 #include "vk/shader.h"
 #include "vk/specialization_constants.h"
 #include <array>
+#include <cstddef>
+#include <cstdlib>
 #include <glm/glm.hpp>
+#include <span>
+#ifndef __ANDROID__
+#include "linux/frame_shell.h"
+#endif
 #include <glm/gtx/quaternion.hpp>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
@@ -45,7 +51,18 @@ struct vert_pc
 	glm::ivec4 a_rect;
 	std::array<float, 4> scale;
 	std::array<float, 4> bias;
+	int32_t debug_foveation;
+	float sharpening_strength;
+	std::array<int32_t, 2> sharpening_extent;
+	std::array<float, 4> sharpening_inner;
+	std::array<float, 4> sharpening_outer;
 };
+
+static_assert(offsetof(vert_pc, sharpening_strength) == 68);
+static_assert(offsetof(vert_pc, sharpening_extent) == 72);
+static_assert(offsetof(vert_pc, sharpening_inner) == 80);
+static_assert(offsetof(vert_pc, sharpening_outer) == 96);
+static_assert(sizeof(vert_pc) == 112);
 
 void stream_defoveator::ensure_vertices(size_t num_vertices)
 {
@@ -125,7 +142,9 @@ stream_defoveator::pipeline_t & stream_defoveator::ensure_pipeline(size_t view, 
 	// Fragment shader
 	auto specialization = make_specialization_constants(
 	        int32_t(alpha),
-	        VkBool32(application::get_hmd_traits().needs_srgb_conversion));
+	        VkBool32(application::get_hmd_traits().needs_srgb_conversion and srgb_output),
+	        VkBool32(application::get_hmd_traits().needs_srgb_conversion and not srgb_output),
+	        VkBool32(sharpening_strength > 0));
 	auto fragment_shader = load_shader(device, "reprojection.frag");
 
 	vk::pipeline_builder pipeline_info{
@@ -199,8 +218,12 @@ stream_defoveator::stream_defoveator(
         device(device),
         physical_device(physical_device),
         output_images(std::move(output_images_)),
-        output_extent(output_extent)
+        output_extent(output_extent),
+        srgb_output(format == vk::Format::eR8G8B8A8Srgb or format == vk::Format::eB8G8R8A8Srgb)
 {
+	if (const char * value = std::getenv("WYRM_FOVEATED_SHARPENING"))
+		sharpening_strength = wyrm::parse_sharpening_strength(value);
+	spdlog::info("Foveated sharpening strength: {}", sharpening_strength);
 	// Create renderpass
 	vk::AttachmentDescription attachment{
 	        .format = format,
@@ -239,6 +262,7 @@ stream_defoveator::stream_defoveator(
 	};
 
 	ds_pool = device.createDescriptorPool(vk::DescriptorPoolCreateInfo{
+	        .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
 	        .maxSets = view_count * 2,
 	        .poolSizeCount = 1,
 	        .pPoolSizes = &pool_size,
@@ -287,17 +311,19 @@ stream_defoveator::stream_defoveator(
 
 void stream_defoveator::reset_pipelines()
 {
-	for (auto & p: pipeline_rgb)
-		p = {};
-	for (auto & p: pipeline_a)
-		p = {};
-	// Descriptor sets are pool-owned. Dropping their raw handles did not free
-	// them, so repeated same-size codec changes exhausted maxSets.
-	// The caller has already waited for the device to become idle.
-	ds_pool.reset();
+	// The pool only holds one set per pipeline, so return them before the pipelines are rebuilt
+	for (auto * pipelines: {pipeline_rgb, pipeline_a})
+	{
+		for (auto & p: std::span(pipelines, view_count))
+		{
+			if (p.ds)
+				(*device).freeDescriptorSets(*ds_pool, p.ds);
+			p = {};
+		}
+	}
 }
 
-static size_t required_vertices(const wyrm::to_headset::foveation_parameter & p)
+static size_t required_vertices(const wyrm::foveation_parameter & p)
 {
 	// strips are constructed like this:
 	// 0 2 4
@@ -308,7 +334,8 @@ static size_t required_vertices(const wyrm::to_headset::foveation_parameter & p)
 }
 
 void stream_defoveator::defoveate(vk::raii::CommandBuffer & command_buffer,
-                                  const std::array<wyrm::to_headset::foveation_parameter, 2> & foveation,
+                                  const std::array<wyrm::foveation_description, 2> & foveation,
+                                  const std::array<wyrm::sharpening_region, 2> * sharpening,
                                   const std::array<input, 2> & inputs,
                                   std::array<float, 4> scale,
                                   std::array<float, 4> bias,
@@ -317,13 +344,21 @@ void stream_defoveator::defoveate(vk::raii::CommandBuffer & command_buffer,
 	if (destination < 0 || destination >= (int)output_images.size())
 		throw std::runtime_error("Invalid destination image index");
 
-	ensure_vertices(std::max(required_vertices(foveation[0]), required_vertices(foveation[1])));
+	for (size_t view = 0; view < view_count; ++view)
+	{
+		if (foveation_cache[view] != foveation[view])
+		{
+			wyrm::generate_foveation(foveation[view], foveation_tables[view]);
+			foveation_cache[view] = foveation[view];
+		}
+	}
+	ensure_vertices(std::max(required_vertices(foveation_tables[0]), required_vertices(foveation_tables[1])));
 
 	for (size_t view = 0; view < view_count; ++view)
 	{
 		const auto out_size = defoveated_size(foveation[view]);
 		auto vertices = get_vertices(view);
-		const auto & [px, py] = foveation[view];
+		const auto & [px, py] = foveation_tables[view];
 		assert(px.size() % 2 == 1);
 		assert(py.size() % 2 == 1);
 		const int n_ratio_y = (py.size() - 1) / 2;
@@ -434,7 +469,27 @@ void stream_defoveator::defoveate(vk::raii::CommandBuffer & command_buffer,
 		                             input.rect_a.extent.height),
 		        .scale = scale,
 		        .bias = bias,
+#ifndef __ANDROID__
+		        .debug_foveation = frame_shell::foveation_debug.load(std::memory_order_relaxed),
+#endif
 		};
+		if (sharpening and not input.sampler_a)
+		{
+			pc.sharpening_strength = sharpening_strength;
+			pc.sharpening_extent = (*sharpening)[view].extent;
+			pc.sharpening_inner = (*sharpening)[view].inner;
+			pc.sharpening_outer = (*sharpening)[view].outer;
+			if (not sharpening_reported and sharpening_strength > 0 and
+			    pc.sharpening_extent[0] > 0 and pc.sharpening_extent[1] > 0 and
+			    application::get_hmd_traits().needs_srgb_conversion)
+			{
+				spdlog::info("Foveated sharpening active: strength {}, encoded eye {}x{}",
+				             sharpening_strength,
+				             pc.sharpening_extent[0],
+				             pc.sharpening_extent[1]);
+				sharpening_reported = true;
+			}
+		}
 
 		device.updateDescriptorSets(descriptor_writes, {});
 
@@ -443,28 +498,12 @@ void stream_defoveator::defoveate(vk::raii::CommandBuffer & command_buffer,
 		command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pipeline.layout, 0, pipeline.ds, {});
 		command_buffer.pushConstants<vert_pc>(*pipeline.layout, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, 0, pc);
 		command_buffer.bindVertexBuffers(0, vk::Buffer(buffer), vertices_size * view);
-		command_buffer.draw(required_vertices(foveation[view]), 1, 0, 0);
+		command_buffer.draw(required_vertices(foveation_tables[view]), 1, 0, 0);
 		command_buffer.endRenderPass();
 	}
 }
 
-static uint16_t count_pixels(const std::vector<uint16_t> & param)
+XrExtent2Di stream_defoveator::defoveated_size(const wyrm::foveation_description & view)
 {
-	uint16_t res = 0;
-	const int n_ratio = (param.size() - 1) / 2;
-	for (auto [i, n_out]: utils::enumerate_range(param))
-	{
-		// number of output pixels per source pixels
-		const int ratio = std::abs(n_ratio - int(i)) + 1;
-		res += ratio * n_out;
-	}
-	return res;
-}
-
-XrExtent2Di stream_defoveator::defoveated_size(const wyrm::to_headset::foveation_parameter & view)
-{
-	return {
-	        count_pixels(view.x),
-	        count_pixels(view.y),
-	};
+	return {view.x.source_size, view.y.source_size};
 }

@@ -1,3 +1,6 @@
+#ifndef __ANDROID__
+#include "linux/frame_shell.h"
+#endif
 /*
  * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
@@ -27,7 +30,6 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "implot.h"
-#include "network_interface.h"
 #include "render/ui_theme.h"
 #include "render/ui_widgets.h"
 #include "utils/i18n.h"
@@ -40,7 +42,6 @@
 #include <glm/gtc/matrix_access.hpp>
 #include <limits>
 #include <ranges>
-#include <set>
 #include <spdlog/spdlog.h>
 #include <openxr/openxr.h>
 
@@ -54,8 +55,6 @@ float compute_plot_max_value(float * data, int count, ptrdiff_t stride)
 	{
 		max = std::max(max, *(float *)(ptr + i * stride));
 	}
-	if (not std::isfinite(max) or max <= 0)
-		return 0;
 
 	// First power of 10 less than the max
 	float x = pow(10, floor(log10(max)));
@@ -166,6 +165,125 @@ void scenes::stream::accumulate_metrics(XrTime predicted_display_time, const std
 		// clang-format on
 	}
 
+#ifndef __ANDROID__
+	if (frame_shell::enabled())
+	{
+		auto & window = shell_stats_acc;
+		const auto & latest = global_metrics[metrics_offset];
+		window.frames++;
+		window.cpu += latest.cpu_time;
+		window.gpu += latest.gpu_time;
+
+		// Diagnostics: a capture of every frame, started from poll_shell
+		const bool capturing = shell_capturing.load(std::memory_order_relaxed);
+		if (not capturing)
+			shell_capture_xr0 = 0;
+		else if (not shell_capture_xr0)
+		{
+			shell_capture_xr0 = predicted_display_time;
+			const auto sample_xr = instance.now();
+			const auto sample_wall_ms = std::chrono::duration<double, std::milli>(std::chrono::system_clock::now().time_since_epoch()).count();
+			const double wall0_ms = sample_wall_ms + (predicted_display_time - sample_xr) * 1e-6;
+			capture_line(fmt::format(R"({{"k":"h","wall_ms":{:.3f},"sample_wall_ms":{:.3f},"sample_xr_ns":{},"xr0_ns":{},"fps":{:.6f}}})",
+			                         wall0_ms, sample_wall_ms, sample_xr, shell_capture_xr0,
+			                         display_time_period > 0 ? 1e9 / display_time_period : 0));
+		}
+		const auto since_start = [&](XrTime time) { return double(time - shell_capture_xr0) * 1e-6; };
+		// The stages follow one another from encode start to display. A gap is attributed to the stage
+		// that ends it; the PC and headset clocks are only estimated, so a negative gap counts as zero
+		const auto ms = [](XrTime from, XrTime to) { return std::max<double>(0, (to - from) * 1e-6); };
+		bool new_frame = false;
+
+		shell_stats_last_frame.resize(active_handles.size());
+		for (auto && [last_frame, handle]: std::views::zip(shell_stats_last_frame, active_handles))
+		{
+			// A frame shown again is one frame
+			if (not handle or handle->feedback.frame_index == last_frame)
+				continue;
+			const auto & feedback = handle->feedback;
+			last_frame = feedback.frame_index;
+			if (capturing)
+			{
+				new_frame |= feedback.stream_index == 0;
+				capture_line(fmt::format(R"({{"k":"f","s":{},"i":{},"g":{},"t":{:.2f},"eb":{:.2f},"enc":{:.2f},"snd":{:.2f},"net":{:.2f},"dec":{:.2f},"wait":{:.2f},"disp":{:.2f},"rs":{:d},"pt":{:d},"fec":{},"td":{}}})",
+				                         feedback.stream_index,
+				                         feedback.frame_index,
+				                         feedback.generation,
+				                         since_start(feedback.displayed ? feedback.displayed : predicted_display_time),
+				                         since_start(feedback.encode_begin),
+				                         ms(feedback.encode_begin, feedback.encode_end),
+				                         ms(feedback.encode_end, feedback.send_end),
+				                         ms(feedback.send_end, feedback.received_last_packet),
+				                         ms(feedback.received_last_packet, feedback.received_from_decoder),
+				                         ms(feedback.received_from_decoder, feedback.blitted),
+				                         ms(feedback.blitted, feedback.displayed),
+				                         feedback.resent,
+				                         feedback.partial,
+				                         feedback.fec_recovered,
+				                         feedback.times_displayed));
+			}
+			window.partial += feedback.partial;
+			window.fec_recovered += feedback.fec_recovered;
+			window.resent += feedback.resent;
+			// A frame completed by a resend is late by a round trip, not a measure of the usual timing
+			if (feedback.resent)
+				continue;
+			if (not feedback.blitted or feedback.displayed <= feedback.encode_begin)
+				continue;
+			window.encode += ms(feedback.encode_begin, feedback.encode_end);
+			// Waiting for the pacer, then the send itself
+			window.send += ms(feedback.encode_end, feedback.send_end);
+			// In flight and until the last packet is in
+			window.network += ms(feedback.send_end, feedback.received_last_packet);
+			// Waiting for the decoder, then decoding
+			window.decode += ms(feedback.received_last_packet, feedback.received_from_decoder);
+			// Decoded, then waiting for the next headset frame to take it
+			window.wait += ms(feedback.received_from_decoder, feedback.blitted);
+			// From that frame's blit to the display time the runtime predicts for it
+			window.display += ms(feedback.blitted, feedback.displayed);
+			window.timed++;
+		}
+		if (capturing and timestamps.gpu_time > 0)
+			capture_line(fmt::format(R"({{"k":"g","target_xr_ns":{},"previous_render_gpu_ms":{:.4f}}})",
+			                         predicted_display_time, timestamps.gpu_time * 1e3));
+		// A render without a new frame shows the previous one again
+		if (capturing and not new_frame and not active_handles.empty())
+			capture_line(fmt::format(R"({{"k":"r","t":{:.2f},"xr_ns":{},"cpu":{:.2f},"gpu":{:.2f}}})", since_start(predicted_display_time), active_handles[0]->feedback.blitted, latest.cpu_time * 1e3, latest.gpu_time * 1e3));
+
+		if (window.start == 0)
+			window.start = predicted_display_time;
+		else if (predicted_display_time - window.start >= 1'000'000'000)
+		{
+			const double seconds = (predicted_display_time - window.start) * 1e-9;
+			const auto average = [](double sum, int count) { return count ? sum / count : 0.0; };
+			std::string latency = "null";
+			if (window.timed)
+				latency = fmt::format(R"({{"encode":{:.1f},"send":{:.1f},"network":{:.1f},"decode":{:.1f},"wait":{:.1f},"display":{:.1f}}})",
+				                      average(window.encode, window.timed),
+				                      average(window.send, window.timed),
+				                      average(window.network, window.timed),
+				                      average(window.decode, window.timed),
+				                      average(window.wait, window.timed),
+				                      average(window.display, window.timed));
+			auto json = fmt::format(R"({{"fps":{:.1f},"cpu_ms":{:.1f},"gpu_ms":{:.1f},"rx_mbit":{:.1f},"tx_mbit":{:.1f},"latency_ms":{},"partial":{},"fec_recovered":{},"resent":{}}})",
+			                        window.frames / seconds,
+			                        average(window.cpu, window.frames) * 1e3,
+			                        average(window.gpu, window.frames) * 1e3,
+			                        latest.bandwidth_rx * 1e-6,
+			                        latest.bandwidth_tx * 1e-6,
+			                        latency,
+			                        window.partial,
+			                        window.fec_recovered,
+			                        window.resent);
+			window = {};
+			window.start = predicted_display_time;
+			std::scoped_lock lock(shell_stats_mutex);
+			shell_stats = std::move(json);
+			shell_stats_time = std::chrono::steady_clock::now();
+		}
+	}
+#endif
+
 	metrics_offset = (metrics_offset + 1) % global_metrics.size();
 }
 
@@ -175,7 +293,6 @@ void scenes::stream::gui_performance_metrics()
 	const wyrm::ui::theme & t = wyrm::ui::current();
 
 	ImVec2 window_size = ImGui::GetWindowSize() - ImVec2(2, 2) * style.WindowPadding;
-	window_size.x = ImGui::GetContentRegionAvail().x;
 
 	const std::array plots = {
 	        // clang-format off
@@ -191,17 +308,12 @@ void scenes::stream::gui_performance_metrics()
 	int n_plots = plots.size() + decoder_metrics.size();
 	axis_scale.resize(n_plots);
 
-	const bool statistics_page = gui_status == stream_tab::stats;
-	if (statistics_page)
-		ImGui::SeparatorText(_S("Performance history"));
-	int n_cols = statistics_page and window_size.x < ImGui::GetFontSize() * 26 ? 1 : 2;
+	int n_cols = 2;
 	int n_rows = ceil((float)n_plots / n_cols);
 
 	ImVec2 plot_size = ImVec2(
 	        window_size.x / n_cols - style.ItemSpacing.x * (n_cols - 1) / n_cols,
 	        (window_size.y - 2 * ImGui::GetCurrentContext()->FontSize - 2 * style.ItemSpacing.y) / n_rows - style.ItemSpacing.y * (n_rows - 1) / n_rows);
-	if (statistics_page)
-		plot_size.y = ImGui::GetFontSize() * 8;
 
 	ImPlot::PushStyleColor(ImPlotCol_PlotBg, ImVec4{t.background.x, t.background.y, t.background.z, 0.8f});
 	ImPlot::PushStyleColor(ImPlotCol_PlotBorder, t.border);
@@ -215,34 +327,24 @@ void scenes::stream::gui_performance_metrics()
 	int n = 0;
 	for (const auto & [title, subplots, unit]: plots)
 	{
-		const auto size = statistics_page and n == 2 ? ImVec2(window_size.x, plot_size.y) : plot_size;
-		const ImPlotFlags flags = ImPlotFlags_NoMenus | ImPlotFlags_NoBoxSelect | ImPlotFlags_NoMouseText | (subplots.size() == 1 ? ImPlotFlags_NoLegend : 0);
-		if (ImPlot::BeginPlot(title.c_str(), size, flags))
+		if (ImPlot::BeginPlot(title.c_str(), plot_size, ImPlotFlags_NoTitle | ImPlotFlags_NoMenus | ImPlotFlags_NoBoxSelect | ImPlotFlags_NoMouseText))
 		{
-			ImPlot::SetupLegend(ImPlotLocation_NorthWest, ImPlotLegendFlags_Horizontal);
 			float min_v = 0;
 			float max_v = 0;
 			for (const auto & [subtitle, data]: subplots)
 			{
 				max_v = std::max(max_v, compute_plot_max_value(&(global_metrics.data()->*data), global_metrics.size(), sizeof(global_metric)));
 			}
-			const bool timing = std::string_view(unit) == "s";
-			max_v = std::max(max_v, timing ? 0.001f : 1e6f);
 			auto [multiplier, prefix] = compute_plot_unit(max_v);
-			if (statistics_page)
-			{
-				multiplier = timing ? 1e3f : 1e-6f;
-				prefix = timing ? "m" : "M";
-			}
 
 			if (axis_scale[n] == 0 || std::isnan(axis_scale[n]))
 				axis_scale[n] = max_v;
 			else
 				axis_scale[n] = 0.99 * axis_scale[n] + 0.01 * max_v;
 
-			auto color = n == 1 ? t.success : t.accent;
+			auto color = ImPlot::GetColormapColor(n);
 
-			std::string title_with_units = prefix + unit;
+			std::string title_with_units = std::string(title) + " [" + prefix + unit + "]";
 			ImPlot::SetupAxes(nullptr, title_with_units.c_str(), ImPlotAxisFlags_NoDecorations, 0);
 			ImPlot::SetupAxesLimits(0, global_metrics.size() - 1, min_v * multiplier, axis_scale[n] * multiplier, ImGuiCond_Always);
 			ImPlotSpec spec;
@@ -253,35 +355,33 @@ void scenes::stream::gui_performance_metrics()
 
 			for (const auto & [subtitle, data]: subplots)
 			{
-				spec.LineColor = data == &global_metric::bandwidth_tx ? t.warning : color;
-				spec.FillColor = spec.LineColor;
 				getter_data gdata{
 				        .data = (uintptr_t)&(global_metrics.data()->*data),
 				        .stride = sizeof(global_metric),
 				        .multiplier = multiplier,
 				};
-				ImPlot::PlotLineG(subtitle.empty() ? title.c_str() : subtitle.c_str(), getter, &gdata, global_metrics.size(), spec);
+				ImPlot::PlotLineG(subtitle.c_str(), getter, &gdata, global_metrics.size(), spec);
 
 				double x[] = {double(metrics_offset), double(metrics_offset)};
 				double y[] = {0, axis_scale[n] * multiplier};
-				spec.LineColor = t.text_muted;
-				ImPlot::PlotLine("##cursor", x, y, 2, spec);
+				spec.LineColor = ImVec4(1, 1, 1, 1);
+				ImPlot::PlotLine("", x, y, 2, spec);
 			}
 			ImPlot::EndPlot();
 		}
 
-		if (++n % n_cols != 0 and (not statistics_page or n != 3))
+		if (++n % n_cols != 0)
 			ImGui::SameLine();
 	}
 
 	for (auto && [index, metrics]: utils::enumerate(decoder_metrics))
 	{
 		std::string title = fmt::format(_F("Decoder {}"), std::to_string(index));
-		if (ImPlot::BeginPlot(title.c_str(), plot_size, ImPlotFlags_NoMenus | ImPlotFlags_NoBoxSelect | ImPlotFlags_NoMouseText))
+		if (ImPlot::BeginPlot(title.c_str(), plot_size, ImPlotFlags_NoTitle | ImPlotFlags_NoMenus | ImPlotFlags_NoBoxSelect | ImPlotFlags_NoMouseText))
 		{
-			ImPlot::SetupLegend(ImPlotLocation_East, ImPlotLegendFlags_Outside);
 			float min_v = 0;
-			float max_v = std::max(0.001f, compute_plot_max_value(&(metrics.data()->displayed), metrics.size(), sizeof(decoder_metric)));
+			float max_v = compute_plot_max_value(&(metrics.data()->displayed), metrics.size(), sizeof(decoder_metric));
+			// auto [ multiplier, prefix ] = compute_plot_unit(max_v);
 
 			if (axis_scale[n] == 0)
 				axis_scale[n] = max_v;
@@ -359,18 +459,16 @@ void scenes::stream::gui_performance_metrics()
 
 			double x[] = {double(metrics_offset), double(metrics_offset)};
 			double y[] = {0, 1e9};
-			ImPlot::PlotLine("##cursor", x, y, 2, {ImPlotProp_LineColor, t.text_muted});
+			ImPlot::PlotLine("", x, y, 2, {ImPlotProp_LineColor, ImVec4(1, 1, 1, 1)});
 
 			ImPlot::EndPlot();
 		}
 
-		++n;
-		if ((statistics_page ? index + 1 : n) % n_cols != 0)
+		if (++n % n_cols != 0)
 			ImGui::SameLine();
 	}
 
 	ImPlot::PopStyleColor(8);
-	if (not statistics_page)
 	{
 		ImGui::TextUnformatted(
 		        fmt::format(
@@ -383,181 +481,6 @@ void scenes::stream::gui_performance_metrics()
 		else
 			ImGui::Text("%s", _S("Press both thumbsticks to display the Wyrm window"));
 	}
-}
-
-void scenes::stream::gui_network_links()
-{
-	const wyrm::ui::theme & t = wyrm::ui::current();
-	const auto links = network_session->links();
-	const auto server_report = *network_report.lock();
-	const auto report_age = server_report ? std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - server_report->received).count() : -1;
-	const bool report_fresh = report_age >= 0 and report_age <= 1500;
-	const auto now = instance.now();
-	double video_age_ms = -1;
-	for (const auto & frame: std::span(current_blit_handles).first<2>())
-		if (frame and frame->feedback.received_from_decoder)
-			video_age_ms = std::max(video_age_ms, (now - frame->feedback.received_from_decoder) / 1e6);
-	std::set<std::pair<std::string, std::string>> active_connections;
-	for (const auto & link: links)
-		if (link.active and not link.remote.interface.empty())
-			active_connections.emplace(link.local.interface, link.remote.interface);
-	const auto active = server_report and not server_report->data.multilink ? 1 : active_connections.size();
-	const double tracking_age_ms = server_report and server_report->data.tracking_age_ms >= 0 ? server_report->data.tracking_age_ms : -1;
-
-	auto [health, health_style] =
-	        not active                                                           ? std::pair{_("Reconnecting"), wyrm::ui::chip_style::danger}
-	        : video_age_ms < 0                                                   ? std::pair{_("Waiting for video"), wyrm::ui::chip_style::muted}
-	        : not report_fresh                                                   ? std::pair{_("Waiting for server statistics"), wyrm::ui::chip_style::muted}
-	        : video_age_ms > 100 or tracking_age_ms < 0 or tracking_age_ms > 100 ? std::pair{_("Degraded"), wyrm::ui::chip_style::warning}
-	                                                                             : std::pair{_("Healthy"), wyrm::ui::chip_style::success};
-	wyrm::ui::chip(health, health_style, true);
-	ImGui::SameLine();
-	wyrm::ui::chip(report_fresh and not server_report->data.multilink ? _("TCP") : network_session->multilink_enabled() ? _("Multi-Link")
-	                                                                                                                    : _("Single link"),
-	               wyrm::ui::chip_style::muted);
-	ImGui::SameLine();
-	ImGui::AlignTextToFramePadding();
-	ImGui::PushStyleColor(ImGuiCol_Text, t.text_muted);
-	ImGui::TextUnformatted(active == 1 ? _S("1 active connection") : fmt::format(_F("{} active connections"), active).c_str());
-	ImGui::PopStyleColor();
-	ImGui::Dummy({0, 10});
-	wyrm::ui::begin_card("##stream_summary");
-	if (ImGui::BeginTable("stream_summary", 3, ImGuiTableFlags_SizingStretchSame))
-	{
-		const auto metric = [&](const char * label, const std::string & value) {
-			ImGui::TableNextColumn();
-			ImGui::PushStyleColor(ImGuiCol_Text, t.text_muted);
-			ImGui::TextUnformatted(label);
-			ImGui::PopStyleColor();
-			ImGui::PushFont(nullptr, ImGui::GetStyle().FontSizeBase * 1.25f);
-			ImGui::TextUnformatted(value.c_str());
-			ImGui::PopFont();
-		};
-		const auto latency = tracking_control.lock()->motions_to_photons;
-		metric(_S("Video bitrate"), report_fresh ? fmt::format("{:.0f} Mbit/s", server_report->data.effective_bitrate / 1e6) : "-");
-		metric(_S("Estimated latency"), latency > 0 ? fmt::format("{:.1f} ms", latency / 1e6) : "-");
-		metric(_S("Frames decoded"), report_fresh and server_report->data.submitted_frames ? fmt::format("{:.1f}%", server_report->data.decoded_frames * 100.0 / server_report->data.submitted_frames) : "-");
-		ImGui::EndTable();
-	}
-	wyrm::ui::end_card();
-
-	// One row per interface pair, preferring the active and busiest address family.
-	std::map<std::pair<std::string, std::string>, link_statistics> displayed;
-	for (const auto & link: links)
-	{
-		if (not link.ever_active or link.remote.interface.empty())
-			continue;
-		auto [it, inserted] = displayed.emplace(std::pair{link.local.interface, link.remote.interface}, link);
-		if (not inserted and (link.active > it->second.active or (link.active == it->second.active and link.received_bps + link.sent_bps > it->second.received_bps + it->second.sent_bps)))
-			it->second = link;
-	}
-	double total_download = 0;
-	for (const auto & [_, link]: displayed)
-		if (link.active)
-			total_download += link.received_bps;
-
-	const auto right_aligned = [](const std::string & text) {
-		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(text.c_str()).x);
-		ImGui::TextUnformatted(text.c_str());
-	};
-
-	ImGui::Dummy({0, 6});
-	if (not displayed.empty() and ImGui::BeginTable("links", 3, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_PadOuterX))
-	{
-		ImGui::TableSetupColumn(_S("Link"), ImGuiTableColumnFlags_WidthStretch, 2.2f);
-		ImGui::TableSetupColumn(_S("Latency"), ImGuiTableColumnFlags_WidthStretch, 1.4f);
-		ImGui::TableSetupColumn(_S("Download"), ImGuiTableColumnFlags_WidthStretch, 1.4f);
-		ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
-		ImGui::PushStyleColor(ImGuiCol_Text, t.text_muted);
-		for (int column = 0; column < 3; ++column)
-		{
-			ImGui::TableSetColumnIndex(column);
-			const char * name = ImGui::TableGetColumnName(column);
-			if (column == 0)
-				ImGui::TextUnformatted(name);
-			else
-				right_aligned(name);
-		}
-		ImGui::PopStyleColor();
-
-		for (const auto & [_, link]: displayed)
-		{
-			ImGui::TableNextRow(ImGuiTableRowFlags_None, ImGui::GetFrameHeight() * 1.2f);
-			ImGui::TableNextColumn();
-			ImGui::AlignTextToFramePadding();
-			ImGui::TextUnformatted(wyrm::interface_display_name(link.local.interface).c_str());
-			if (not link.active)
-			{
-				ImGui::SameLine();
-				wyrm::ui::chip(network_session->multilink_enabled() ? _("Reconnecting") : _("Standby"), wyrm::ui::chip_style::muted);
-			}
-			ImGui::TableNextColumn();
-			ImGui::AlignTextToFramePadding();
-			right_aligned(link.active ? fmt::format("{:.1f} ms", link.rtt_ms) : "-");
-			ImGui::TableNextColumn();
-			ImGui::AlignTextToFramePadding();
-			right_aligned(link.active ? fmt::format("{:.1f} Mbit/s", link.received_bps / 1e6) : "-");
-		}
-		ImGui::EndTable();
-	}
-
-	if (not ImGui::TreeNode(_S("Details")))
-	{
-		ImGui::Dummy({0, 10});
-		return;
-	}
-	if (ImGui::BeginTable("details", 2, ImGuiTableFlags_SizingStretchProp))
-	{
-		const auto row = [&](const std::string & label, const std::string & value) {
-			ImGui::TableNextRow();
-			ImGui::TableNextColumn();
-			ImGui::PushStyleColor(ImGuiCol_Text, t.text_muted);
-			ImGui::TextUnformatted(label.c_str());
-			ImGui::PopStyleColor();
-			ImGui::TableNextColumn();
-			ImGui::TextUnformatted(value.c_str());
-		};
-		if (video_age_ms >= 0)
-			row(_("Last decoded video"), fmt::format(_F("{:.1f} ms ago"), video_age_ms));
-		if (tracking_age_ms >= 0)
-			row(_("Tracking age on the server"), fmt::format("{:.1f} ms", tracking_age_ms));
-		if (report_fresh)
-		{
-			const auto & report = server_report->data;
-			row(_("Frames decoded"), fmt::format(_F("{} of {}, {} late"), report.decoded_frames, report.submitted_frames, report.late_frames));
-			row(_("Decode allowance"), fmt::format("{:.1f} ms", report.decode_budget_ms));
-			row(_("Expired video messages"), fmt::format("{}", report.expired_video));
-			row(_("Repair packets"), fmt::format("{}", report.repairs_sent));
-			row(_("Server queues"), fmt::format(_F("{} controls, {} bulk, {} keyframe shards, {:.1f} KiB"), report.reliable_messages, report.bulk_messages, report.protected_video_messages, report.queued_bytes / 1024.0));
-			row(_("Oldest queued control"), fmt::format("{:.1f} ms", report.oldest_control_ms));
-		}
-		for (const auto & [_, link]: displayed)
-		{
-			const auto name = wyrm::interface_display_name(link.local.interface);
-			row(fmt::format(_F("{}: traffic share"), name), fmt::format("{:.0f}%", link.active and total_download ? link.received_bps * 100.0 / total_download : 0));
-			if (link.received_video_packets)
-				row(fmt::format(_F("{}: video gaps"), name), fmt::format("{:.2f}%", link.incoming_loss * 100));
-			row(fmt::format(_F("{}: jitter"), name), fmt::format("{:.1f} ms", link.jitter_ms));
-			row(fmt::format(_F("{}: upload"), name), fmt::format("{:.1f} Mbit/s", link.sent_bps / 1e6));
-			if (link.received_video_packets)
-				row(fmt::format(_F("{}: recovered fragments"), name), fmt::format("{}", link.recovered_fragments));
-			row(fmt::format(_F("{}: acknowledgement loss"), name), fmt::format("{:.2f}%", link.loss * 100));
-			if (report_fresh)
-				for (const auto & peer: server_report->data.links)
-					if (peer.local_interface == link.remote.interface and peer.remote_interface == link.local.interface)
-					{
-						row(fmt::format(_F("{}: server capacity estimate"), name), fmt::format("{:.1f} Mbit/s", peer.capacity_bps / 1e6));
-						row(fmt::format(_F("{}: server acknowledgement loss"), name), fmt::format("{:.2f}%", peer.acknowledgement_loss * 100));
-						break;
-					}
-		}
-		ImGui::EndTable();
-	}
-	ImGui::PushStyleColor(ImGuiCol_Text, t.text_muted);
-	ImGui::TextWrapped("%s", _S("Video gaps include packets still being reordered. Acknowledgement loss also counts missing return acknowledgements."));
-	ImGui::PopStyleColor();
-	ImGui::TreePop();
-	ImGui::Dummy({0, 10});
 }
 
 void scenes::stream::gui_compact_view()
@@ -583,14 +506,14 @@ void scenes::stream::gui_compact_view()
 	}
 }
 
-static void send_settings_changed_packet(xr::session & session, wyrm_session * network, const configuration & config)
+static void send_settings_changed_packet(xr::session & session, wyrm_session * network, const configuration & config, const configuration::stream_config & pc)
 {
 	network->send_control(
 	        from_headset::settings_changed{
 	                .preferred_refresh_rate = config.preferred_refresh_rate,
 	                .minimum_refresh_rate = config.minimum_refresh_rate.value_or(0),
 	                .fps_divider = config.fps_divider,
-	                .bitrate_bps = config.bitrate_bps,
+	                .bitrate_bps = pc.bitrate_bps,
 	                .mirror_gamepad = config.forward_gamepad,
 	                .enabled_body_parts = config.body_part_mask,
 	        });
@@ -598,7 +521,6 @@ static void send_settings_changed_packet(xr::session & session, wyrm_session * n
 
 void scenes::stream::gui_settings(float)
 {
-	const auto panel_width = application::get_hmd_traits().panel_width_override;
 	// same pages as the lobby, with in_game enabling the in-stream controls
 	wyrm::gui::settings_context ctx{
 	        .config = application::get_config(),
@@ -607,31 +529,22 @@ void scenes::stream::gui_settings(float)
 	        .session = session,
 	        .system = system,
 	        .imgui_ctx = *imgui_ctx,
-	        .recommended_width = panel_width ? panel_width : width,
-	        .recommended_height = panel_width ? uint32_t(uint64_t(height) * panel_width / width) : height,
+	        .recommended_width = width,
+	        .recommended_height = height,
 	        .in_game = true,
 	        .server_hid_forwarding = hid_forwarding_enabled(),
-	        .on_streaming_changed = [this] { send_settings_changed_packet(session, network_session.get(), application::get_config()); },
-	        .on_multilink_changed = [this](bool enabled) {
-		        try
-		        {
-			        if (network_session->set_multilink_enabled(enabled))
-				        return true;
-		        }
-		        catch (const std::exception & e)
-		        {
-			        spdlog::warn("Could not change Multi-Link mode: {}", e.what());
-		        }
-		        gui_toast.lock()->emplace(_("Could not change Multi-Link while the connection is unavailable."), true);
-		        return false; },
-	        .on_video_changed = [this] { video_settings_changed = std::chrono::steady_clock::now(); },
+	        .stream = &pc_settings(),
+	        .on_streaming_changed = [this] { send_settings_changed_packet(session, network_session.get(), application::get_config(), pc_settings()); },
 	        .enter_foveation_adjust = [this] { next_gui_status = stream_tab::foveation_settings; },
 	        .on_foveation_override_changed = [this] {
 		        const auto & config = application::get_config();
-		        foveation_center.set_manual_mode({
-		                .enabled = config.override_foveation_enable,
-		                .pitch = config.override_foveation_pitch,
-		                .distance = config.override_foveation_distance,
+		        override_foveation_enable = config.override_foveation_enable;
+		        override_foveation_pitch = config.override_foveation_pitch;
+		        override_foveation_distance = config.override_foveation_distance;
+		        network_session->send_control(from_headset::override_foveation_center{
+		                .enabled = override_foveation_enable,
+		                .pitch = override_foveation_pitch,
+		                .distance = override_foveation_distance,
 		        }); },
 	};
 
@@ -654,7 +567,7 @@ void scenes::stream::gui_settings(float)
 			break;
 		case settings_page::tracking:
 			if (wyrm::gui::settings_tracking(ctx))
-				send_settings_changed_packet(session, network_session.get(), ctx.config);
+				send_settings_changed_packet(session, network_session.get(), ctx.config, pc_settings());
 			break;
 		case settings_page::system:
 			wyrm::gui::settings_system(ctx);
@@ -668,16 +581,17 @@ void scenes::stream::gui_settings(float)
 void scenes::stream::gui_bitrate_settings(float predicted_display_period)
 {
 	auto & config = application::get_config();
+	auto & pc = pc_settings();
 	ImGui::PushFont(nullptr, constants::gui::font_size_large);
 	ImGui::Text("%s", _S("Use the right thumbstick to adjust the bitrate"));
 	ImGui::Text("%s", _S("Press A to go back"));
-	ImGui::Text("%s", fmt::format(_F("Bitrate: {}Mbit/s"), config.bitrate_bps / 1'000'000).c_str());
+	ImGui::Text("%s", fmt::format(_F("Bitrate: {}Mbit/s"), pc.bitrate_bps / 1'000'000).c_str());
 	ImGui::PopFont();
 
 	// Maximum speed of 20Mbit/s
 	float delta = application::read_action_float(settings_adjust).value_or(std::pair{0, 0}).second * 20'000'000.f * predicted_display_period;
 
-	config.bitrate_bps = std::clamp(config.bitrate_bps + static_cast<int32_t>(delta), 1'000'000u, config.max_bitrate());
+	pc.bitrate_bps = std::clamp(pc.bitrate_bps + static_cast<int32_t>(delta), 1'000'000u, config.max_bitrate());
 
 	bool ok = application::read_action_bool(foveation_ok).value_or(std::pair{0, false}).second;
 
@@ -687,18 +601,16 @@ void scenes::stream::gui_bitrate_settings(float predicted_display_period)
 		next_gui_status = stream_tab::settings;
 	}
 
-	send_settings_changed_packet(session, network_session.get(), application::get_config());
+	send_settings_changed_packet(session, network_session.get(), application::get_config(), pc_settings());
 }
 
 void scenes::stream::gui_foveation_settings(float predicted_display_period)
 {
-	auto override = foveation_center.get_manual_mode();
-
 	ImGui::PushFont(nullptr, constants::gui::font_size_large);
 	ImGui::Text("%s", _S("Use the thumbsticks to move the foveation center"));
 	ImGui::Text("%s", _S("Press A to save or B to cancel"));
-	ImGui::Text("%s", fmt::format(_F("Height {:.1f} °"), -override.pitch * 180 / M_PI).c_str());
-	ImGui::Text("%s", fmt::format(_F("Distance {:.2f} m"), override.distance).c_str());
+	ImGui::Text("%s", fmt::format(_F("Height {:.1f} °"), -override_foveation_pitch * 180 / M_PI).c_str());
+	ImGui::Text("%s", fmt::format(_F("Distance {:.2f} m"), override_foveation_distance).c_str());
 	ImGui::PopFont();
 
 	// Maximum speed 1 rad/s
@@ -707,8 +619,8 @@ void scenes::stream::gui_foveation_settings(float predicted_display_period)
 	// Maximum speed 2m/s @ 1m
 	float delta_distance = std::pow(constants::stream::gui_max_foveation_speed, application::read_action_float(foveation_distance).value_or(std::pair{0, 0}).second * predicted_display_period);
 
-	override.pitch = std::clamp<float>(override.pitch + delta_pitch, constants::stream::gui_min_foveation_pitch, constants::stream::gui_max_foveation_pitch);
-	override.distance = std::clamp<float>(override.distance * delta_distance, constants::stream::gui_min_foveation_distance, constants::stream::gui_max_foveation_distance);
+	override_foveation_pitch = std::clamp<float>(override_foveation_pitch + delta_pitch, constants::stream::gui_min_foveation_pitch, constants::stream::gui_max_foveation_pitch);
+	override_foveation_distance = std::clamp<float>(override_foveation_distance * delta_distance, constants::stream::gui_min_foveation_distance, constants::stream::gui_max_foveation_distance);
 
 	bool ok = application::read_action_bool(foveation_ok).value_or(std::pair{0, false}).second;
 	bool cancel = application::read_action_bool(foveation_cancel).value_or(std::pair{0, false}).second;
@@ -716,13 +628,12 @@ void scenes::stream::gui_foveation_settings(float predicted_display_period)
 	if (ok)
 	{
 		next_gui_status = stream_tab::settings;
-		override.enabled = true;
 
 		// Save settings
 		auto & config = application::get_config();
-		config.override_foveation_enable = override.enabled;
-		config.override_foveation_pitch = override.pitch;
-		config.override_foveation_distance = override.distance;
+		config.override_foveation_enable = true;
+		config.override_foveation_pitch = override_foveation_pitch;
+		config.override_foveation_distance = override_foveation_distance;
 		config.save();
 	}
 	else if (cancel)
@@ -731,14 +642,16 @@ void scenes::stream::gui_foveation_settings(float predicted_display_period)
 
 		// Restore settings
 		const auto & config = application::get_config();
-		override = {
-		        .enabled = config.override_foveation_enable,
-		        .pitch = config.override_foveation_pitch,
-		        .distance = config.override_foveation_distance,
-		};
+		override_foveation_enable = config.override_foveation_enable;
+		override_foveation_pitch = config.override_foveation_pitch;
+		override_foveation_distance = config.override_foveation_distance;
 	}
 
-	foveation_center.set_manual_mode(override);
+	network_session->send_control(from_headset::override_foveation_center{
+	        .enabled = override_foveation_enable,
+	        .pitch = override_foveation_pitch,
+	        .distance = override_foveation_distance,
+	});
 }
 
 void scenes::stream::gui_applications()
@@ -838,6 +751,9 @@ void scenes::stream::gui_toasts()
 
 void scenes::stream::draw_gui(XrTime predicted_display_time, XrDuration predicted_display_period)
 {
+#ifndef __ANDROID__
+	if (frame_shell::enabled()) { gui_status = stream_tab::hidden; next_gui_status = stream_tab::hidden; return; }
+#endif
 	if (auto new_status = next_gui_status.load(); new_status != gui_status)
 	{
 		spdlog::info("Switch tab from {} to {}", magic_enum::enum_name(gui_status), magic_enum::enum_name(new_status));
@@ -938,13 +854,10 @@ void scenes::stream::draw_gui(XrTime predicted_display_time, XrDuration predicte
 		glm::mat3 M = glm::mat3_cast(head_position->second);
 		switch (gui_status)
 		{
-			case stream_tab::foveation_settings: {
-				auto override = foveation_center.get_manual_mode();
-
+			case stream_tab::foveation_settings:
 				imgui_ctx->layers()[0].orientation = head_position->second;
-				imgui_ctx->layers()[0].position = head_position->first + M * glm::vec3{0, override.distance * sin(override.pitch), -override.distance};
+				imgui_ctx->layers()[0].position = head_position->first + M * glm::vec3{0, override_foveation_distance * sin(override_foveation_pitch), -override_foveation_distance};
 				break;
-			}
 
 			case stream_tab::hidden:
 				// Always use the same position for the GUI shortcut tip
@@ -1084,11 +997,9 @@ void scenes::stream::draw_gui(XrTime predicted_display_time, XrDuration predicte
 			ImGui::BeginChild("Main", ImVec2(ImGui::GetWindowSize().x - ImGui::GetCursorPosX() - content_margin, 0));
 			ImGui::SetCursorPosY(20);
 			wyrm::ui::page_header(_S("Statistics"), _S("Live streaming performance."));
-			gui_network_links();
-			// Graphs size from the visible page and the page scrolls. A child window taller than
-			// the page would overlap another GUI layer's texture region and make it visible.
+			ImGui::BeginChild("plots", {0, 0});
 			gui_performance_metrics();
-			ScrollWhenDragging();
+			ImGui::EndChild();
 			ImGui::EndChild();
 			ImGui::PopStyleVar();
 			break;

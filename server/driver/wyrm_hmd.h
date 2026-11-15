@@ -54,12 +54,6 @@ class wyrm_hmd : public xrt_device
 	};
 
 	view_list views;
-	struct inset_center
-	{
-		std::array<XrVector2f, 2> angles{};
-		int64_t timestamp = 0;
-	};
-	thread_safe<inset_center> quad_center;
 	thread_safe<from_headset::battery> battery{};
 
 	thread_safe<wyrm_hmd_presence_data> presence;
@@ -73,6 +67,8 @@ public:
 	using base_t = xrt_device;
 	wyrm_hmd(wyrm::wyrm_session * cnx,
 	          const from_headset::headset_info_packet & info);
+
+	void set_render_size(uint32_t width, uint32_t height);
 
 	void set_foveated_size(uint32_t width, uint32_t height);
 
@@ -89,7 +85,6 @@ public:
 	                                bool * out_charging,
 	                                float * out_charge);
 
-	void update_foveation(const from_headset::foveation &);
 	void update_battery(const from_headset::battery &);
 	void update_tracking(const from_headset::tracking &, const clock_offset &);
 	void update_visibility_mask(const from_headset::visibility_mask_changed &);

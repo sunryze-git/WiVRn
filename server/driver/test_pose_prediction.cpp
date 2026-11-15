@@ -202,6 +202,35 @@ static void test_sample_management()
 	check(samples.get_at(epoch + 70'000'000).y.has_value());
 }
 
+static void test_tracking_confidence()
+{
+	using flags = from_headset::pose_flags;
+	for (uint8_t tracked: {uint8_t(0), uint8_t(flags::position_tracked), uint8_t(flags::orientation_tracked), uint8_t(flags::position_tracked | flags::orientation_tracked)})
+	{
+		pose_list grip(device_id::LEFT_GRIP), aim(device_id::LEFT_AIM);
+		for (int i = 0; i < 8; ++i)
+		{
+			from_headset::tracking packet{};
+			packet.production_timestamp = packet.timestamp = epoch + i * 6'000'000;
+			packet.device_poses.push_back({
+			        .pose = {.orientation = {.w = 1}},
+			        .device = device_id::LEFT_GRIP,
+			        .flags = uint8_t(flags::position_valid | flags::orientation_valid | (i < 4 ? flags::position_tracked | flags::orientation_tracked : tracked)),
+			});
+			grip.update_tracking(packet, {.stable = true});
+		}
+		auto result = grip.get_at(epoch + 39'000'000).second;
+		check((result.relation_flags & XRT_SPACE_RELATION_POSITION_VALID_BIT) != 0);
+		check((result.relation_flags & XRT_SPACE_RELATION_ORIENTATION_VALID_BIT) != 0);
+		check(bool(result.relation_flags & XRT_SPACE_RELATION_POSITION_TRACKED_BIT) == bool(tracked & flags::position_tracked));
+		check(bool(result.relation_flags & XRT_SPACE_RELATION_ORIENTATION_TRACKED_BIT) == bool(tracked & flags::orientation_tracked));
+		xrt_pose offset = XRT_POSE_IDENTITY;
+		offset.position.z = -0.2f;
+		aim.set_derived(&grip, offset);
+		check(std::get<1>(aim.get_pose_at(epoch + 39'000'000)).relation_flags == result.relation_flags);
+	}
+}
+
 int main(int argc, char ** argv)
 {
 	std::string_view selected = argc > 1 ? argv[1] : "all";
@@ -215,6 +244,8 @@ int main(int argc, char ** argv)
 		test_translation();
 	if (selected == "all" or selected == "samples")
 		test_sample_management();
+	if (selected == "all" or selected == "confidence")
+		test_tracking_confidence();
 	std::cout << "Pose prediction (" << selected << "): " << failures << " failures\n";
 	return failures ? 1 : 0;
 }

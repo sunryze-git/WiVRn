@@ -18,6 +18,7 @@
  */
 #include "wyrm_vk_bundle.h"
 
+#include "queue_family_transfer.h"
 #include "util/u_debug.h"
 #include "util/u_logging.h"
 #include "wyrm-server_shaders.h"
@@ -430,18 +431,20 @@ bool wyrm::vk_bundle::has_device_ext(const char * ext) const
 
 bool wyrm::vk_bundle::optimal_transfer(uint32_t from, uint32_t to) const
 {
-	if (from == vk::QueueFamilyIgnored or to == vk::QueueFamilyIgnored or from == to)
-		return false;
+	if (image_queue_transfer_is_implicit(from, to))
+		return true;
+	bool maintenance9 = false;
+	uint32_t transfer_mask = 0;
 #ifdef VK_KHR_maintenance9
-	if (std::get<vk::PhysicalDeviceMaintenance9FeaturesKHR>(feat).maintenance9)
+	maintenance9 = std::get<vk::PhysicalDeviceMaintenance9FeaturesKHR>(feat).maintenance9;
+	if (maintenance9)
 	{
 		auto props = physical_device.getQueueFamilyProperties2<vk::StructureChain<vk::QueueFamilyProperties2, vk::QueueFamilyOwnershipTransferPropertiesKHR>>();
 
-		auto mask = std::get<1>(props[from]).optimalImageTransferToQueueFamilies;
-		return (mask & (1u << to)) != 0;
+		transfer_mask = std::get<1>(props[from]).optimalImageTransferToQueueFamilies;
 	}
 #endif
-	return true;
+	return image_queue_transfer_is_implicit(from, to, maintenance9, transfer_mask);
 }
 
 vk::raii::ShaderModule wyrm::vk_bundle::load_shader(const char * name)

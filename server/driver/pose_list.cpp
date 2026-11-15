@@ -170,9 +170,8 @@ void pose_list::add_sample(XrTime production_timestamp, XrTime timestamp, const 
 	production_timestamp = offset.from_headset(production_timestamp);
 	timestamp = offset.from_headset(timestamp);
 
-	// TODO keep the tracked flag
-
 	polynomial_interpolator<3>::sample position{production_timestamp, timestamp};
+	position.tracked = pose.flags & from_headset::pose_flags::position_tracked;
 	if (pose.flags & from_headset::pose_flags::position_valid)
 		position.y.emplace(
 		        pose.pose.position.x,
@@ -185,6 +184,7 @@ void pose_list::add_sample(XrTime production_timestamp, XrTime timestamp, const 
 		        pose.linear_velocity.z);
 
 	polynomial_interpolator<4, true>::sample orientation{production_timestamp, timestamp};
+	orientation.tracked = pose.flags & from_headset::pose_flags::orientation_tracked;
 	if (pose.flags & from_headset::pose_flags::orientation_valid)
 	{
 		orientation.y.emplace(
@@ -207,8 +207,7 @@ void pose_list::add_sample(XrTime production_timestamp, XrTime timestamp, const 
 			        pose.angular_velocity.y,
 			        pose.angular_velocity.z};
 
-			// Eigen's coeffs() uses (x, y, z, w), while the fit uses (w, x, y, z).
-			Eigen::Quaternionf dq = ω * q;
+			const Eigen::Quaternionf dq = ω * q;
 			orientation.dy.emplace(0.5f * dq.w(), 0.5f * dq.x(), 0.5f * dq.y(), 0.5f * dq.z());
 		}
 	}
@@ -251,7 +250,9 @@ std::pair<XrTime, xrt_space_relation> pose_list::get_at(XrTime at_timestamp_ns)
 
 	if (position.y)
 	{
-		flags(XRT_SPACE_RELATION_POSITION_VALID_BIT | XRT_SPACE_RELATION_POSITION_TRACKED_BIT);
+		flags(XRT_SPACE_RELATION_POSITION_VALID_BIT);
+		if (position.tracked)
+			flags(XRT_SPACE_RELATION_POSITION_TRACKED_BIT);
 		ret.pose.position = {
 		        position.y->x(),
 		        position.y->y(),
@@ -271,7 +272,9 @@ std::pair<XrTime, xrt_space_relation> pose_list::get_at(XrTime at_timestamp_ns)
 	{
 		if (auto norm2 = orientation.y->squaredNorm(); std::isfinite(norm2) and norm2 > 0.1)
 		{
-			flags(XRT_SPACE_RELATION_ORIENTATION_VALID_BIT | XRT_SPACE_RELATION_ORIENTATION_TRACKED_BIT);
+			flags(XRT_SPACE_RELATION_ORIENTATION_VALID_BIT);
+			if (orientation.tracked)
+				flags(XRT_SPACE_RELATION_ORIENTATION_TRACKED_BIT);
 
 			float norm = std::sqrt(norm2);
 			*orientation.y /= norm;

@@ -13,7 +13,7 @@
 #include "decoder/decoder.h"
 #include "wyrm_sockets.h"
 
-#include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <deque>
 #include <exception>
@@ -36,6 +36,7 @@ class stream;
 namespace wyrm
 {
 class shard_accumulator;
+class frame_sink;
 }
 
 namespace wyrm::v4l2
@@ -65,9 +66,11 @@ private:
 	struct capture_buffer
 	{
 		std::vector<size_t> plane_lengths;
+		uint64_t id = 0;
 		vk::raii::DeviceMemory memory = nullptr;
 		vk::raii::Image image = nullptr;
 		vk::raii::ImageView image_view = nullptr;
+		wyrm::fd_base dmabuf;
 		vk::ImageLayout current_layout = vk::ImageLayout::eUndefined;
 		bool held_by_vulkan = false;
 	};
@@ -76,7 +79,7 @@ private:
 	{
 		uint64_t timestamp = 0;
 		wyrm::from_headset::feedback feedback;
-		wyrm::to_headset::video_stream_data_shard::view_info_t view_info;
+		wyrm::to_headset::video_frame_info::view_info_t view_info;
 	};
 
 	struct ready_output
@@ -95,13 +98,30 @@ private:
 
 	vk::raii::Device & device;
 	vk::raii::PhysicalDevice & physical_device;
-	vk::raii::SamplerYcbcrConversion ycbcr_conversion = nullptr;
-	vk::raii::Sampler ycbcr_sampler = nullptr;
+	// Shared with blit handles, which may outlive this decoder or a capture queue rebuild
+	struct capture_set
+	{
+		vk::raii::SamplerYcbcrConversion ycbcr_conversion = nullptr;
+		vk::raii::Sampler ycbcr_sampler = nullptr;
+		std::vector<capture_buffer> buffers;
+	};
+
+	// Capture buffers released by blit handles, tagged with their capture set
+	struct recycler
+	{
+		std::mutex mutex;
+		std::deque<std::pair<const capture_set *, unsigned int>> queue;
+		wyrm::fd_base wake_fd;
+
+		void release(const capture_set * set, unsigned int index);
+		void wake();
+	};
+
 	vk::Format capture_vk_format = vk::Format::eUndefined;
 
 	wyrm::fd_base fd;
 	std::vector<output_buffer> output_buffers;
-	std::vector<capture_buffer> capture_buffers;
+	std::shared_ptr<capture_set> capture = std::make_shared<capture_set>();
 	std::vector<unsigned int> free_output_buffers;
 	std::deque<pending_frame> pending_frames;
 
@@ -109,11 +129,11 @@ private:
 	std::mutex input_mutex;
 	std::optional<assembling_frame> assembling;
 	std::optional<uint64_t> dropped_frame_index;
+	// Since when every OUTPUT buffer is queued in iris without one coming back; under output_mutex
+	std::optional<std::chrono::steady_clock::time_point> output_starved_since;
 	std::mutex output_mutex;
-	std::deque<unsigned int> recycle_capture_queue;
-	std::deque<unsigned int> recycle_capture_local;
-	std::mutex recycle_mutex;
-	wyrm::fd_base wake_fd;
+	std::deque<std::pair<const capture_set *, unsigned int>> recycle_capture_local;
+	std::shared_ptr<recycler> recycle = std::make_shared<recycler>();
 	std::jthread worker;
 	std::exception_ptr worker_exception;
 	std::mutex worker_exception_mutex;
@@ -123,13 +143,14 @@ private:
 	uint32_t capture_width = 0;
 	uint32_t capture_height = 0;
 	uint32_t capture_bytesperline = 0;
+	vk::Extent2D capture_visible{};
 	uint32_t capture_sizeimage = 0;
 	uint32_t capture_pixelformat = 0;
 	uint32_t capture_num_planes = 0;
 	bool output_streaming = false;
 	bool capture_streaming = false;
 
-	std::weak_ptr<scenes::stream> weak_scene;
+	std::weak_ptr<wyrm::frame_sink> weak_scene;
 	shard_accumulator * accumulator;
 	const vk::Extent2D extent;
 	const wyrm::video_codec codec_type;
@@ -144,7 +165,6 @@ private:
 	void import_capture_buffer(unsigned int index, const std::vector<size_t> & plane_lengths);
 	void initialize_capture_ownership();
 	void queue_capture_buffer(unsigned int index);
-	void release_capture_buffer(unsigned int index);
 	void recycle_capture_buffers();
 	void handle_events();
 	void reclaim_output_buffers();
@@ -164,18 +184,21 @@ public:
 	        uint32_t vk_queue_family_index,
 	        const wyrm::to_headset::video_stream_description & description,
 	        uint8_t stream_index,
-	        std::weak_ptr<scenes::stream> scene,
+	        std::weak_ptr<wyrm::frame_sink> scene,
 	        shard_accumulator * accumulator);
 	~decoder() override;
 
 	void push_data(std::span<std::span<const uint8_t>> data, uint64_t frame_index, bool partial) override;
 	void frame_completed(
 	        const wyrm::from_headset::feedback & feedback,
-	        const wyrm::to_headset::video_stream_data_shard::view_info_t & view_info) override;
+	        const wyrm::to_headset::video_frame_info::view_info_t & view_info) override;
+
+	// Whether iris has taken no input for this long while all OUTPUT buffers are queued
+	bool stalled(std::chrono::steady_clock::duration limit);
 
 	vk::Sampler sampler() override
 	{
-		return *ycbcr_sampler;
+		return *capture->ycbcr_sampler;
 	}
 
 	static bool available_for(wyrm::video_codec codec);

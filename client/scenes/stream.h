@@ -23,8 +23,8 @@
 #include "application.h"
 #include "audio/audio.h"
 #include "configuration.h"
+#include "decoder/frame_sink.h"
 #include "decoder/shard_accumulator.h"
-#include "foveation.h"
 #include "render/imgui_impl.h"
 #include "scene.h"
 #include "scenes/input_profile.h"
@@ -33,7 +33,20 @@
 #include "wifi_lock.h"
 #include "wyrm_client.h"
 #include "wyrm_packets.h"
+#include "xr/frame_foveated_projection.h"
 #include "xr/space.h"
+#ifndef __ANDROID__
+#include "linux/desktop_receiver.h"
+#include "linux/frame_shell.h"
+#endif
+#if WYRM_FRAME_EYES
+#include "frame_eyes/tracker.h"
+#endif
+#include <atomic>
+#include <fstream>
+#include <chrono>
+#include <deque>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <queue>
@@ -43,7 +56,7 @@
 
 namespace scenes
 {
-class stream : public scene_impl<stream>, public std::enable_shared_from_this<stream>
+class stream : public scene_impl<stream>, public std::enable_shared_from_this<stream>, public wyrm::frame_sink
 {
 public:
 	enum class state
@@ -75,15 +88,11 @@ private:
 
 	// for frames inside accumulator images
 	std::mutex frames_mutex;
+	std::array<std::shared_ptr<wyrm::shard_accumulator::blit_handle>, decoder_count> selected_frames;
 	std::array<std::shared_ptr<wyrm::shard_accumulator::blit_handle>, decoder_count> common_frame(XrTime display_time);
 
 	std::unique_ptr<wyrm_session> network_session;
-	struct connection_report
-	{
-		to_headset::network_report data;
-		std::chrono::steady_clock::time_point received;
-	};
-	thread_safe<std::optional<connection_report>> network_report;
+	thread_safe<to_headset::network_report> network_report{};
 	std::thread network_thread;
 	thread_safe<to_headset::tracking_control> tracking_control{};
 	std::array<std::atomic<interaction_profile>, 3> interaction_profiles; // left hand, right hand, gamepad
@@ -94,20 +103,38 @@ private:
 	std::atomic<XrDuration> display_time_phase = 0;
 	std::atomic<XrDuration> display_time_period = 0;
 	XrTime last_display_time = 0;
-	mutable std::optional<std::vector<float>> stable_refresh_rates;
-	mutable float observed_refresh_rate = 0;
-	std::chrono::steady_clock::time_point refresh_rate_poll;
-	bool refresh_rate_external = false;
+	// Per eye, logged every 5 s: how long the picture went without a new frame (hitches)
+	struct display_gaps
+	{
+		XrTime window_start = 0;
+		std::array<uint64_t, 2> frame{};
+		std::array<XrTime, 2> since{}, longest{};
+		std::array<int, 2> over_50ms{};
+		int repeats = 0;
+	} gaps;
 	std::atomic<XrDuration> real_display_period = 0;
 	std::optional<std::thread> tracking_thread;
 
 	std::shared_mutex decoder_mutex;
+
+	// Frame shell: this PC's monitors, and its number for the shell
+	const uint32_t shell_source = frame_shell::next_source();
+	std::shared_ptr<frame_shell::desktop_receiver> desktop;
+	// Whether this PC presents VR. On standby it keeps its session, monitors and applications, but has no video
+	// decoders and sends no tracking; speaker audio remains available from every connected PC.
+	std::atomic<bool> video_active = true;
+	// Asked for by the lobby, applied on the network thread
+	std::atomic<bool> wanted_active = true;
+	std::atomic<bool> wanted_background = true;
+	bool background_active = true;
+	bool frame_prepared = false;
+	std::optional<to_headset::video_stream_description> standby_video;
+	bool microphone_requested = false;
+	std::chrono::steady_clock::time_point standby_keepalive{};
+	void apply_video_active();
+	void teardown_video();
 	std::optional<to_headset::video_stream_description> video_stream_description;
-	thread_safe<std::optional<to_headset::video_stream_description>> pending_video_description;
-	std::atomic<uint64_t> stream_generation = 0;
-	std::atomic<uint64_t> failed_generation = 0;
-	std::optional<std::chrono::steady_clock::time_point> video_settings_changed;
-	std::chrono::steady_clock::time_point video_change_grace_until;
+	std::atomic<uint64_t> video_generation = 0;
 	std::array<accumulator_images, decoder_count> decoders; // Locked by decoder_mutex
 
 	std::optional<stream_defoveator> defoveator;
@@ -135,11 +162,17 @@ private:
 		state_.compare_exchange_strong(prev, new_state);
 	}
 
-	client_foveation::center foveation_center;
 	xr::swapchain swapchain;
-	uint64_t swapchain_generation = 0;
 
 	std::optional<audio> audio_handle;
+	// XR_FRAME_foveated_projection per view, regenerated when the frame's foveation changes
+	std::array<std::optional<wyrm::foveation_description>, 2> foveated_layer_cache;
+	std::array<XrCompositionLayerProjectionFoveationFRAME, 2> foveated_layer_info{};
+	std::array<wyrm::sharpening_region, 2> foveated_layer_sharpening{};
+	std::array<bool, 2> foveated_layer_valid{};
+#if WYRM_FRAME_EYES
+	std::unique_ptr<frame_eyes::tracker> eye_tracker;
+#endif
 
 	std::optional<xr::hand_tracker> left_hand;
 	std::optional<xr::hand_tracker> right_hand;
@@ -208,6 +241,10 @@ private:
 	glm::vec3 world_gui_position;
 	glm::quat world_gui_orientation;
 
+	bool override_foveation_enable;
+	float override_foveation_pitch; // The pitch is the opposite as the height displayed in the GUI
+	float override_foveation_distance;
+
 	// Which controller is used for recentering and position of the GUI relative to the controller, in controller axes, during recentering
 	std::optional<std::tuple<xr::spaces, glm::vec3, glm::quat>> recentering_context;
 	void update_gui_position(xr::spaces controller, float predicted_display_period);
@@ -229,9 +266,45 @@ public:
 	        std::unique_ptr<wyrm_session> session,
 	        float guessed_fps,
 	        std::string server_name,
-	        scene & parent_scene);
+	        std::string cookie,
+	        scene & parent_scene,
+	        bool video_active = true);
 
-	void prepare_video_stream(); // render thread; also called while connecting from the lobby
+	// The PC's key in the configuration's servers
+	std::string cookie;
+	configuration::stream_config & pc_settings() const
+	{
+		return application::get_config().stream(cookie);
+	}
+#ifndef __ANDROID__
+	// Frame shell: refuses a render size change while the PC's app can't take one
+	bool resolution_locked();
+	// Sends a changed stream setting ("setting" command key) to the PC
+	void setting_changed(std::string_view key);
+	// Which links the stream uses ("dongle", "all" or "fastest"); applied on the network thread
+	void set_link_mode(std::string_view mode);
+#endif
+
+	// Frame shell: present this PC's VR or put it on standby (other PCs connected)
+	void set_video_active(bool active)
+	{
+		wanted_active = active;
+	}
+	bool is_video_active() const
+	{
+		return wanted_active;
+	}
+	uint32_t shell_source_id() const
+	{
+		return shell_source;
+	}
+
+	void set_background_active(bool active)
+	{
+		wanted_background = active;
+	}
+	void render_into(const XrFrameState &, scene * composition);
+	void finish_frame(const XrFrameState &);
 	void render(const XrFrameState &) override;
 	void on_focused() override;
 	void on_unfocused() override;
@@ -248,8 +321,10 @@ public:
 	void operator()(to_headset::pin_check_2 &&) {};
 	void operator()(to_headset::pin_check_4 &&) {};
 	void operator()(to_headset::handshake &&) {};
+	void video_stream_failed(uint64_t generation, const std::string & error) override;
+	void operator()(to_headset::network_report &&);
 	void operator()(to_headset::server_message &&);
-	void operator()(to_headset::video_stream_data_shard &&);
+	void operator()(to_headset::video_shard &&);
 	void operator()(to_headset::haptics &&);
 	void operator()(to_headset::timesync_query &&);
 	void operator()(to_headset::tracking_control &&);
@@ -259,15 +334,16 @@ public:
 	void operator()(to_headset::refresh_rate_change &&);
 	void operator()(to_headset::stream_tab_change &&);
 	void operator()(to_headset::application_list &&);
-	void operator()(to_headset::network_report &&);
 	void operator()(to_headset::application_icon &&);
 	void operator()(to_headset::running_applications &&);
+	void operator()(to_headset::desktop_surface &&);
+	void operator()(to_headset::shell_message &&);
 	void operator()(audio_data &&);
 
-	void push_blit_handle(wyrm::shard_accumulator * decoder, std::shared_ptr<wyrm::shard_accumulator::blit_handle> handle);
+	void push_blit_handle(wyrm::shard_accumulator * decoder, std::shared_ptr<wyrm::shard_accumulator::blit_handle> handle) override;
 
 	void send_feedback(const wyrm::from_headset::feedback & feedback);
-	void video_stream_failed(uint64_t generation, const std::string & error);
+	void send_nack(wyrm::from_headset::video_nack &&);
 
 	state current_state() const
 	{
@@ -284,21 +360,85 @@ public:
 	void exit();
 	void start_application(std::string appid);
 
+#ifndef __ANDROID__
+	// Frame shell: commands from and state for the shell's UI, on the network thread
+	void poll_shell();
+	void capture_decode(const wyrm::from_headset::feedback & feedback, bool error, int64_t target_ns = 0) override;
+	// Render size, stream size and codecs from the current configuration
+	from_headset::stream_settings stream_settings();
+	std::string shell_state;
+	std::string shell_video_debug = "null";
+	std::string shell_eyes_debug = "null";
+	// The last five seconds of the VR stream (render thread), for the Wyrm tab
+	std::mutex shell_vr_debug_mutex;
+	std::string shell_vr_debug = "null";
+	// The last second of frame, bandwidth and latency timings (render thread), for the Wyrm tab
+	struct shell_stats_window
+	{
+		XrTime start = 0;
+		int frames = 0;
+		double cpu = 0;
+		double gpu = 0;
+		// Milliseconds a frame spends in each stage, summed over the frames of the window
+		double encode = 0;
+		double send = 0;
+		double network = 0;
+		double decode = 0;
+		double wait = 0;
+		double display = 0;
+		int timed = 0;
+		int partial = 0;
+		int fec_recovered = 0;
+		int resent = 0;
+	} shell_stats_acc;
+	std::vector<uint64_t> shell_stats_last_frame;
+	// Diagnostics, off by default: a request file starts a capture of every frame's timings (see poll_shell)
+	std::mutex shell_capture_mutex;
+	std::ofstream shell_capture;
+	std::atomic<bool> shell_capturing{false};
+	std::chrono::steady_clock::time_point shell_capture_end{};
+	// Render thread: the headset clock when the capture's first frame was seen
+	XrTime shell_capture_xr0 = 0;
+	void capture_line(const std::string & line);
+	std::mutex shell_stats_mutex;
+	std::string shell_stats = "null";
+	std::chrono::steady_clock::time_point shell_stats_time{};
+	// The connection's links as JSON (refreshed once a second), for the Wyrm tab
+	std::string shell_links = "[]";
+	std::mutex shell_link_mutex;
+	std::optional<std::string> shell_link_request;
+	// Network thread: the mode in use, the interface the stream is pinned to, when it stopped working, and when it may be pinned again
+	std::string shell_link_mode;
+	std::string shell_link_pinned;
+	std::chrono::steady_clock::time_point shell_link_lost{};
+	std::chrono::steady_clock::time_point shell_link_retry{};
+	std::chrono::steady_clock::time_point shell_next_links{};
+	std::chrono::steady_clock::time_point shell_next_debug{};
+	std::chrono::steady_clock::time_point shell_next_state{};
+	uint16_t shell_encoded_width = 0, shell_encoded_height = 0;
+	std::chrono::steady_clock::time_point shell_next_running_query{};
+	std::chrono::steady_clock::time_point shell_next_apps_query{};
+	// The Wi-Fi link to the PC (signal, rates) as JSON for the shell
+	std::mutex network_status_mutex;
+	std::string network_status = "null";
+	std::jthread network_status_thread;
+#endif
+
 	static meta & get_meta_scene();
 	std::optional<std::string> pop_stream_error();
 
 private:
 	void process_packets();
+	void send_link_settings();
 	void tracking();
 	void read_actions();
 
 	void on_interaction_profile_changed(const XrEventDataInteractionProfileChanged &);
 	void send_derived_pose();
 
-	void setup(const to_headset::video_stream_description &);
-	from_headset::headset_info_packet headset_info(float guessed_fps) const;
-	void setup_reprojection_swapchain(uint32_t width, uint32_t height, bool foveation);
-	void ensure_foveation_mode(bool cropped, uint32_t width, uint32_t height);
+	void wait_for_frame();
+	void setup(const to_headset::video_stream_description &) noexcept;
+	void setup_reprojection_swapchain(uint32_t width, uint32_t height);
 
 	vk::raii::QueryPool query_pool = nullptr;
 	bool query_pool_filled = false;
@@ -366,7 +506,6 @@ private:
 
 	void accumulate_metrics(XrTime predicted_display_time, const std::array<std::shared_ptr<wyrm::shard_accumulator::blit_handle>, decoder_count> & blit_handles, const gpu_timestamps & timestamps);
 	void gui_performance_metrics();
-	void gui_network_links();
 	void gui_compact_view();
 	void gui_settings(float predicted_display_period);
 	void gui_bitrate_settings(float predicted_display_period);

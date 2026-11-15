@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "multilink.h"
+#include "network_impairment.h"
 #include "xor_fec.h"
 
 #include <algorithm>
@@ -129,6 +130,7 @@ struct multilink::implementation
 	struct socket
 	{
 		int fd;
+		uint64_t identity = 0;
 		network_endpoint local;
 		socket(int fd, network_endpoint local) : fd(fd), local(std::move(local)) {}
 		socket(const socket &) = delete;
@@ -153,6 +155,9 @@ struct multilink::implementation
 		clock::time_point next_control{};
 		double finish = 0;
 		double min_rtt = 1e9;
+		double latest_rtt_ms = 0;
+		uint64_t unknown_acks = 0;
+		double ack_age_max_ms = 0;
 		// Lowest RTT of the last 10 s, as a congestion baseline that follows lasting route changes
 		std::deque<std::pair<clock::time_point, double>> rtt_window;
 		// Grow quickly until the first congestion signal, like TCP slow start
@@ -184,6 +189,7 @@ struct multilink::implementation
 		uint64_t control_dependency = 0;
 		size_t cursor = 0;
 		clock::time_point deadline{};
+		clock::time_point target_deadline{};
 		std::vector<bool> acknowledged_fragments;
 	};
 	struct assembly
@@ -216,6 +222,8 @@ struct multilink::implementation
 	bool include_loopback;
 	uint64_t generation = network_generation();
 	std::vector<std::unique_ptr<socket>> sockets;
+	uint64_t next_socket_identity = 0;
+	std::unique_ptr<network_impairment> impairment;
 	std::vector<network_endpoint> remote_endpoints;
 	std::vector<clock::time_point> remote_seen;
 	std::vector<path> paths;
@@ -240,6 +248,7 @@ struct multilink::implementation
 	size_t reliable_video_bytes = 0;
 	multilink_options options;
 	multilink_diagnostics counters;
+	video_queue_drop_observer video_drop_observer = nullptr;
 	size_t bulk_bytes = 0;
 	std::map<uint64_t, std::vector<uint8_t>> fec_received;
 	std::deque<std::pair<clock::time_point, uint64_t>> fec_expiry;
@@ -277,6 +286,8 @@ struct multilink::implementation
 			throw std::invalid_argument("Invalid multilink endpoints");
 		if (not encrypt or not decrypt)
 			throw std::runtime_error("Cannot allocate multilink encryption context");
+		if (server)
+			impairment = network_impairment::from_environment();
 		try
 		{
 			ready = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
@@ -328,6 +339,7 @@ struct multilink::implementation
 		{
 			const int fd = open_network_socket(local);
 			auto item = std::make_unique<socket>(fd, local);
+			item->identity = ++next_socket_identity;
 			sockaddr_storage address{};
 			socklen_t size = sizeof(address);
 			if (getsockname(fd, reinterpret_cast<sockaddr *>(&address), &size) != 0)
@@ -433,6 +445,21 @@ struct multilink::implementation
 		return options.fec_group_size and p.stats.loss > 0.005 and p.stats.loss < 0.1 and p.stats.rtt_ms < p.min_rtt + 5 and p.stats.sent_bps < p.stats.capacity_bps * 0.95;
 	}
 
+	ssize_t send_impaired_wire(const network_impairment::route & destination, std::span<const uint8_t> wire)
+	{
+		if (destination.socket_index >= sockets.size() or destination.path_index >= paths.size()
+		    or sockets[destination.socket_index]->fd != destination.fd
+		    or sockets[destination.socket_index]->identity != destination.socket_identity
+		    or sockets[destination.socket_index]->local != destination.local
+		    or paths[destination.path_index].socket_index != destination.socket_index
+		    or not(paths[destination.path_index].peer == destination.peer))
+		{
+			errno = ESTALE;
+			return -1;
+		}
+		return send_network_packet(destination.fd, destination.local, destination.peer, wire);
+	}
+
 	bool transmit(size_t index, kind type, uint64_t id, uint16_t fragment, uint16_t count, std::span<const uint8_t> payload = {}, clock::time_point deadline = {})
 	{
 		if (index >= paths.size() or payload.size() > (type == kind::parity ? 1200 : fragment_size))
@@ -465,7 +492,10 @@ struct multilink::implementation
 		    EVP_EncryptFinal_ex(encrypt.get(), wire.data() + 12 + length, &final) != 1 or
 		    EVP_CIPHER_CTX_ctrl(encrypt.get(), EVP_CTRL_GCM_GET_TAG, 16, wire.data() + wire.size() - 16) != 1)
 			throw std::runtime_error("Multilink encryption failed");
-		const auto result = send_network_packet(fd, p.stats.local, p.peer, wire);
+		const auto result = impairment
+		                          ? impairment->send(clock::now(), {index, p.socket_index, sockets[p.socket_index]->identity, fd, p.stats.local, p.peer}, wire,
+		                                             [this](const auto & destination, auto bytes) { return send_impaired_wire(destination, bytes); })
+		                          : send_network_packet(fd, p.stats.local, p.peer, wire);
 		if (result < 0)
 		{
 			if (errno != EAGAIN and errno != EWOULDBLOCK and errno != ENOBUFS)
@@ -679,6 +709,7 @@ struct multilink::implementation
 				else if (auto probe = p.probes.find(id); probe != p.probes.end() and now >= probe->second)
 				{
 					const double sample = std::chrono::duration<double, std::milli>(now - probe->second).count();
+					p.latest_rtt_ms = sample;
 					p.probes.erase(probe);
 					p.stats.jitter_ms = p.validated ? 0.8 * p.stats.jitter_ms + 0.2 * std::abs(sample - p.stats.rtt_ms) : 0;
 					p.stats.rtt_ms = p.validated ? 0.8 * p.stats.rtt_ms + 0.2 * sample : sample;
@@ -717,6 +748,8 @@ struct multilink::implementation
 					{
 						auto & sent_path = paths[it->second.path_index];
 						sent_path.acknowledged += it->second.bytes;
+						if (impairment)
+							sent_path.ack_age_max_ms = std::max(sent_path.ack_age_max_ms, std::chrono::duration<double, std::milli>(now - it->second.time).count());
 						sent_path.latest_acked_send = std::max(sent_path.latest_acked_send, it->second.time);
 						group_acked += it->second.bytes;
 						if (it->second.reliable)
@@ -724,6 +757,8 @@ struct multilink::implementation
 								message->second.acknowledged_fragments[it->second.fragment] = true;
 						transmissions.erase(it);
 					}
+					else if (impairment)
+						++p.unknown_acks;
 				}
 			}
 			else if (type == kind::check_delivery)
@@ -926,6 +961,8 @@ struct multilink::implementation
 
 	void tick(clock::time_point now)
 	{
+		if (impairment)
+			impairment->pump(now, [this](const auto & destination, auto bytes) { return send_impaired_wire(destination, bytes); });
 		if (refresh and now - last_refresh >= 1s)
 		{
 			last_refresh = now;
@@ -1002,8 +1039,11 @@ struct multilink::implementation
 				const double rtt_floor = p.rtt_window.empty() ? p.min_rtt : p.rtt_window.front().second;
 				// A path without traffic gives no evidence; keep its estimate for when it is used again.
 				const bool loaded = p.sent >= 20;
+				const auto capacity_before = p.stats.capacity_bps;
+				const char * action = "idle";
 				if (loaded and p.stats.loss > options.loss_threshold)
 				{
+					action = "loss";
 					p.stats.capacity_bps = std::max<uint64_t>(1'000'000, p.stats.capacity_bps * 0.8);
 					p.slow_start = false;
 				}
@@ -1011,11 +1051,25 @@ struct multilink::implementation
 				// alone must not erase the estimate.
 				else if (loaded and p.stats.rtt_ms > rtt_floor + 5)
 				{
-					p.stats.capacity_bps = std::min<uint64_t>(p.stats.capacity_bps, std::max({1'000'000.0, p.stats.capacity_bps * 0.8, observed * 0.9}));
+					// A fresh healthy probe stops repeated cuts from old RTT samples.
+					const bool recovered = now - p.confirmed <= 200ms and p.latest_rtt_ms <= rtt_floor + 5;
+					action = recovered ? "rtt_hold" : "rtt";
+					if (not recovered)
+						p.stats.capacity_bps = std::min<uint64_t>(p.stats.capacity_bps, std::max({1'000'000.0, p.stats.capacity_bps * 0.8, observed * 0.9}));
 					p.slow_start = false;
 				}
 				else if (observed > p.stats.capacity_bps * 0.7 * (fec_active(p) ? 0.8 : 1.0))
+				{
+					action = "grow";
 					p.stats.capacity_bps = std::min<uint64_t>(1'000'000'000, p.stats.capacity_bps * (p.slow_start ? 1.5 : 1.15));
+				}
+				if (impairment)
+					impairment->controller_sample(now, i, active(p, now), capacity_before, p.stats.capacity_bps,
+					                              p.sent, p.lost, p.acknowledged, p.unknown_acks, observed,
+					                              p.stats.rtt_ms, p.latest_rtt_ms, std::chrono::duration<double, std::milli>(now - p.confirmed).count(),
+					                              rtt_floor, p.ack_age_max_ms, action);
+				p.unknown_acks = 0;
+				p.ack_age_max_ms = 0;
 				p.acknowledged = p.lost = p.sent = 0;
 				p.sample_start = now;
 			}
@@ -1164,7 +1218,13 @@ struct multilink::implementation
 			if (now >= m.deadline or impossible)
 			{
 				if (m.video)
+				{
 					++counters.expired_video;
+					if (video_drop_observer)
+						video_drop_observer({m.data,
+						                     now >= m.deadline ? video_queue_drop_reason::deadline : video_queue_drop_reason::arrival_impossible,
+						                     m.created, now, m.deadline, m.target_deadline, m.cursor, queued_bytes});
+				}
 				queued_bytes -= m.data.size();
 				if (&queue == &pending and pending_skip)
 					--pending_skip;
@@ -1262,9 +1322,17 @@ struct multilink::implementation
 			return 0;
 		}
 		const bool reliable_video = reliable_packet and video_packet;
+		const auto report_rejected_video = [&] {
+			if (video_packet and video_drop_observer)
+			{
+				const auto now = clock::now();
+				video_drop_observer({bytes, video_queue_drop_reason::queue_full, now, now, {}, deadline, 0, queued_bytes});
+			}
+		};
 		if (reliable_video and (reliable_video_bytes + bytes.size() > 8 * 1024 * 1024 or std::ranges::count_if(reliable, [](const auto & item) { return item.second.reliable_video; }) >= 4096))
 		{
 			++counters.rejected_video;
+			report_rejected_video();
 			return 0;
 		}
 		const size_t essential_count = std::ranges::count_if(reliable, [](const auto & item) { return not item.second.bulk and not item.second.reliable_video; });
@@ -1277,10 +1345,12 @@ struct multilink::implementation
 					++counters.rejected_video;
 				else
 					++counters.rejected_bulk;
+				report_rejected_video();
 				return 0;
 			}
 			if (reliable_packet)
 				throw std::runtime_error("Multilink control queue exceeded: " + std::to_string(reliable.size()) + " messages, " + std::to_string(queued_bytes) + " bytes");
+			report_rejected_video();
 			return 0;
 		}
 		if (reliable_id >= video_bit - 1 or message_id >= video_bit - 1 or (bulk_id & (video_bit - 1)) >= video_bit - 1 or (video_id & (video_bit - 1)) >= video_bit - 1)
@@ -1303,7 +1373,8 @@ struct multilink::implementation
 		m.control_dependency = reliable_id;
 		if (bulk_packet)
 			bulk_bytes += size;
-		m.deadline = deadline == clock::time_point{} ? m.created + 25ms : std::min(deadline, m.created + 25ms);
+		m.deadline = deadline == clock::time_point{} ? m.created + 25ms : deadline;
+		m.target_deadline = deadline;
 		// Allow the bounded control queue to drain at the minimum reserved rate.
 		if (reliable_packet)
 		{
@@ -1451,6 +1522,30 @@ void multilink::set_options(multilink_options options)
 	if (not options.shared_bottleneck)
 		impl->coupled_capacity_bps = 0;
 }
+void multilink::set_video_queue_drop_observer(video_queue_drop_observer observer)
+{
+	if (not impl)
+		return;
+	std::lock_guard lock(impl->mutex);
+	impl->video_drop_observer = observer;
+}
+bool multilink::set_single_interface(std::string_view interface)
+{
+	if (not impl)
+		return false;
+	std::lock_guard lock(impl->mutex);
+	auto candidates = impl->usable(clock::now());
+	std::erase_if(candidates, [&](size_t i) { return impl->paths[i].stats.local.interface != interface; });
+	if (candidates.empty())
+		return false;
+	impl->single_path = *std::ranges::min_element(candidates, {}, [&](size_t i) {
+		return impl->arrival_delay_ms(impl->paths[i]) + 50 * impl->paths[i].stats.loss;
+	});
+	impl->refresh = impl->discover = false;
+	implementation::signal(impl->wake);
+	return true;
+}
+
 bool multilink::set_multilink_enabled(bool enabled)
 {
 	if (not impl)

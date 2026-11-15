@@ -59,6 +59,10 @@ struct configuration
 	bool use_steamvr_lh = false;
 	std::optional<int64_t> lh_max_extrapolation;
 	std::optional<float> lh_stick_deadzone;
+	// Prediction step of the headset's tracking samples, in ms (upstream: 3)
+	int tracking_sample_ms = 6;
+	// Steam Frame eye data to VRChat's native eye and face tracking OSC endpoints: host:port (empty: off)
+	std::string eye_osc = "127.0.0.1:9000";
 	bool hid_forwarding = false;
 	bool tcp_only = false;
 	bool multilink_fec = false;

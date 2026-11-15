@@ -24,5 +24,6 @@ inline interface_type classify_interface(std::string_view name, bool steam_vr, b
 	return interface_type::unknown;
 }
 
+interface_type interface_kind(std::string_view name);
 std::string interface_display_name(std::string_view name);
 } // namespace wyrm

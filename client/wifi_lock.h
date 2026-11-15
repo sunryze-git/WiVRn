@@ -19,13 +19,10 @@
 
 #pragma once
 #include <memory>
-#include <mutex>
 
 #ifdef __ANDROID__
 #include "android/jnipp.h"
-#else
-#include <string>
-#include <vector>
+#include <mutex>
 #endif
 
 class wifi_lock : public std::enable_shared_from_this<wifi_lock>
@@ -44,17 +41,6 @@ class wifi_lock : public std::enable_shared_from_this<wifi_lock>
 
 public:
 	static std::shared_ptr<wifi_lock> make_wifi_lock(jobject activity);
-#else
-	std::mutex mutex;
-	std::weak_ptr<void> wifi_weak;
-
-	struct network_entry
-	{
-		std::string path;
-		std::string value;
-	};
-
-	std::vector<network_entry> saved_networks;
 #endif
 
 public:

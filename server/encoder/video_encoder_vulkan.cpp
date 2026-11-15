@@ -74,12 +74,29 @@ public:
 	{
 		std::unique_lock lock(mutex);
 		bool pending = false; // has any data been sent?
+		uint64_t first_pending = -1;
 		for (auto & i: items)
 		{
 			if (i.acked)
 				return false;
 			if (i.info.slotIndex != -1)
+			{
 				pending = true;
+				first_pending = std::min(first_pending, i.frame_index);
+			}
+		}
+		// A keyframe that never reached the decoder would otherwise stop this stream for good: start over
+		if (pending and frame_id > first_pending + 36)
+		{
+			U_LOG_W("Keyframe %lu not acknowledged by the headset, sending another", first_pending);
+			for (auto & item: items)
+			{
+				item.frame_index = -1;
+				item.info.pPictureResource = nullptr;
+				item.info.slotIndex = -1;
+				item.acked = false;
+			}
+			return false;
 		}
 		if (pending and wyrm::keyframe_retry_due(std::chrono::steady_clock::now(), last_idr))
 		{
@@ -210,11 +227,15 @@ wyrm::video_encoder_vulkan::video_encoder_vulkan(
 	        .frameRateNumerator = uint32_t(settings.fps * 1'000'000),
 	        .frameRateDenominator = 1'000'000,
 	};
+	// Rate control window (encoder option buffer_ms): shorter keeps single frames closer to the average size
+	uint32_t buffer_ms = 1'000;
+	if (auto it = settings.options.find("buffer_ms"); it != settings.options.end())
+		buffer_ms = std::clamp(std::stoul(it->second), 10ul, 1'000ul);
 	rate_control = vk::VideoEncodeRateControlInfoKHR{
 	        .layerCount = 1,
 	        .pLayers = &rate_control_layer,
-	        .virtualBufferSizeInMs = 1'000,
-	        .initialVirtualBufferSizeInMs = 500,
+	        .virtualBufferSizeInMs = buffer_ms,
+	        .initialVirtualBufferSizeInMs = buffer_ms / 2,
 	};
 
 	if (encode_caps.rateControlModes & vk::VideoEncodeRateControlModeFlagBitsKHR::eCbr)
@@ -668,7 +689,7 @@ void wyrm::video_encoder_vulkan::present_image(vk::Image y_cbcr, vk::SemaphoreSu
 	{
 		assert(*slot_item.view);
 		image_view = slot_item.view;
-		compositor_sem.stageMask = vk::PipelineStageFlagBits2::eCopy;
+		compositor_sem.stageMask = need_transfer ? vk::PipelineStageFlagBits2::eAllCommands : vk::PipelineStageFlagBits2::eCopy;
 
 		beman::inplace_vector::inplace_vector<vk::ImageMemoryBarrier2, 2> im_barriers;
 		if (need_transfer)
@@ -771,7 +792,7 @@ void wyrm::video_encoder_vulkan::present_image(vk::Image y_cbcr, vk::SemaphoreSu
 	}
 	else
 	{
-		compositor_sem.stageMask = vk::PipelineStageFlagBits2::eVideoEncodeKHR;
+		compositor_sem.stageMask = need_transfer ? vk::PipelineStageFlagBits2::eAllCommands : vk::PipelineStageFlagBits2::eVideoEncodeKHR;
 		// Single barrier: when need_transfer, this is the QFOT acquire and
 		// carries the layout transition (eGeneral → target_layout) per the
 		// VkImageMemoryBarrier2 spec (executed once between the queues).
@@ -1015,7 +1036,9 @@ void wyrm::video_encoder_vulkan::present_image(vk::Image y_cbcr, vk::SemaphoreSu
 		vk::SemaphoreSubmitInfo signal_info{
 		        .semaphore = *sem,
 		        .value = ++sem_value,
-		        .stageMask = vk::PipelineStageFlagBits2::eVideoEncodeKHR,
+			        .stageMask = *slot_item.transfer_cmd_buf and encode_queue.family_index != vk.transfer_queue.family_index
+			                             ? vk::PipelineStageFlagBits2::eAllCommands
+			                             : vk::PipelineStageFlagBits2::eVideoEncodeKHR,
 		};
 
 		std::unique_lock lock(encode_queue.mutex);
@@ -1040,7 +1063,9 @@ void wyrm::video_encoder_vulkan::present_image(vk::Image y_cbcr, vk::SemaphoreSu
 		vk::SemaphoreSubmitInfo wait_info{
 		        .semaphore = *sem,
 		        .value = sem_value,
-		        .stageMask = vk::PipelineStageFlagBits2::eTransfer,
+			        .stageMask = encode_queue.family_index != vk.transfer_queue.family_index
+			                             ? vk::PipelineStageFlagBits2::eAllCommands
+			                             : vk::PipelineStageFlagBits2::eTransfer,
 		};
 
 		std::unique_lock lock(vk.transfer_queue.mutex);

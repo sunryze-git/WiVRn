@@ -7,7 +7,7 @@
 
 namespace wyrm
 {
-std::string interface_display_name(std::string_view name)
+interface_type interface_kind(std::string_view name)
 {
 	static const bool steam_vr = [] {
 		std::ifstream release("/etc/os-release");
@@ -29,8 +29,14 @@ std::string interface_display_name(std::string_view name)
 		const bool wireless = std::filesystem::exists(base / "phy80211", error) or std::filesystem::exists(base / "wireless", error);
 		it = types.emplace(name, classify_interface(name, steam_vr, wireless)).first;
 	}
-	const char * label = nullptr;
-	switch (it->second)
+	return it->second;
+}
+
+std::string interface_display_name(std::string_view name)
+{
+	const auto kind = interface_kind(name);
+	std::string label;
+	switch (kind)
 	{
 		case interface_type::wifi:
 			label = _S("Wi-Fi");

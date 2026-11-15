@@ -83,7 +83,7 @@ struct android_blit_handle : public decoder::blit_handle
 	AImage_ptr aimage;
 	android_blit_handle(
 	        const wyrm::from_headset::feedback & feedback,
-	        const wyrm::to_headset::video_stream_data_shard::view_info_t & view_info,
+	        const wyrm::to_headset::video_frame_info::view_info_t & view_info,
 	        vk::ImageView image_view,
 	        vk::Image image,
 	        vk::Extent2D extent,
@@ -251,7 +251,7 @@ void decoder::push_data(std::span<std::span<const uint8_t>> data, uint64_t frame
 	current_input_buffer = input_buffer{};
 }
 
-void decoder::frame_completed(const wyrm::from_headset::feedback & feedback, const wyrm::to_headset::video_stream_data_shard::view_info_t & view_info)
+void decoder::frame_completed(const wyrm::from_headset::feedback & feedback, const wyrm::to_headset::video_frame_info::view_info_t & view_info)
 {
 	generation = feedback.generation;
 	if (not media_codec)

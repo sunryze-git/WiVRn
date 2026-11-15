@@ -19,10 +19,13 @@
 
 #include "configuration.h"
 #include "application.h"
+#include "decoder/decoder.h"
 #include "utils/contains.h"
 #include "utils/json_string.h"
 #include "wyrm_packets.h"
+#include "wyrm_config.h"
 
+#include <algorithm>
 #include <fstream>
 #include <functional>
 #include <magic_enum.hpp>
@@ -39,10 +42,11 @@ static const float max_default_rate = 100;
 
 // key <-> member serialization descriptor for scalar settings (see config_fields()).
 // The few settings that aren't scalars are handled explicitly in save()/load().
+template <typename Owner>
 struct config_field
 {
-	std::function<void(std::ostream &, const configuration &)> save;
-	std::function<void(simdjson::dom::element, configuration &)> load;
+	std::function<void(std::ostream &, const Owner &)> save;
+	std::function<void(simdjson::dom::element, Owner &)> load;
 };
 
 namespace
@@ -127,11 +131,11 @@ std::optional<T> read_value(simdjson::simdjson_result<simdjson::dom::element> va
 
 // build a field for a plain member: bool / float / integral / std::string / enum,
 // optionally wrapped in std::optional (only written when set)
-template <typename T>
-config_field scalar(const char * key, T configuration::* member)
+template <typename Owner, typename T>
+config_field<Owner> scalar(const char * key, T Owner::* member)
 {
 	return {
-	        .save = [key, member](std::ostream & json, const configuration & c) {
+	        .save = [key, member](std::ostream & json, const Owner & c) {
 		        if constexpr (is_optional_v<T>)
 		        {
 			        if (c.*member)
@@ -145,7 +149,7 @@ config_field scalar(const char * key, T configuration::* member)
 			        json << ",\"" << key << "\":";
 			        write_value(json, c.*member);
 		        } },
-	        .load = [key, member](simdjson::dom::element root, configuration & c) {
+	        .load = [key, member](simdjson::dom::element root, Owner & c) {
 		        if (auto v = read_value<typename remove_optional<T>::type>(root[key]))
 			        c.*member = *v; },
 	};
@@ -255,6 +259,15 @@ configuration::configuration(xr::system & system, xr::session & session, const s
 			                .txt = {{"cookie", (std::string)i["cookie"]}}
 
 			        }};
+			data.remembered = true;
+			if (auto stream = i["stream"]; stream.is_object())
+				for (const auto & f: stream_fields())
+					f.load(stream.value(), data.stream);
+			if (data.stream.codec and not wyrm::decoder::supports_codec(*data.stream.codec))
+			{
+				spdlog::warn("Saved codec {} is unavailable for {}; using automatic codec selection", magic_enum::enum_name(*data.stream.codec), data.service.name);
+				data.stream.codec.reset();
+			}
 			servers.emplace(data.service.txt["cookie"], data);
 		}
 
@@ -312,12 +325,29 @@ configuration::configuration(xr::system & system, xr::session & session, const s
 	}
 }
 
-const std::vector<config_field> & configuration::config_fields()
+const std::vector<config_field<configuration::stream_config>> & configuration::stream_fields()
 {
-	static const std::vector<config_field> fields = {
-	        scalar("resolution_scale", &configuration::resolution_scale),
-	        scalar("bitrate_bps", &configuration::bitrate_bps),
+	static const std::vector<config_field<stream_config>> fields = {
+	        scalar("resolution_scale", &stream_config::resolution_scale),
+	        scalar("codec", &stream_config::codec),
+	        scalar("bitrate_bps", &stream_config::bitrate_bps),
+	        scalar("desktop_bitrate_kbps", &stream_config::desktop_bitrate_kbps),
+	        scalar("desktop_codec", &stream_config::desktop_codec),
+	        scalar("fec_percent", &stream_config::fec_percent),
+	        scalar("frame_margin_ms", &stream_config::frame_margin_ms),
+	        scalar("stream_scale", &stream_config::stream_scale),
+	};
+	return fields;
+}
+
+const std::vector<config_field<configuration>> & configuration::config_fields()
+{
+	static const std::vector<config_field<configuration>> fields = {
+	        scalar("eye_expressions", &configuration::eye_expressions),
+	        scalar("eye_expressions_divisor", &configuration::eye_expressions_divisor),
 	        scalar("multilink_enabled", &configuration::multilink_enabled),
+	        scalar("link_mode", &configuration::link_mode),
+	        scalar("runtime_defoveation", &configuration::runtime_defoveation),
 	        scalar("enable_stream_gui", &configuration::enable_stream_gui),
 	        scalar("app_list_view", &configuration::app_list_view),
 	        scalar("app_icon_size", &configuration::app_icon_size),
@@ -345,8 +375,6 @@ const std::vector<config_field> & configuration::config_fields()
 	        scalar("extended_config", &configuration::extended_config),
 	        scalar("preferred_refresh_rate", &configuration::preferred_refresh_rate),
 	        scalar("minimum_refresh_rate", &configuration::minimum_refresh_rate),
-	        scalar("stream_scale", &configuration::stream_scale),
-	        scalar("codec", &configuration::codec),
 	        scalar("bit_depth", &configuration::bit_depth),
 	        scalar("usb_network", &configuration::usb_network),
 	        scalar("height_offset_standing", &configuration::height_offset_standing),
@@ -364,7 +392,7 @@ void configuration::save()
 
 	for (auto & [cookie, server_data]: servers)
 	{
-		if (server_data.autoconnect or server_data.manual)
+		if (server_data.autoconnect or server_data.manual or server_data.remembered)
 		{
 			ss << "{";
 			ss << "\"autoconnect\":" << std::boolalpha << server_data.autoconnect << ",";
@@ -373,7 +401,12 @@ void configuration::save()
 			ss << "\"hostname\":" << json_string(server_data.service.hostname) << ",";
 			ss << "\"port\":" << server_data.service.port << ",";
 			ss << "\"tcp_only\":" << std::boolalpha << server_data.service.tcp_only << ",";
-			ss << "\"cookie\":" << json_string(cookie);
+			ss << "\"cookie\":" << json_string(cookie) << ",";
+			std::stringstream stream;
+			for (const auto & f: stream_fields())
+				f.save(stream, server_data.stream);
+			// Each field starts with a comma
+			ss << "\"stream\":{" << stream.str().substr(1) << "}";
 			ss << "},";
 		}
 	}
@@ -393,19 +426,6 @@ void configuration::save()
 	json << ",\"openxr_post_processing\":{\"super_sampling\":" << openxr_post_processing.super_sampling;
 	json << ",\"sharpening\":" << openxr_post_processing.sharpening << "}";
 
-	{
-		bool first = true;
-		json << ",\"body_parts\": {";
-		for (const auto & [b, name]: magic_enum::enum_entries<wyrm::from_headset::body_part_mask>())
-		{
-			if (not first)
-				json << ",";
-			first = false;
-			json << '"' << name << "\":" << std::boolalpha << bool(body_part_mask & std::to_underlying(b));
-		}
-		json << "}";
-	}
-
 	// feature flags, keyed by enum name
 	for (auto & [key, value]: features)
 		json << "," << key << ":" << std::boolalpha << value;
@@ -413,16 +433,32 @@ void configuration::save()
 	json << "}";
 }
 
-void configuration::set_stream_scale(float val)
+void configuration::set_stream_scale(stream_config & stream, float val)
 {
-	stream_scale = val;
+	// Kept as chosen: get_stream_scale applies the decoder's size limit
+	stream.stream_scale = std::clamp(val, 0.2f, 1.f);
 }
 
-float configuration::get_stream_scale() const
+float configuration::get_stream_scale(const stream_config & stream) const
 {
-	if (stream_scale)
-		return *stream_scale;
-	return get_default_stream_scale();
+	return std::min(chosen_stream_scale(stream), max_stream_scale(stream));
+}
+
+float configuration::max_stream_scale([[maybe_unused]] const stream_config & stream) const
+{
+#if WYRM_USE_V4L2
+	static const auto native_size = [] {
+		auto view = application::get_system().view_configuration_views(XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO)[0];
+		view = application::get_hmd_traits().override_view(view);
+		return std::max(view.recommendedImageRectWidth, view.recommendedImageRectHeight);
+	}();
+	// Iris mock tests passed at 2624 and failed at 2816; leave headroom at 2432 pixels per eye.
+	constexpr uint32_t max_encoded_size = 2432;
+	auto percent = std::min(100, int(std::floor(max_encoded_size / (native_size * stream.resolution_scale) * 20)) * 5);
+	return percent / 100.f;
+#else
+	return 1.f;
+#endif
 }
 
 float configuration::get_default_stream_scale() const

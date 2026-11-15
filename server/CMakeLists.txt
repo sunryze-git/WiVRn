@@ -53,8 +53,7 @@ set(XRT_FEATURE_OPENXR_INTERACTION_TOUCH_PRO     ON)
 set(XRT_FEATURE_OPENXR_INTERACTION_TOUCH_PLUS    ON)
 set(XRT_FEATURE_OPENXR_LAYER_COLOR_SCALE_BIAS    ON)
 set(XRT_FEATURE_OPENXR_LAYER_DEPTH              OFF)
-set(XRT_FEATURE_OPENXR_VARJO_QUAD_VIEWS          ON)
-set(XRT_FEATURE_OPENXR_SPACE_UNBOUNDED          OFF)
+set(XRT_FEATURE_OPENXR_VARJO_QUAD_VIEWS OFF)
 
 set(XRT_HAVE_BLUETOOTH               OFF)
 set(XRT_HAVE_GST                     OFF)
@@ -130,6 +129,7 @@ if (WYRM_BUILD_SERVER)
 			driver/view_list.cpp
 			driver/wyrm_hmd.cpp
 			driver/wyrm_controller.cpp
+			driver/eye_osc.cpp
 			driver/wyrm_eye_tracker.cpp
 			driver/wyrm_gamepad.cpp
 			driver/wyrm_android_face_tracker.cpp
@@ -222,6 +222,18 @@ if (WYRM_BUILD_SERVER)
 		target_link_libraries(wyrm-server PRIVATE PkgConfig::libpipewire)
 	endif()
 
+	# The frame shell's PC host services: a Rust static library from desktop/
+	set(FRAME_HOST_LIBRARY "" CACHE FILEPATH "libframe_host.a, built from the frame shell's desktop/")
+	if(NOT FRAME_HOST_LIBRARY)
+		message(FATAL_ERROR "Set FRAME_HOST_LIBRARY to libframe_host.a")
+	endif()
+	pkg_check_modules(FRAME_HOST REQUIRED IMPORTED_TARGET gstreamer-1.0 gstreamer-base-1.0 gstreamer-app-1.0 dbus-1 xkbcommon libpipewire-0.3)
+	target_include_directories(wyrm-server PRIVATE ${FRAME_ABI_INCLUDE_DIR})
+	# Needs the packets' OpenXR types, which wyrm-common is built without
+	target_sources(wyrm-server PRIVATE ../common/fec.cpp ../common/shard_stream.cpp)
+	target_link_libraries(wyrm-server PRIVATE leopard)
+	target_link_libraries(wyrm-server PRIVATE ${FRAME_HOST_LIBRARY} PkgConfig::FRAME_HOST PkgConfig::glib2 dl m rt util)
+
 	# Generate dbus interface code as a separate target to avoid warnings in generated code
 	add_custom_command(OUTPUT wyrm_server_dbus.c wyrm_server_dbus.h
 			   COMMAND ${GDBUS_CODEGEN} ${CMAKE_CURRENT_SOURCE_DIR}/../dbus/org.wyrmvr.Server.xml --interface-prefix org.wyrmvr --generate-c-code wyrm_server_dbus --c-namespace Wyrm
@@ -271,12 +283,23 @@ if (WYRM_BUILD_SERVER)
 		)
 
 	if(WYRM_BUILD_TEST)
-		if(WYRM_FEATURE_SOLARXR)
+        if(WYRM_FEATURE_SOLARXR)
+            file(READ "${monado_SOURCE_DIR}/src/xrt/drivers/solarxr/solarxr_ipc_socket.h" SOLARXR_IPC_SOCKET_HEADER)
+        endif()
+        if(WYRM_FEATURE_SOLARXR AND SOLARXR_IPC_SOCKET_HEADER MATCHES "solarxr_ipc_socket_reconnect")
 			add_executable(test-solarxr-ipc-socket test_solarxr_ipc_socket.c)
 			target_include_directories(test-solarxr-ipc-socket PRIVATE ${monado_SOURCE_DIR}/src/xrt/drivers/solarxr)
 			target_link_libraries(test-solarxr-ipc-socket PRIVATE drv_solarxr aux_util ipc_shared xrt-interfaces)
 			add_test(NAME solarxr-ipc-socket COMMAND test-solarxr-ipc-socket)
 		endif()
+		add_executable(test-frame-eyes test_frame_eyes.cpp driver/eye_osc.cpp
+			../client/frame_eyes/babble/model/postprocess/eye_post.cpp
+			../client/frame_eyes/babble/model/postprocess/one_euro.cpp)
+		target_include_directories(test-frame-eyes PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ../client/frame_eyes/babble)
+		target_link_libraries(test-frame-eyes PRIVATE wyrm-common aux_util)
+		add_test(NAME frame-eyes-calibration COMMAND test-frame-eyes --calibration)
+		add_test(NAME frame-eyes-native-osc COMMAND test-frame-eyes --osc)
+		set_tests_properties(frame-eyes-calibration frame-eyes-native-osc PROPERTIES TIMEOUT 5)
 		add_executable(test-discord-presence test_discord_presence.cpp discord_presence.cpp)
 		target_link_libraries(test-discord-presence PRIVATE nlohmann_json::nlohmann_json)
 		add_test(NAME discord-presence COMMAND test-discord-presence)

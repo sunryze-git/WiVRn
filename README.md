@@ -10,7 +10,7 @@
 
 # About
 
-Wyrm is a fork of [WiVRn](https://github.com/WiVRn/WiVRn), originally developed by Guillaume Meunier, Patrick Nicolas, and the WiVRn contributors. Original copyright and license notices are preserved.
+Wyrm is a fork of [Wyrm](https://github.com/Wyrm/Wyrm), originally developed by Guillaume Meunier, Patrick Nicolas, and the Wyrm contributors. Original copyright and license notices are preserved.
 
 Wyrm wirelessly streams a virtual reality game to a standalone VR headset from a <b>Linux</b> computer.
 
@@ -29,7 +29,7 @@ Wyrm supports a wide range of VR devices:
 | HTC Vive XR Elite | ✓ | Laggy |
 | Samsung Galaxy XR | ✓ |  |
 | Other Android VR | ? | Cannot know |
-| Play for Dream | ✖ | https://github.com/WiVRn/WiVRn/issues/465 |
+| Play for Dream | ✖ | https://github.com/Wyrm/Wyrm/issues/465 |
 | Non-Android VR | ✖ | Not Android |
 | Non-VR Android | ✖ | VR required |
 
@@ -40,7 +40,7 @@ Wyrm supports a wide range of VR devices:
 
 ## PC Server/Dashboard
 
-Build Wyrm from this source tree using the [build instructions](docs/building.md). Distribution packages and store listings for the upstream project install WiVRn rather than this fork.
+Build Wyrm from this source tree using the [build instructions](docs/building.md). Distribution packages and store listings for the upstream project install Wyrm rather than this fork.
 
 For OpenVR and Steam compatibility, you also need a compatibility library such as [xrizer](https://github.com/Supreeeme/xrizer/) or [OpenComposite](https://gitlab.com/znixian/OpenOVR/).
 
@@ -68,7 +68,7 @@ Avahi must be running:
 systemctl enable --now avahi-daemon
 ```
 
-On SteamOS, the Avahi configuration needs to be modified to allow user services such as Wyrm to publish services on the network; see https://github.com/WiVRn/WiVRn/issues/1001#issuecomment-4940906113 for instructions on how to do so.
+On SteamOS, the Avahi configuration needs to be modified to allow user services such as Wyrm to publish services on the network; see https://github.com/Wyrm/Wyrm/issues/1001#issuecomment-4940906113 for instructions on how to do so.
 
 - If a firewall is installed, open port 5353/UDP for Avahi and ports 9757/UDP+TCP for Wyrm.
 - For example, if using UFW run `ufw allow 5353/udp` and `ufw allow 9757`.
@@ -189,7 +189,7 @@ See [translating](docs/translating.md) for procedure.
 
 
 # Credits
-Wyrm builds on the work of the WiVRn developers and contributors.
+Wyrm builds on the work of the Wyrm developers and contributors.
 
 Wyrm uses the following software:
 - [ambientCG](https://ambientcg.com/)

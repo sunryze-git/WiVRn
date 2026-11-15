@@ -1,8 +1,10 @@
+#pragma once
 #include "wyrm_packets.h"
 #include "wyrm_sockets.h"
 
 #include <cstdint>
 #include <map>
+#include <set>
 #include <vector>
 
 #include <linux/uinput.h>
@@ -14,6 +16,10 @@ public:
 	wyrm_uinput() = default;
 
 	void handle_input(wyrm::from_headset::hid::input &);
+	void handle_shell_input(const wyrm::from_headset::shell_input &);
+	std::set<uint16_t> shell_keys;
+	std::set<uint16_t> shell_buttons;
+	float shell_scroll_x = 0, shell_scroll_y = 0;
 
 	// The gamepad device is created on the first packet with gamepad inputs
 	void handle_gamepad(const wyrm::from_headset::inputs &);

@@ -22,11 +22,13 @@
 #include "protocol_version.h"
 #include "secrets.h"
 #include "smp.h"
+#include "utils/wyrm_trace.h"
 #include "wyrm_ipc.h"
 #include "wyrm_packets.h"
 #include <algorithm>
 #include <arpa/inet.h>
 #include <chrono>
+#include <cstdlib>
 #include <poll.h>
 #include <regex>
 #include <sys/socket.h>
@@ -247,6 +249,24 @@ void wyrm::wyrm_connection::init(std::stop_token stop_token, std::function<void(
 		auto local = local_endpoints(port, primary.address.starts_with("127.") or primary.address == "::1");
 		stream = decltype(stream)(true, multilink_key, std::move(local));
 		stream.set_options({.fec_group_size = uint8_t(config.multilink_fec ? 4 : 0), .aggregate_limit_bps = config.multilink_rate_limit, .shared_bottleneck = config.multilink_shared_bottleneck});
+		// The runtime initializes tracing after establishing this connection.
+		if (std::getenv("WYRM_TRACING"))
+			stream.set_video_queue_drop_observer([](const video_queue_drop & drop) {
+				if (not trace::is_enabled())
+					return;
+				std::array<uint8_t, 1 + 2 * sizeof(uint32_t) + 2 * sizeof(uint64_t) + sizeof(uint16_t)> header;
+				if (drop.packet.size() < header.size())
+					return;
+				std::copy_n(drop.packet.begin(), header.size(), header.begin());
+				deserialization_packet packet({}, header);
+				packet.deserialize<uint8_t>();
+				const auto stream = packet.deserialize<uint32_t>();
+				const auto generation = packet.deserialize<uint32_t>();
+				const auto frame = packet.deserialize<uint64_t>();
+				packet.deserialize<uint64_t>();
+				const auto shard = packet.deserialize<uint16_t>();
+				trace::video_queue_dropped(drop, stream, generation, frame, shard);
+			});
 	}
 
 	control.send(to_headset::handshake{.stream_port = port, .multilink_key = multilink_key, .endpoints = stream.endpoints(), .server_id = server_cookie()});
@@ -266,6 +286,7 @@ void wyrm::wyrm_connection::init(std::stop_token stop_token, std::function<void(
 
 	info_packet = std::get<from_headset::headset_info_packet>(receive(10s, bool(stream)).first);
 
+	last_received = std::chrono::steady_clock::now();
 	active = true;
 
 	if (state == encryption_state::pairing and not is_public_key_known)
@@ -288,6 +309,7 @@ void wyrm::wyrm_connection::reset(std::stop_token stop, TCP && tcp, std::functio
 
 void wyrm::wyrm_connection::shutdown()
 {
+	active = false;
 	if (stream)
 		stream.shutdown();
 	if (control)

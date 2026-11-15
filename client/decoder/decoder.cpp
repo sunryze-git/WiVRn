@@ -22,12 +22,23 @@
 #include "decoder/android/android_decoder.h"
 #elif WYRM_USE_V4L2
 #include "decoder/v4l2/v4l2_decoder.h"
+#include "scenes/stream.h"
 #else
 #include "decoder/ffmpeg/ffmpeg_decoder.h"
 #endif
 #include "decoder/raw_decoder.h"
+#include <algorithm>
 
 wyrm::decoder::~decoder() = default;
+
+bool wyrm::decoder::has_sps(std::span<const uint8_t> data, video_codec codec)
+{
+	for (size_t i = 0; i + 3 < data.size(); ++i)
+		if (data[i] == 0 and data[i + 1] == 0 and data[i + 2] == 1 and
+		    (codec == video_codec::h265 ? ((data[i + 3] >> 1) & 0x3f) == 33 : (data[i + 3] & 0x1f) == 7))
+			return true;
+	return false;
+}
 
 std::shared_ptr<wyrm::decoder> wyrm::decoder::make(
         vk::raii::Device & device,
@@ -94,6 +105,11 @@ const std::vector<wyrm::video_codec_capability> & wyrm::decoder::supported_codec
 {
 	static std::vector<wyrm::video_codec_capability> res = supported_codecs_();
 	return res;
+}
+
+bool wyrm::decoder::supports_codec(wyrm::video_codec codec)
+{
+	return std::ranges::any_of(supported_codecs(), [codec](const auto & capability) { return capability.codec == codec; });
 }
 
 bool wyrm::decoder::supports_10bit(wyrm::video_codec codec)

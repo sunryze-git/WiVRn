@@ -43,7 +43,7 @@ public:
 		int64_t frame_id = -1;
 		int64_t present_ns = 0;
 		int64_t predicted_display_time = 0;
-		uint64_t epoch = uint64_t(-1);
+		uint64_t generation = uint64_t(-1);
 	};
 
 private:
@@ -70,14 +70,12 @@ private:
 
 	std::mutex compute_mutex;
 	std::condition_variable compute_cv;
-	std::vector<frame_time> frame_times_compute;
-	uint64_t epoch = 0;         // protected by mutex
-	uint64_t compute_epoch = 0; // protected by compute_mutex
 	bool compute_pending = false;
+	uint64_t timing_generation = 0;
+	std::vector<frame_time> frame_times_compute;
 	void reset_locked();
 	std::jthread worker;
 
-	// Keep delayed Wi-Fi feedback long enough to train latency and phase.
 	std::array<frame_info, 256> in_flight_frames{};
 
 public:
@@ -95,6 +93,8 @@ public:
 	        int64_t & out_predicted_display_time_ns);
 
 	void on_feedback(const wyrm::from_headset::feedback &, const clock_offset &);
+	// Extra time before the headset picks a frame, on top of the 99.5th percentile of present to decoded
+	void set_client_margin(float ms);
 
 	void mark_timing_point(
 	        comp_target_timing_point point,
@@ -102,9 +102,6 @@ public:
 	        int64_t when_ns);
 
 	frame_info present_to_info(int64_t present);
-
-	// Current present to decoded margin, for WYRM_NETWORK_DIAGNOSTICS
-	int64_t present_to_decoded_ns() const;
 
 	void reset();
 };

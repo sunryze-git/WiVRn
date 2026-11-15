@@ -20,11 +20,15 @@
 
 #include "wyrm_session.h"
 
+#include "fec.h"
+
 #include "accept_connection.h"
 #include "application.h"
 #include "configuration.h"
 #include "driver/app_pacer.h"
 #include "driver/xrt_cast.h"
+#include "encoder/video_encoder.h"
+#include "math/m_api.h"
 #include "server/ipc_server.h"
 #include "utils/load_icon.h"
 #include "utils/method.h"
@@ -54,9 +58,10 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cmath>
+#include <limits>
 #include <magic_enum.hpp>
 #include <multi/comp_multi_interface.h>
+#include <span>
 #include <stdexcept>
 #include <string.h>
 #include <utility>
@@ -141,6 +146,17 @@ wyrm::wyrm_session::wyrm_session(std::unique_ptr<wyrm_connection> connection, b_
 	static_xdevs[static_xdev_count++] = &gamepad_device.emplace(*this);
 
 	auto conf = configuration();
+	if (not conf.eye_osc.empty())
+	{
+		try
+		{
+			eye_osc_sender = std::make_unique<eye_osc>(conf.eye_osc);
+		}
+		catch (std::exception & e)
+		{
+			U_LOG_E("Eye data over OSC disabled: %s", e.what());
+		}
+	}
 
 #if WYRM_FEATURE_STEAMVR_LIGHTHOUSE
 
@@ -380,6 +396,7 @@ void wyrm_session::start(ipc_server * server)
 void wyrm_session::stop()
 {
 	net_thread = std::jthread();
+	desktop.reset();
 	worker_thread = std::jthread();
 }
 
@@ -408,6 +425,7 @@ void wyrm_session::request_stop()
 
 void wyrm_session::pause_session()
 {
+	desktop.reset();
 	assert(mnd_ipc_server);
 
 	// notify clients about session pause
@@ -472,6 +490,16 @@ void wyrm_session::resume_session()
 	// resume session and notify clients
 
 	worker_thread = std::jthread([this](std::stop_token stop) { return run_worker(stop); });
+	try
+	{
+		char hostname[256] = "PC";
+		gethostname(hostname, sizeof(hostname) - 1);
+		desktop = std::make_unique<desktop_link<wyrm_session>>(*this, uinput_handler);
+	}
+	catch (const std::exception & e)
+	{
+		U_LOG_E("%s", e.what());
+	}
 	update_client_states(true, true);
 	hmd.update_presence(true, os_monotonic_get_ns());
 }
@@ -489,11 +517,9 @@ bool wyrm_session::connected()
 float wyrm_session::default_fps()
 {
 	auto s = settings.lock();
-	if (headset_info.refresh_rate_external)
-		return observed_refresh_rate / s->fps_divider;
 	if (s->preferred_refresh_rate)
 		return s->preferred_refresh_rate / s->fps_divider;
-	return headset_info.available_refresh_rates.back() / s->fps_divider;
+	return headset_info.available_refresh_rates.back();
 }
 
 void wyrm_session::add_tracking_request(device_id device, int64_t at_ns, int64_t produced_ns, int64_t now)
@@ -506,27 +532,9 @@ void wyrm_session::add_tracking_request(device_id device, int64_t at_ns, int64_t
 	control.add_request(device, os_monotonic_get_ns(), at_ns, produced_ns);
 }
 
-void wyrm_session::operator()(from_headset::headset_info_packet && info)
+void wyrm_session::operator()(from_headset::headset_info_packet &&)
 {
-	try
-	{
-		compositor.reconfigure(info);
-	}
-	catch (const std::exception & e)
-	{
-		U_LOG_W("Video settings rejected: %s", e.what());
-		send_control(to_headset::server_message{
-		        .kind = to_headset::server_message::kind::toast_urgent,
-		        .msg = std::format("Could not apply video settings: {}. The previous stream is retained.", e.what()),
-		});
-		compositor.describe_stream();
-	}
-}
-
-void wyrm_session::operator()(const from_headset::video_stream_ready & ready)
-{
-	if (auto pending = compositor.acknowledge_stream(ready))
-		(*this)(std::move(*pending));
+	U_LOG_W("unexpected headset info packet, ignoring");
 }
 
 void wyrm_session::operator()(const from_headset::settings_changed & settings)
@@ -536,10 +544,8 @@ void wyrm_session::operator()(const from_headset::settings_changed & settings)
 	if (settings.bitrate_bps != 0)
 		compositor.set_bitrate(settings.bitrate_bps);
 
-	if (settings.preferred_refresh_rate != 0 and not headset_info.refresh_rate_external)
+	if (settings.preferred_refresh_rate != 0)
 		compositor.set_framerate(settings.preferred_refresh_rate / settings.fps_divider);
-	else
-		compositor.set_framerate(observed_refresh_rate / settings.fps_divider);
 
 	if (not settings.mirror_gamepad and uinput_handler)
 		uinput_handler->destroy_gamepad();
@@ -548,6 +554,25 @@ void wyrm_session::operator()(const from_headset::settings_changed & settings)
 		(*body_tracker)(settings);
 
 	wyrm_ipc_socket_monado->send(std::move(settings));
+}
+
+void wyrm_session::operator()(from_headset::stream_settings && stream)
+{
+	U_LOG_I("Stream settings changed: render %dx%d, stream %dx%d",
+	        stream.render_eye_width,
+	        stream.render_eye_height,
+	        stream.stream_eye_width,
+	        stream.stream_eye_height);
+	// New applications copy the recommended render size into their IPC shared HMD description.
+	if (headset_info.render_eye_width != stream.render_eye_width or headset_info.render_eye_height != stream.render_eye_height)
+		hmd.set_render_size(stream.render_eye_width, stream.render_eye_height);
+	headset_info.render_eye_width = stream.render_eye_width;
+	headset_info.render_eye_height = stream.render_eye_height;
+	headset_info.stream_eye_width = stream.stream_eye_width;
+	headset_info.stream_eye_height = stream.stream_eye_height;
+	headset_info.supported_codecs = std::move(stream.supported_codecs);
+	headset_info.bit_depth = stream.bit_depth;
+	compositor.reconfigure();
 }
 
 static xrt_device_name get_name(interaction_profile profile)
@@ -606,9 +631,30 @@ static xrt_device_name get_name(interaction_profile profile)
 	throw std::runtime_error("invalid interaction profile id " + std::to_string(int(profile)));
 }
 
+// The frame shell's space drag arrives out of the poses: apply it to the shared tracking origin, so every device
+// (SolarXR trackers too) and every reference space moves with it, as with a drag on the PC
+void wyrm_session::apply_drag_offset(const XrPosef & drag)
+{
+	if (std::memcmp(&drag, &applied_drag, sizeof(drag)) == 0)
+		return;
+	xrt_tracking_origin * origin = static_cast<xrt_device &>(hmd).tracking_origin;
+	if (not base_origin_offset)
+	{
+		xrt_pose base = XRT_POSE_IDENTITY;
+		xrt_space_overseer_get_tracking_origin_offset(space_overseer, origin, &base);
+		base_origin_offset = base;
+	}
+	xrt_pose stage_from_floor;
+	xrt_pose floor_from_stage = xrt_cast(drag);
+	math_pose_invert(&floor_from_stage, &stage_from_floor);
+	xrt_pose offset;
+	math_pose_transform(&*base_origin_offset, &stage_from_floor, &offset);
+	if (xrt_space_overseer_set_tracking_origin_offset(space_overseer, origin, &offset) == XRT_SUCCESS)
+		applied_drag = drag;
+}
+
 void wyrm_session::operator()(const from_headset::tracking & tracking)
 {
-	last_tracking_received = os_monotonic_get_ns();
 	if (gamepad_device)
 	{
 		gamepad_connected = tracking.interaction_profiles[2] != interaction_profile::none;
@@ -686,6 +732,7 @@ void wyrm_session::operator()(const from_headset::tracking & tracking)
 		tracking_latency = std::lerp(tracking_latency.load(), latency, 0.1);
 	}
 
+	apply_drag_offset(tracking.drag_offset);
 	hmd.update_tracking(tracking, offset);
 	if (roles.left == left_hand_interaction_index)
 		left_hand_interaction.update_tracking(tracking, offset);
@@ -699,6 +746,7 @@ void wyrm_session::operator()(const from_headset::tracking & tracking)
 
 	if (eye_tracker)
 		eye_tracker->update_tracking(tracking, offset);
+	compositor.update_tracking(tracking);
 
 	if (android_face_tracker)
 		android_face_tracker->update_tracking(tracking, offset);
@@ -708,10 +756,9 @@ void wyrm_session::operator()(const from_headset::tracking & tracking)
 		htc_face_tracker->update_tracking(tracking, offset);
 }
 
-void wyrm_session::operator()(const from_headset::foveation & packet)
+void wyrm_session::operator()(from_headset::override_foveation_center && foveation_center)
 {
-	compositor.update_foveation(packet);
-	hmd.update_foveation(packet);
+	compositor.update_foveation_center_override(foveation_center);
 }
 
 void wyrm_session::operator()(from_headset::derived_pose && derived)
@@ -825,11 +872,35 @@ void wyrm_session::operator()(from_headset::timesync_response && timesync)
 
 void wyrm_session::operator()(from_headset::feedback && feedback)
 {
+	const char * trace_name = feedback.blitted ? "feedback_blit" : feedback.received_from_decoder ? "feedback_decode"
+	                                                                                          : "feedback_receipt";
+	trace::scope trace_feedback(trace::cpu_track::network, feedback.stream_index, feedback.frame_index, trace_name);
 	clock_offset o = offset_est.get_offset();
 	if (not o)
 		return;
-	if (auto pending = compositor.on_feedback(feedback, o))
-		(*this)(std::move(*pending));
+	compositor.on_feedback(feedback, o);
+
+	// How long the headset's decode report took to get here, by when it was sent: the network and this thread's pickup
+	if (feedback.received_from_decoder and not feedback.blitted)
+	{
+		static thread_local std::vector<double> uplink_ms;
+		static thread_local int64_t window_start = 0;
+		const int64_t now = os_monotonic_get_ns();
+		uplink_ms.push_back((now - o.from_headset(feedback.received_from_decoder)) * 1e-6);
+		if (window_start == 0)
+			window_start = now;
+		if (now - window_start >= 5'000'000'000)
+		{
+			std::ranges::sort(uplink_ms);
+			U_LOG_I("Decode reports reached the server in a median %.1f ms, p99 %.1f ms, max %.1f ms (%zu)",
+			        uplink_ms[uplink_ms.size() / 2],
+			        uplink_ms[size_t(0.99 * (uplink_ms.size() - 1))],
+			        uplink_ms.back(),
+			        uplink_ms.size());
+			uplink_ms.clear();
+			window_start = now;
+		}
+	}
 
 	if (feedback.received_first_packet)
 		trace::instant_feedback("receive_begin", o.from_headset(feedback.received_first_packet), feedback.frame_index, feedback.stream_index);
@@ -897,11 +968,8 @@ void wyrm_session::operator()(from_headset::user_presence_changed && event)
 
 void wyrm_session::operator()(from_headset::refresh_rate_changed && event)
 {
-	if (not std::isfinite(event.to) or event.to < 30 or event.to > 300)
-		return;
-	observed_refresh_rate = event.to;
-	const auto divider = settings.lock()->fps_divider;
-	compositor.set_framerate(event.to / divider);
+	auto locked = settings.lock();
+	compositor.set_framerate(event.to / locked->fps_divider);
 	push_event(
 	        {
 	                .display = {
@@ -927,7 +995,15 @@ void wyrm_session::operator()(from_headset::get_application_list && request)
 
 	auto apps = list_applications();
 
-	for (const auto & [id, app]: apps)
+	// Most recently played first, then by name
+	std::vector<std::pair<std::string, application>> sorted(apps.begin(), apps.end());
+	std::ranges::sort(sorted, [](const auto & a, const auto & b) {
+		if (a.second.last_played != b.second.last_played)
+			return a.second.last_played > b.second.last_played;
+		return a.second.name.at("") < b.second.name.at("");
+	});
+
+	for (const auto & [id, app]: sorted)
 	{
 		response.applications.emplace_back(
 		        std::move(id),
@@ -1015,7 +1091,7 @@ void wyrm_session::operator()(const from_headset::stop_application & req)
 void wyrm_session::operator()(audio_data && data)
 {
 	if (audio_handle)
-		audio_handle->process_mic_data(std::move(data));
+		mic_link.receive(std::move(data), [&](audio_data && chunk) { audio_handle->process_mic_data(std::move(chunk)); });
 }
 
 void wyrm_session::operator()(to_monado::stop &&)
@@ -1065,7 +1141,7 @@ struct refresh_rate_adjuster
 	void adjust(wyrm_connection & cnx)
 	{
 		auto locked = settings.lock();
-		if (info.refresh_rate_external or locked->preferred_refresh_rate != 0 or info.available_refresh_rates.size() < 2)
+		if (locked->preferred_refresh_rate != 0 or info.available_refresh_rates.size() < 2)
 			return;
 
 		// Maximum refresh rate the application can reach
@@ -1095,29 +1171,17 @@ struct refresh_rate_adjuster
 void wyrm_session::run_net(std::stop_token stop)
 {
 	resume_session();
-	auto last_bitrate_update = std::chrono::steady_clock::now();
+	auto last_report = std::chrono::steady_clock::now();
 	while (not stop.stop_requested())
 	{
 		try
 		{
 			connection->poll(*this, 20);
 			const auto now = std::chrono::steady_clock::now();
-			if (now - last_bitrate_update >= std::chrono::milliseconds(500))
+			if (now - last_report >= std::chrono::seconds(1))
 			{
-				compositor.adapt_bitrate(connection->capacity_bps());
-				auto report = connection->network_statistics();
-				compositor.network_statistics(report);
-				if (const auto tracking = last_tracking_received.load())
-					report.tracking_age_ms = (os_monotonic_get_ns() - tracking) / 1e6;
-				if (std::getenv("WYRM_NETWORK_DIAGNOSTICS"))
-				{
-					const auto [latency_median, latency_p95] = compositor.frame_latency_ms();
-					U_LOG_I("Network: bitrate=%u submitted=%lu decoded=%lu late=%lu expired=%lu repairs=%lu control=%u bulk=%u queued=%lu decode_budget_ms=%.2f tracking_age_ms=%.2f latency_median_ms=%.2f latency_p95_ms=%.2f pacer_margin_ms=%.2f", report.effective_bitrate, report.submitted_frames, report.decoded_frames, report.late_frames, report.expired_video, report.repairs_sent, report.reliable_messages, report.bulk_messages, report.queued_bytes, report.decode_budget_ms, report.tracking_age_ms, latency_median, latency_p95, compositor.pacer_margin_ms());
-					for (const auto & link: report.links)
-						U_LOG_I("Network link: %s->%s capacity=%.1f sent=%.1f loss=%.3f", link.local_interface.c_str(), link.remote_interface.c_str(), link.capacity_bps / 1e6, link.sent_bps / 1e6, link.acknowledgement_loss);
-				}
-				send_stream(std::move(report));
-				last_bitrate_update = now;
+				send_stream(connection->network_statistics());
+				last_report = now;
 			}
 
 			if (uinput_handler)
@@ -1136,6 +1200,7 @@ void wyrm_session::run_net(std::stop_token stop)
 		catch (const std::exception & e)
 		{
 			U_LOG_W("Network exception: %s, Session paused.", e.what());
+			connection->shutdown();
 			pause_session();
 
 			reconnect(stop);
@@ -1158,7 +1223,6 @@ void wyrm_session::run_net(std::stop_token stop)
 void wyrm_session::run_worker(std::stop_token stop)
 {
 	refresh_rate_adjuster refresh(get_info(), settings, app_pacers);
-	std::string last_active_application;
 	while (not stop.stop_requested())
 	{
 		try
@@ -1186,35 +1250,8 @@ void wyrm_session::run_worker(std::stop_token stop)
 						refresh.adjust(*connection);
 				}
 				if (do_control)
-				{
 					control.resolve(compositor.get_frame_duration(), tracking_latency);
-					std::string active_application;
-					{
-						scoped_lock lock(mnd_ipc_server->global_state.lock);
-						for (const auto & thread: mnd_ipc_server->threads)
-						{
-							if (thread.ics.server_thread_index < 0 or thread.ics.xc == nullptr or thread.ics.client_state.session_overlay or
-							    thread.ics.server_thread_index != mnd_ipc_server->global_state.active_client_index)
-								continue;
-							// The shared IPC application name is volatile and may fill its buffer.
-							for (size_t i = 0; i < sizeof(thread.ics.client_state.info.application_name); ++i)
-							{
-								char c = thread.ics.client_state.info.application_name[i];
-								if (c == '\0')
-									break;
-								active_application.push_back(c);
-							}
-							break;
-						}
-					}
-					if (active_application != last_active_application)
-					{
-						send_to_main(from_monado::active_application{active_application});
-						last_active_application = std::move(active_application);
-					}
-				}
 			}
-			compositor.check_stream_timeout();
 			poll_session_loss();
 		}
 		catch (const std::exception & e)
@@ -1274,8 +1311,10 @@ std::pair<bool, std::optional<std::string>> wyrm_session::validate_headset_info(
 	bool refuse = false; // refuse to connect headset outright
 	bool warn = false;   // allow headset but display a pop-up warning about outdated settings
 
-	// Video resources are renegotiated on reconnect without recreating the
-	// OpenXR system or disconnecting its applications.
+	// stream settings
+	{
+		// Size and codec changes are applied by rebuilding the encoders in reconnect()
+	}
 
 	// audio settings
 	{
@@ -1307,8 +1346,7 @@ std::pair<bool, std::optional<std::string>> wyrm_session::validate_headset_info(
 		refuse |= prev_info.passthrough != info.passthrough;
 		refuse |= prev_info.body_tracking != info.body_tracking;
 
-		// Refresh capabilities remain fixed for the server OpenXR session.
-		// An externally changed physical mode must not lock out this headset.
+		refuse |= prev_info.available_refresh_rates != info.available_refresh_rates;
 
 		if (refuse)
 		{
@@ -1360,28 +1398,37 @@ void wyrm_session::reconnect(std::stop_token stop)
 				throw std::runtime_error("headset config incompatible with current session");
 			}
 
-			const std::array<uint32_t, 6> capabilities{
-			        bool(info.speaker), bool(info.microphone), info.hand_tracking, uint32_t(info.face_tracking), info.eye_gaze, info.num_generic_trackers};
-			if (warn_conn and last_warned_capabilities != capabilities)
+			if (warn_conn)
 			{
-				last_warned_capabilities = capabilities;
 				send_control(to_headset::server_message{
 				        .kind = to_headset::server_message::kind::toast_urgent,
-				        .msg = "Audio or tracking device changes need a new OpenXR session. Video settings are applied live.",
+				        .msg = "Stream resumed with outdated settings. Restart the server for settings to apply.",
 				});
 
-				U_LOG_W("Audio/tracking capabilities differ from the existing OpenXR system; video settings are renegotiated live.");
+				U_LOG_W("Session resumed with outdated settings. Restart the server for settings to apply.");
 			}
-			if (not warn_conn)
-				last_warned_capabilities.reset();
 
 			// update headset info
-			(*this)(from_headset::headset_info_packet{info});
 
 			headset_info.settings = info.settings;
-			if (std::isfinite(info.current_refresh_rate) and info.current_refresh_rate >= 30 and info.current_refresh_rate <= 300)
-				observed_refresh_rate = info.current_refresh_rate;
 			(*this)(headset_info.settings);
+
+			if (headset_info.render_eye_width != info.render_eye_width or
+			    headset_info.render_eye_height != info.render_eye_height or
+			    headset_info.stream_eye_width != info.stream_eye_width or
+			    headset_info.stream_eye_height != info.stream_eye_height or
+			    headset_info.supported_codecs != info.supported_codecs or
+			    headset_info.bit_depth != info.bit_depth)
+			{
+				(*this)(from_headset::stream_settings{
+				        .render_eye_width = info.render_eye_width,
+				        .render_eye_height = info.render_eye_height,
+				        .stream_eye_width = info.stream_eye_width,
+				        .stream_eye_height = info.stream_eye_height,
+				        .supported_codecs = info.supported_codecs,
+				        .bit_depth = info.bit_depth,
+				});
+			}
 
 			headset_info.language = info.language;
 			headset_info.country = info.country;
@@ -1437,8 +1484,7 @@ void wyrm_session::update_client_states(bool visible, bool focused)
 		auto id = t.ics.client_state.id;
 		if (t.ics.server_thread_index < 0 or t.ics.xc == nullptr or locked->contains(id))
 			continue;
-		bool current = t.ics.client_state.session_overlay or
-		               mnd_ipc_server->global_state.active_client_index == t.ics.server_thread_index;
+		bool current = t.ics.client_state.session_visible;
 		U_LOG_D("Setting session state for app %s: visible=%s focused=%s current=%s",
 		        t.ics.client_state.info.application_name,
 		        visible ? "true" : "false",
@@ -1512,3 +1558,56 @@ void wyrm_session::destroy()
 	delete this;
 }
 } // namespace wyrm
+
+void wyrm::wyrm_session::operator()(from_headset::shell_input && event)
+{
+	if (desktop)
+		(*desktop)(std::move(event));
+}
+
+void wyrm::wyrm_session::operator()(from_headset::shell_message && event)
+{
+	if (desktop)
+		(*desktop)(std::move(event));
+}
+
+void wyrm::wyrm_session::operator()(from_headset::link_settings && event)
+{
+	// Sent again as keepalive by a headset with this PC on standby
+	if (std::min<uint8_t>(event.fec_percent, 50) != fec_percent)
+		U_LOG_I("Link: %u%% parity, %u ms frame margin", event.fec_percent, event.frame_margin_ms);
+	fec_percent = std::min<uint8_t>(event.fec_percent, 50);
+	if (desktop)
+		desktop->fec_percent = fec_percent.load();
+	compositor.set_frame_margin(std::min<uint8_t>(event.frame_margin_ms, 20));
+}
+
+void wyrm::wyrm_session::operator()(from_headset::video_nack && nack)
+{
+	if (nack.stream < to_headset::video_shard::desktop_streams)
+		compositor.on_nack(nack);
+	else if (desktop)
+		desktop->resend(nack);
+}
+
+void wyrm::wyrm_session::operator()(from_headset::video_active && event)
+{
+	compositor.set_video_active(event.active);
+}
+
+void wyrm::wyrm_session::operator()(from_headset::frame_eyes && eyes)
+{
+	if (eye_osc_sender)
+		eye_osc_sender->send(eyes);
+}
+
+void wyrm::wyrm_session::operator()(from_headset::desktop_keyframe && event)
+{
+	if (desktop)
+		(*desktop)(std::move(event));
+}
+
+void wyrm::wyrm_session::operator()(const from_headset::video_stream_ready & ready)
+{
+	compositor.acknowledge_stream(ready);
+}

@@ -21,7 +21,6 @@
 #include "application.h"
 #include "details/enumerate.h"
 #include "session.h"
-#include <spdlog/spdlog.h>
 
 xr::swapchain::swapchain(
         xr::instance & inst,
@@ -32,12 +31,12 @@ xr::swapchain::swapchain(
         int32_t height,
         int sample_count,
         uint32_t array_size,
-        bool foveation,
-        bool transfer_dst) :
+        vk::Format view_format) :
         width_(width),
         height_(height),
         sample_count_(sample_count),
-        format_(format)
+        format_(format),
+        view_format_(format)
 {
 	assert(sample_count == 1);
 
@@ -58,24 +57,8 @@ xr::swapchain::swapchain(
 			break;
 	}
 
-	if (transfer_dst)
-		usage_flags |= XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
-
-	XrVulkanSwapchainCreateInfoMETA vulkan_create_info{
-	        .type = XR_TYPE_VULKAN_SWAPCHAIN_CREATE_INFO_META,
-	        .additionalCreateFlags = VK_IMAGE_CREATE_FRAGMENT_DENSITY_MAP_OFFSET_BIT_QCOM,
-	        .additionalUsageFlags = 0,
-	};
-
-	XrSwapchainCreateInfoFoveationFB foveation_create_info{
-	        .type = XR_TYPE_SWAPCHAIN_CREATE_INFO_FOVEATION_FB,
-	        .next = &vulkan_create_info,
-	        .flags = XR_SWAPCHAIN_CREATE_FOVEATION_FRAGMENT_DENSITY_MAP_BIT_FB,
-	};
-
 	XrSwapchainCreateInfo create_info{
 	        .type = XR_TYPE_SWAPCHAIN_CREATE_INFO,
-	        .next = foveation ? &foveation_create_info : nullptr,
 	        .createFlags = 0,
 	        .usageFlags = usage_flags,
 	        .format = static_cast<VkFormat>(format),
@@ -87,37 +70,26 @@ xr::swapchain::swapchain(
 	        .mipCount = 1,
 	};
 
+	std::array<VkFormat, 2> view_formats{static_cast<VkFormat>(format), static_cast<VkFormat>(view_format)};
+	XrVulkanSwapchainFormatListCreateInfoKHR format_list{
+	        .type = XR_TYPE_VULKAN_SWAPCHAIN_FORMAT_LIST_CREATE_INFO_KHR,
+	        .viewFormatCount = view_formats.size(),
+	        .viewFormats = view_formats.data(),
+	};
+	if (view_format != vk::Format::eUndefined and inst.has_extension(XR_KHR_VULKAN_SWAPCHAIN_FORMAT_LIST_EXTENSION_NAME))
+	{
+		create_info.usageFlags |= XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT;
+		create_info.next = &format_list;
+		view_format_ = view_format;
+	}
+
 	CHECK_XR(xrCreateSwapchain(s, &create_info, &id));
 
-	if (foveation)
-	{
-		auto [images, foveation_images] =
-		        details::enumerate2<XrSwapchainImageVulkanKHR, XrSwapchainImageFoveationVulkanFB>(
-		                xrEnumerateSwapchainImages, id);
+	auto images = details::enumerate<XrSwapchainImageVulkanKHR>(xrEnumerateSwapchainImages, id);
 
-		images_.reserve(images.size());
-		for (auto & image: images)
-			images_.push_back(image.image);
-
-		spdlog::debug("XR_FB_foveation: enumerated {} color images and {} FDM images", images.size(), foveation_images.size());
-		for (size_t i = 0; i < foveation_images.size(); ++i)
-		{
-			const auto & fdm = foveation_images[i];
-			spdlog::debug(
-			        "  {}. FDM image @ {}x{}",
-			        i,
-			        fdm.width,
-			        fdm.height);
-		}
-	}
-	else
-	{
-		auto images = details::enumerate<XrSwapchainImageVulkanKHR>(xrEnumerateSwapchainImages, id);
-
-		images_.reserve(images.size());
-		for (auto & image: images)
-			images_.push_back(image.image);
-	}
+	images_.reserve(images.size());
+	for (auto & image: images)
+		images_.push_back(image.image);
 }
 
 int xr::swapchain::acquire()

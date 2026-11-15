@@ -30,20 +30,19 @@
             pkgs.kdePackages.kirigami-addons
           ];
           extraNativeBuildInputs = [
-            pkgs.ninja
             pkgs.util-linux
           ];
 
           # Reuse the upstream Nix dependency recipe with Wyrm names and sources.
           package = pkgs.enableDebugging (
-            pkgs.wivrn.overrideAttrs (
+            pkgs.wyrm.overrideAttrs (
               finalAttrs: oldAttrs: {
                 pname = "wyrm";
                 meta = oldAttrs.meta // {
                   mainProgram = "wyrm-dashboard";
                   homepage = "https://github.com/sunryze-git/Wyrm";
                 };
-                preFixup = builtins.replaceStrings [ "wivrn" ] [ "wyrm" ] (oldAttrs.preFixup or "");
+                preFixup = builtins.replaceStrings [ "wyrm" ] [ "wyrm" ] (oldAttrs.preFixup or "");
                 # Filter the directories and files we don't need to keep to avoid needless rebuilds
                 src = lib.cleanSourceWith {
                   filter =
@@ -90,7 +89,7 @@
                 buildInputs = oldAttrs.buildInputs ++ extraBuildInputs;
                 nativeBuildInputs = oldAttrs.nativeBuildInputs ++ extraNativeBuildInputs;
                 cmakeFlags =
-                  map (builtins.replaceStrings [ "WIVRN" "wivrn" ] [ "WYRM" "wyrm" ]) (
+                  map (builtins.replaceStrings [ "WYRM" "wyrm" ] [ "WYRM" "wyrm" ]) (
                     lib.filter (flag: !lib.hasInfix "GIT_" flag) oldAttrs.cmakeFlags
                   )
                   ++ [

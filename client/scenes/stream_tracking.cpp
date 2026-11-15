@@ -1,3 +1,6 @@
+#ifndef __ANDROID__
+#include "linux/frame_shell.h"
+#endif
 /*
  * Wyrm VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
@@ -26,6 +29,7 @@
 #include "xr/face_tracker.h"
 #include "xr/fb_body_tracker.h"
 #include "xr/to_string.h"
+#include <cstring>
 #include <glm/gtc/quaternion.hpp>
 #include <magic_enum.hpp>
 #include <magic_enum_containers.hpp>
@@ -59,37 +63,6 @@ from_headset::tracking::pose locate_space(device_id device, XrSpace space, XrSpa
 		};
 	spdlog::warn("xrLocateSpace failed for {}: {}", magic_enum::enum_name(device), xr::to_string(res));
 	return {.device = device};
-}
-
-from_headset::tracking::pose make_eye_gaze_view_relative(
-        const from_headset::tracking::pose & gaze_pose,
-        const from_headset::tracking::pose & view_pose)
-{
-	glm::quat gaze_quat(
-	        gaze_pose.pose.orientation.w,
-	        gaze_pose.pose.orientation.x,
-	        gaze_pose.pose.orientation.y,
-	        gaze_pose.pose.orientation.z);
-	const glm::quat view_quat(
-	        view_pose.pose.orientation.w,
-	        view_pose.pose.orientation.x,
-	        view_pose.pose.orientation.y,
-	        view_pose.pose.orientation.z);
-	gaze_quat = glm::conjugate(view_quat) * gaze_quat;
-
-	using flags = from_headset::pose_flags;
-	return {
-	        .pose = {
-	                .orientation = {
-	                        .x = gaze_quat.x,
-	                        .y = gaze_quat.y,
-	                        .z = gaze_quat.z,
-	                        .w = gaze_quat.w,
-	                },
-	        },
-	        .device = gaze_pose.device,
-	        .flags = uint8_t(gaze_pose.flags & view_pose.flags & ~(flags::linear_velocity_valid | flags::angular_velocity_valid)),
-	};
 }
 
 class locate_spaces_functor
@@ -285,7 +258,6 @@ void scenes::stream::tracking()
 	magic_enum::containers::array<device_id, XrSpace> spaces{};
 
 	const auto & config = application::get_config();
-	const bool eye_gaze_enabled = config.check_feature(feature::eye_gaze);
 
 	{
 		std::vector ids{
@@ -303,7 +275,7 @@ void scenes::stream::tracking()
 			ids.insert(ids.end(), {device_id::LEFT_PINCH_POSE, device_id::LEFT_POKE, device_id::RIGHT_PINCH_POSE, device_id::RIGHT_POKE});
 		}
 
-		if (eye_gaze_enabled)
+		if (config.check_feature(feature::eye_gaze))
 			ids.emplace_back(device_id::EYE_GAZE);
 
 		for (auto id: ids)
@@ -322,27 +294,37 @@ void scenes::stream::tracking()
 	// and body. It shares xr::spaces::world's STAGE origin, translated by -offset: locating a
 	// pose in it therefore reports that pose offset up by +offset, i.e. increases perceived
 	// height.
-	auto make_height_offset_space = [&](float offset) {
-		return session.create_reference_space(XR_REFERENCE_SPACE_TYPE_STAGE, {{0, 0, 0, 1}, {0, -offset, 0}});
+	// Frame shell: the shell's temporary space drag is taken out here (poses stay in the calibrated space with floor
+	// and recenter) and sent along, so the server applies it as its tracking origin offset like a PC-side drag
+	auto shell_drag = [&]() -> XrPosef {
+		XrPosef drag{{0, 0, 0, 1}, {0, 0, 0}};
+#ifndef __ANDROID__
+		if (frame_shell::enabled())
+		{
+			float t[7];
+			frame_shell::drag_offset(t);
+			drag = {{t[0], t[1], t[2], t[3]}, {t[4], t[5], t[6]}};
+		}
+#endif
+		return drag;
+	};
+	auto make_height_offset_space = [&](float offset, const XrPosef & drag) {
+		// Space pose = drag⁻¹ · T(0, -offset, 0), so located poses are T(0, offset, 0) · drag · stage pose
+		glm::quat q(drag.orientation.w, drag.orientation.x, drag.orientation.y, drag.orientation.z);
+		glm::quat qi = glm::conjugate(q);
+		glm::vec3 p = qi * (-glm::vec3(drag.position.x, drag.position.y, drag.position.z)) + qi * glm::vec3(0, -offset, 0);
+		return session.create_reference_space(XR_REFERENCE_SPACE_TYPE_STAGE, {{qi.x, qi.y, qi.z, qi.w}, {p.x, p.y, p.z}});
 	};
 	float applied_height_offset = config.get_height_offset();
-	xr::space height_offset_space = make_height_offset_space(applied_height_offset);
-	XrSpace world_space = application::space(xr::spaces::world);
-	auto locate_eye_gaze = [&](XrTime time) {
-		// Eye gaze uses view pose as the origin.
-		if (application::get_hmd_traits().view_locate)
-			return locate_space(device_id::EYE_GAZE, spaces[device_id::EYE_GAZE], view_space, time);
-
-		// Pico headsets fail to locate gaze relative to view.
-		return make_eye_gaze_view_relative(
-		        locate_space(device_id::EYE_GAZE, spaces[device_id::EYE_GAZE], world_space, time),
-		        locate_space(device_id::EYE_GAZE, view_space, world_space, time));
-	};
+	XrPosef applied_drag = shell_drag();
+	xr::space height_offset_space = make_height_offset_space(applied_height_offset, applied_drag);
 
 	from_headset::tracking tracking;
 	std::vector<from_headset::hand_tracking> hands;
 	std::vector<std::variant<from_headset::meta_body, from_headset::bd_body, from_headset::htc_body>> body;
 	std::vector<XrView> views;
+	XrViewStateFlags views_flags = 0;
+	XrTime views_refresh = 0;
 
 	std::vector<serialization_packet> packets;
 
@@ -370,10 +352,19 @@ void scenes::stream::tracking()
 	{
 		try
 		{
-			if (float offset = config.get_height_offset(); offset != applied_height_offset)
+			// A PC on standby gets no tracking until it presents VR again
+			if (not video_active)
+			{
+				std::this_thread::sleep_for(std::chrono::milliseconds(50));
+				continue;
+			}
+			const float offset = config.get_height_offset();
+			const XrPosef drag = shell_drag();
+			if (offset != applied_height_offset or std::memcmp(&drag, &applied_drag, sizeof(drag)) != 0)
 			{
 				applied_height_offset = offset;
-				height_offset_space = make_height_offset_space(applied_height_offset);
+				applied_drag = drag;
+				height_offset_space = make_height_offset_space(applied_height_offset, applied_drag);
 				locate_spaces = locate_spaces_functor{instance, height_offset_space};
 			}
 
@@ -501,14 +492,20 @@ void scenes::stream::tracking()
 					switch (item.device)
 					{
 						case device_id::HEAD:
-							tracking.view_flags = session.locate_views(XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, tracking.timestamp, view_space, views);
+							// Views relative to the head only change with the IPD: locating them costs an IPC round trip per
+							// sample, so refresh them once a second
+							if (views.empty() or at_time >= views_refresh)
+							{
+								views_flags = session.locate_views(XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, tracking.timestamp, view_space, views);
+								views_refresh = at_time + 1'000'000'000;
+							}
+							tracking.view_flags = views_flags;
 							assert(views.size() == tracking.views.size());
 							for (auto [i, j]: std::views::zip(views, tracking.views))
 							{
 								j.pose = i.pose;
 								j.fov = i.fov;
 							}
-
 							locate_spaces.add_space(item.device, view_space, tracking.timestamp, tracking.device_poses);
 							break;
 						case wyrm::device_id::LEFT_GRIP:
@@ -524,8 +521,33 @@ void scenes::stream::tracking()
 							locate_spaces.add_space(item.device, spaces[item.device], tracking.timestamp, tracking.device_poses);
 							break;
 						case wyrm::device_id::EYE_GAZE:
-							if (eye_gaze_enabled)
-								tracking.device_poses.push_back(locate_eye_gaze(tracking.timestamp));
+							// Eye gaze uses view pose as the origin
+							if (application::get_hmd_traits().view_locate)
+								tracking.device_poses.push_back(locate_space(item.device, spaces[item.device], spaces[wyrm::device_id::HEAD], tracking.timestamp));
+							else
+							{
+								// Pico headsets fail to locate gaze relative to view
+								auto gaze = locate_space(item.device, spaces[item.device], height_offset_space, tracking.timestamp);
+								auto view_pose = locate_space(item.device, view_space, height_offset_space, tracking.timestamp);
+								glm::quat gaze_quat(gaze.pose.orientation.w, gaze.pose.orientation.x, gaze.pose.orientation.y, gaze.pose.orientation.z);
+								glm::quat view_quat(view_pose.pose.orientation.w, view_pose.pose.orientation.x, view_pose.pose.orientation.y, view_pose.pose.orientation.z);
+								gaze_quat = glm::conjugate(view_quat) * gaze_quat;
+								using flags = from_headset::pose_flags;
+								tracking.device_poses.push_back(
+								        from_headset::tracking::pose{
+								                // Zero position and velocities
+								                .pose = {
+								                        .orientation = {
+								                                .x = gaze_quat.x,
+								                                .y = gaze_quat.y,
+								                                .z = gaze_quat.z,
+								                                .w = gaze_quat.w,
+								                        },
+								                },
+								                .device = item.device,
+								                .flags = uint8_t(gaze.flags & view_pose.flags & ~(flags::linear_velocity_valid | flags::angular_velocity_valid)),
+								        });
+							}
 							break;
 						case wyrm::device_id::FACE:
 							std::visit(utils::overloaded{
@@ -576,6 +598,33 @@ void scenes::stream::tracking()
 				    e.code().value() != XR_ERROR_TIME_INVALID)
 					throw;
 			}
+
+
+#if defined(__linux__) && !defined(__ANDROID__)
+            static std::array<std::optional<from_headset::tracking::pose>, 256> retained_poses;
+            static auto profiles = tracking.interaction_profiles;
+            if (profiles != tracking.interaction_profiles) {
+                retained_poses = {};
+                profiles = tracking.interaction_profiles;
+            }
+            auto capture = frame_shell::input_capture_snapshot();
+            for (auto & pose : tracking.device_poses) {
+                int hand = -1;
+                if (pose.device == device_id::LEFT_AIM || pose.device == device_id::LEFT_GRIP || pose.device == device_id::LEFT_PALM) hand = 0;
+                if (pose.device == device_id::RIGHT_AIM || pose.device == device_id::RIGHT_GRIP || pose.device == device_id::RIGHT_PALM) hand = 1;
+                if (hand < 0) continue;
+                auto & retained = retained_poses[static_cast<uint8_t>(pose.device)];
+                if ((capture.pose_mask & (1u << hand)) && retained) {
+                    pose = *retained;
+                    pose.linear_velocity = {};
+                    pose.angular_velocity = {};
+                } else {
+                    retained = pose;
+                }
+            }
+#endif
+
+			tracking.drag_offset = applied_drag;
 
 			// FIXME: switch to event based
 			if (next_battery_check < now)

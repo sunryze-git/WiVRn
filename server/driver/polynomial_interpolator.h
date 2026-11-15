@@ -52,6 +52,7 @@ public:
 		XrTime timestamp = std::numeric_limits<XrTime>::lowest();
 		std::optional<value_type> y;
 		std::optional<value_type> dy;
+		bool tracked = false;
 	};
 
 	XrDuration window = 30'000'000; // time span of samples to use for extrapolation
@@ -104,18 +105,36 @@ public:
 			// Avoid samples too close to each other
 			if (i.production_timestamp != std::numeric_limits<XrTime>::lowest() and std::abs(i.timestamp - s.timestamp) < 2'000'000)
 			{
-				if (i.production_timestamp < s.production_timestamp)
-				{
-					i = s;
-					align_sign(i);
-				}
-				return;
+				if (i.production_timestamp >= s.production_timestamp)
+					return;
+				oldest = &i;
+				break;
 			}
 			if ((not oldest) or oldest->production_timestamp > i.production_timestamp)
 				oldest = &i;
 		}
 		*oldest = s;
-		align_sign(*oldest);
+		if constexpr (quaternion)
+		{
+			if (s.y)
+			{
+				sample * closest = nullptr;
+				for (auto & i: data)
+				{
+					if (&i == oldest or not i.y)
+						continue;
+					if (not closest)
+						closest = &i;
+					else if (std::abs(closest->timestamp - s.timestamp) > std::abs(i.timestamp - s.timestamp))
+						closest = &i;
+				}
+				if (closest and closest->y->dot(*s.y) < 0)
+				{
+					*oldest->y *= -1;
+					if (oldest->dy) *oldest->dy *= -1;
+				}
+			}
+		}
 	}
 
 	std::pair<XrTime, XrTime> get_bounds() const
@@ -222,6 +241,7 @@ public:
 		        .timestamp = timestamp,
 		        .y = sol.template block<N, 1>(0, 0),
 		        .dy = sol.template block<N, 1>(0, 1),
+		        .tracked = closest->tracked,
 		};
 	}
 };
