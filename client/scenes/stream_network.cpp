@@ -117,13 +117,19 @@ static std::string link_status(const std::string & interface)
 #endif
 
 // FEC parity; the PC applies it right away
+static from_headset::link_settings link_settings(const configuration::stream_config & settings)
+{
+	return {
+	        .fec_percent = uint8_t(std::min<uint32_t>(settings.fec_percent, 50)),
+	        .frame_margin_ms = uint8_t(std::min<uint32_t>(settings.frame_margin_ms, 20)),
+	        .controller_prediction_percent = uint8_t(std::min<uint32_t>(settings.controller_prediction_percent, 100)),
+	};
+}
+
 void scenes::stream::send_link_settings()
 {
 #ifndef __ANDROID__
-	network_session->send_control(from_headset::link_settings{
-	        .fec_percent = uint8_t(std::min<uint32_t>(pc_settings().fec_percent, 50)),
-	        .frame_margin_ms = uint8_t(std::min<uint32_t>(pc_settings().frame_margin_ms, 20)),
-	});
+	network_session->send_control(link_settings(pc_settings()));
 #endif
 }
 
@@ -164,10 +170,7 @@ void scenes::stream::process_packets()
 				if (auto now = std::chrono::steady_clock::now(); not video_active and now - standby_keepalive > std::chrono::milliseconds(250))
 				{
 					standby_keepalive = now;
-					network_session->send_stream(from_headset::link_settings{
-					        .fec_percent = uint8_t(std::min<uint32_t>(pc_settings().fec_percent, 50)),
-					        .frame_margin_ms = uint8_t(std::min<uint32_t>(pc_settings().frame_margin_ms, 20)),
-					});
+					network_session->send_stream(link_settings(pc_settings()));
 				}
 				// Here rather than in render: while no PC app runs the stream scene is stalled behind the lobby and
 				// doesn't render, but the shell still needs the PC's application list
@@ -467,7 +470,7 @@ bool scenes::stream::resolution_locked()
 void scenes::stream::setting_changed(std::string_view key)
 {
 	const auto & config = application::get_config();
-	if (key == "fec" or key == "frame_margin")
+	if (key == "fec" or key == "frame_margin" or key == "controller_prediction")
 		send_link_settings();
 	// Size and codec changes rebuild the server's encoders
 	else if (key == "resolution" or key == "foveation" or key == "codec")

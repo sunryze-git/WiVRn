@@ -757,6 +757,8 @@ struct link_settings
 {
 	uint8_t fec_percent;
 	uint8_t frame_margin_ms;
+	// Share of the stream's latency that controller poses are predicted over
+	uint8_t controller_prediction_percent;
 };
 
 // Steam Frame eyes: per-eye gaze from Valve's eye tracker, lids and pupils from Babble's eye model

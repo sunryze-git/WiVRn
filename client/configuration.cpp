@@ -335,6 +335,7 @@ const std::vector<config_field<configuration::stream_config>> & configuration::s
 	        scalar("desktop_codec", &stream_config::desktop_codec),
 	        scalar("fec_percent", &stream_config::fec_percent),
 	        scalar("frame_margin_ms", &stream_config::frame_margin_ms),
+	        scalar("controller_prediction_percent", &stream_config::controller_prediction_percent),
 	        scalar("stream_scale", &stream_config::stream_scale),
 	};
 	return fields;

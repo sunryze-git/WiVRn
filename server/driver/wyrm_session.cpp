@@ -1580,6 +1580,9 @@ void wyrm::wyrm_session::operator()(from_headset::link_settings && event)
 	if (desktop)
 		desktop->fec_percent = fec_percent.load();
 	compositor.set_frame_margin(std::min<uint8_t>(event.frame_margin_ms, 20));
+	const uint8_t prediction = std::min<uint8_t>(event.controller_prediction_percent, 100);
+	if (controller_prediction_percent.exchange(prediction) != prediction)
+		U_LOG_I("Controllers predicted over %u%% of the latency", prediction);
 }
 
 void wyrm::wyrm_session::operator()(from_headset::video_nack && nack)

@@ -946,6 +946,9 @@ xrt_result_t wyrm_controller::get_tracked_pose(xrt_input_name name, int64_t at_t
 	device_id device;
 	XrTime now = os_monotonic_get_ns();
 	auto target_ns = std::min(at_timestamp_ns, now + max_extrapolation_ns);
+	// Predicting over the whole stream latency carries fast swings past where they stop
+	if (target_ns > now)
+		target_ns = now + (target_ns - now) * cnx->controller_prediction_percent / 100;
 	switch (name)
 	{
 		case XRT_INPUT_TOUCH_AIM_POSE:
@@ -969,7 +972,7 @@ xrt_result_t wyrm_controller::get_tracked_pose(xrt_input_name name, int64_t at_t
 			U_LOG_XDEV_UNSUPPORTED_INPUT(this, u_log_get_global_level(), name);
 			return XRT_ERROR_INPUT_UNSUPPORTED;
 	}
-	cnx->add_tracking_request(device, at_timestamp_ns, production_timestamp, now);
+	cnx->add_tracking_request(device, target_ns, production_timestamp, now);
 	return XRT_SUCCESS;
 }
 

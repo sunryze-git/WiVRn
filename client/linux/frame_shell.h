@@ -275,11 +275,12 @@ inline std::string settings_json(const configuration & config, const configurati
 				break;
 		}
 	}
-	return fmt::format(R"({{"bitrate":{},"max_bitrate":{},"fec":{},"frame_margin":{},"resolution":{},"foveation":{},"max_foveation":{},"codec":"{}","foveation_debug":{},"desktop_bitrate":{},"desktop_codec":"{}","codec_support":{{"h264":{},"h265":{},"av1":{}}}}})",
+	return fmt::format(R"({{"bitrate":{},"max_bitrate":{},"fec":{},"frame_margin":{},"controller_prediction":{},"resolution":{},"foveation":{},"max_foveation":{},"codec":"{}","foveation_debug":{},"desktop_bitrate":{},"desktop_codec":"{}","codec_support":{{"h264":{},"h265":{},"av1":{}}}}})",
 	                   stream.bitrate_bps,
 	                   config.max_bitrate(),
 	                   stream.fec_percent,
 	                   stream.frame_margin_ms,
+	                   stream.controller_prediction_percent,
 	                   stream.resolution_scale,
 	                   config.chosen_stream_scale(stream),
 	                   100,
@@ -322,6 +323,13 @@ inline bool apply_setting(configuration & config, configuration::stream_config &
 		if (!parse(ms) || ms > 20)
 			return false;
 		stream.frame_margin_ms = ms;
+	}
+	else if (key == "controller_prediction")
+	{
+		uint32_t percent;
+		if (!parse(percent) || percent > 100)
+			return false;
+		stream.controller_prediction_percent = percent;
 	}
 	else if (key == "fec")
 	{

@@ -73,6 +73,7 @@ public:
 		uint32_t fec_percent = 10;
 		// How much earlier than the slowest 0.5% of frames need the PC aims to have frames decoded (from_headset::link_settings)
 		uint32_t frame_margin_ms = 1;
+		uint32_t controller_prediction_percent = 60;
 		// Streamed size as a fraction of the render size; unset: the default for the headset's features
 		std::optional<float> stream_scale;
 	};
