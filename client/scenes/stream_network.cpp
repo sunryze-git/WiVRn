@@ -456,7 +456,7 @@ void scenes::stream::operator()(to_headset::desktop_surface && surface)
 #ifndef __ANDROID__
 static bool is_stream_command(std::string_view command)
 {
-	return command == "disconnect" or command.starts_with("present ") or command.starts_with("start_app ") or command.starts_with("set_active_app ") or command.starts_with("stop_app ");
+	return command == "disconnect" or command.starts_with("present ") or command.starts_with("start_app ") or command.starts_with("set_active_app ") or command.starts_with("stop_app ") or command.starts_with("eye_calibrate ");
 }
 
 bool scenes::stream::resolution_locked()
@@ -537,6 +537,13 @@ void scenes::stream::poll_shell()
 			frame_shell::request_present(command->substr(8));
 		else if (command->starts_with("start_app "))
 			start_application(command->substr(10));
+#if WYRM_FRAME_EYES
+		else if (command->starts_with("eye_calibrate "))
+		{
+			if (eye_tracker)
+				eye_tracker->calibrate(std::string_view(*command).substr(14));
+		}
+#endif
 		else if (command->starts_with("stop_app "))
 		{
 			try

@@ -100,6 +100,12 @@ public:
     // The dt_s value is the time in seconds since the previous update, and 0 or less for the first update.
     Out update(double x, double dt_s);
     void set_timing(size_t skip, size_t warmup, size_t every, size_t peak_window, size_t trough_window = 5);
+    // A guided calibration's relaxed eyes-open level (raw output), in place of the automatic seed. Later updates
+    // keep adjusting it.
+    void seed_baseline(double x);
+    // A guided calibration's eyes-closed level (raw output), counted as one close: later closes keep adjusting it.
+    // Without a baseline or with the closed level off it does nothing and returns false.
+    bool seed_closed(double x);
     bool ready() const { return ready_; }
     double baseline() const { return b_; }
     double ceiling() const { return c_; }   // The ceiling is a ratio to the baseline.

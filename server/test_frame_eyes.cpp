@@ -44,7 +44,30 @@ static void calibration()
 	check(calibrator.update(0.4, 0.01).lid < 1e-6);
 	check(std::abs(calibrator.update(1.0, 0.01).lid - 1.0) < 1e-6);
 
+	// A guided calibration sets both levels at once, and later closes keep adjusting the closed level.
+	babble::eye::OpennessCalibrator guided(params, std::nullopt);
+	check(not guided.seed_closed(0.1));
+	guided.seed_baseline(0.8);
+	check(guided.ready());
+	check(guided.seed_closed(0.16));
+	check(std::abs(guided.update(0.8, 0.01).lid - 1.0) < 1e-6);
+	check(guided.update(0.16, 0.01).lid < 1e-6);
+	check(std::abs(guided.closed() - 0.2) < 1e-6);
+	const auto guided_close = [&] {
+		for (int j = 0; j < 4; ++j)
+			guided.update(0.32, 0.01);
+		for (int j = 0; j < 3; ++j)
+			guided.update(0.8, 0.01);
+	};
+	guided_close();
+	check(std::abs(guided.closed() - 0.3) < 1e-6);
+	guided_close();
+	check(std::abs(guided.closed() - 0.4) < 1e-6);
+
 	params.closed_seed = 0;
+	babble::eye::OpennessCalibrator guided_without_closed(params, std::nullopt);
+	guided_without_closed.seed_baseline(1.0);
+	check(not guided_without_closed.seed_closed(0.1));
 	babble::eye::OpennessCalibrator uncalibrated(params, std::nullopt);
 	for (int i = 0; i < 8; ++i)
 		uncalibrated.update(1.0, 0.01);

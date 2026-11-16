@@ -18,10 +18,14 @@
 #include "model/postprocess/eye_post.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
+#include <optional>
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
+#include <utility>
+#include <vector>
 
 #include <pthread.h>
 
@@ -51,6 +55,9 @@ constexpr double ref_hz = 90;
 constexpr double calib_warmup_s = 3;
 constexpr double widen_seed = 0.15, widen_ceiling_max = 1.6, lid_saturation = 1.6, closed_seed = 0.3, calib_tol = 0.15;
 constexpr double kit_widen_gain = 0.8;
+// A guided calibration step skips the reaction time, then collects the eyelids' raw output
+constexpr uint64_t guided_settle_ns = 700'000'000, guided_collect_ns = 1'800'000'000;
+constexpr size_t guided_min_samples = 10;
 constexpr uint32_t pupil_crop_px = 128;
 constexpr double pupil_gate = 0.4, pupil_gate_hys = 0.1, pupil_hold_s = 0.1, pupil_rate_mm = 0.06, pupil_base_s = 60;
 constexpr double pupil_gain = 2;
@@ -85,6 +92,14 @@ struct frame_eyes::tracker::impl
 	babble::eye::RateScale tuned{ref_hz, ref_hz};
 	uint64_t last_retune_ns = 0;
 	uint64_t last_capture_ns = 0;
+
+	struct guided_step
+	{
+		std::string name;
+		uint64_t start_ns;
+		std::array<std::vector<double>, 2> samples;
+	};
+	std::optional<guided_step> guided;
 
 	bool load_model()
 	{
@@ -131,6 +146,7 @@ struct frame_eyes::tracker::impl
 		set_pupil_windows();
 		last_capture_ns = 0;
 		update_rate.restart();
+		guided.reset();
 	}
 
 	void retune(double hz)
@@ -192,10 +208,24 @@ void frame_eyes::tracker::set_present(bool p)
 	present = p;
 }
 
+void frame_eyes::tracker::calibrate(std::string_view step)
+{
+	if (step != "neutral" and step != "closed")
+		return;
+	std::lock_guard lock(calibration_mutex);
+	calibration_request = step;
+}
+
 std::string frame_eyes::tracker::statistics_json()
 {
 	std::lock_guard lock(stats_mutex);
-	return fmt::format(R"({{"state":"{}","update_hz":{:.0f},"calibrated":{},"gaze":{}}})", stats.state, stats.update_hz, stats.calibrated, stats.gaze);
+	return fmt::format(R"({{"state":"{}","update_hz":{:.0f},"calibrated":{},"gaze":{},"calibration_count":{},"calibration":"{}"}})",
+	                   stats.state,
+	                   stats.update_hz,
+	                   stats.calibrated,
+	                   stats.gaze,
+	                   stats.calibration_count,
+	                   stats.calibration);
 }
 
 void frame_eyes::tracker::run()
@@ -355,6 +385,40 @@ void frame_eyes::tracker::run()
 
 		if (not d->run_kit())
 			continue;
+
+		{
+			std::lock_guard lock(calibration_mutex);
+			if (not calibration_request.empty())
+				d->guided = impl::guided_step{.name = std::exchange(calibration_request, {}), .start_ns = now};
+		}
+		if (d->guided)
+		{
+			const uint64_t age = now - d->guided->start_ns;
+			if (age >= guided_settle_ns)
+				for (int e = 0; e < 2; e++)
+					d->guided->samples[e].push_back(d->result.lid[e]);
+			if (age >= guided_settle_ns + guided_collect_ns)
+			{
+				auto step = std::move(*d->guided);
+				d->guided.reset();
+				std::string result = "ok";
+				if (step.samples[0].size() < guided_min_samples)
+					result = "too few eye frames";
+				else
+					for (int e = 0; e < 2; e++)
+					{
+						const double level = babble::eye::median(step.samples[e]);
+						if (step.name == "neutral")
+							d->openness[e].seed_baseline(level);
+						else if (not d->openness[e].seed_closed(level))
+							result = "no open-eye level yet";
+					}
+				spdlog::info("Eyes: guided {} calibration: {} ({} samples)", step.name, result, step.samples[0].size());
+				std::lock_guard lock(stats_mutex);
+				stats.calibration_count++;
+				stats.calibration = step.name + " " + result;
+			}
+		}
 
 		std::array<double, 2> lid, widen;
 		std::array<std::optional<double>, 2> dilation;

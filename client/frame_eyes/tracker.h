@@ -12,6 +12,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <thread>
 
 namespace frame_eyes
@@ -31,6 +32,9 @@ public:
 
 	// Pauses the cameras' reader and the model while the headset is off; putting it on starts a new calibration
 	void set_present(bool present);
+	// Guided calibration: "neutral" (relaxed, eyes open) or "closed" (eyes fully closed) for the next few seconds;
+	// seeds the automatic calibration, which keeps adjusting afterwards
+	void calibrate(std::string_view step);
 	std::string statistics_json();
 
 	struct statistics
@@ -39,6 +43,9 @@ public:
 		float update_hz = 0;
 		bool calibrated = false;
 		bool gaze = false;
+		// The last guided step's result, numbered so a caller can tell a new result from an old one
+		uint32_t calibration_count = 0;
+		std::string calibration;
 	};
 
 private:
@@ -48,6 +55,8 @@ private:
 	std::atomic<bool> quit{false};
 	std::atomic<bool> present{true};
 	std::atomic<bool> new_session{false};
+	std::mutex calibration_mutex;
+	std::string calibration_request;
 	std::mutex stats_mutex;
 	statistics stats;
 

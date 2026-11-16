@@ -86,6 +86,25 @@ void OpennessCalibrator::set_timing(size_t skip, size_t warmup, size_t every, si
         lows_.pop_front();
 }
 
+void OpennessCalibrator::seed_baseline(double x) {
+    b_ = std::max(p_.floor, x);
+    acc_ = p_.acc0;
+    c_ = std::min(1.0 + p_.widen_seed, cap());
+    ready_ = true;
+    seed_.clear();
+    chunk_.clear();
+    if (filter_)
+        filter_->reset();
+}
+
+bool OpennessCalibrator::seed_closed(double x) {
+    if (!ready_ || p_.closed_seed <= 0)
+        return false;
+    f_ = std::clamp(x / b_, 0.0, 0.9);
+    troughs_.assign(1, f_);
+    return true;
+}
+
 OpennessCalibrator::Out OpennessCalibrator::update(double x, double dt_s) {
     n_++;
     double value;
