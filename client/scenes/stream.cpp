@@ -43,8 +43,10 @@
 #include "spdlog/spdlog.h"
 #include "utils/named_thread.h"
 #include "utils/ranges.h"
+#include "utils/xdg_base_directory.h"
 #include "wyrm_packets.h"
 #include <algorithm>
+#include <fstream>
 #include <mutex>
 #include <ranges>
 #include <thread>
@@ -77,6 +79,20 @@ scenes::stream::stream(std::string server_name, scene & parent_scene) :
 	auto views = system.view_configuration_views(viewconfig);
 	width = views[0].recommendedImageRectWidth;
 	height = views[0].recommendedImageRectHeight;
+}
+
+float scenes::stream::preferred_refresh_rate()
+{
+	if (float rate = application::get_config().preferred_refresh_rate)
+		return rate;
+	std::ifstream file(xdg_config_home() / "frame-shell" / "refresh-rate");
+	float saved = 0;
+	if (not(file >> saved))
+		return 0;
+	for (float rate: session.get_refresh_rates())
+		if (std::abs(rate - saved) < 0.01f)
+			return rate;
+	return 0;
 }
 
 static from_headset::visibility_mask_changed::masks get_visibility_mask(xr::instance & inst, xr::session & session, int view)
@@ -179,7 +195,7 @@ std::shared_ptr<scenes::stream> scenes::stream::create(std::unique_ptr<wyrm_sess
 		if (self->instance.has_extension(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME))
 		{
 			info.available_refresh_rates = self->session.get_refresh_rates();
-			info.settings.preferred_refresh_rate = config.preferred_refresh_rate;
+			info.settings.preferred_refresh_rate = self->preferred_refresh_rate();
 			info.settings.minimum_refresh_rate = config.minimum_refresh_rate.value_or(0);
 		}
 		info.settings.fps_divider = config.fps_divider;

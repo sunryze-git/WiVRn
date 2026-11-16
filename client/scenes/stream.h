@@ -276,6 +276,8 @@ public:
 	{
 		return application::get_config().stream(cookie);
 	}
+	// The stream's refresh setting, or the shell's display setting when the stream's is automatic
+	float preferred_refresh_rate();
 #ifndef __ANDROID__
 	// Frame shell: refuses a render size change while the PC's app can't take one
 	bool resolution_locked();

@@ -474,7 +474,7 @@ void scenes::stream::setting_changed(std::string_view key)
 		network_session->send_control(stream_settings());
 	else if (key == "bitrate")
 		network_session->send_control(from_headset::settings_changed{
-		        .preferred_refresh_rate = config.preferred_refresh_rate,
+		        .preferred_refresh_rate = preferred_refresh_rate(),
 		        .minimum_refresh_rate = config.minimum_refresh_rate.value_or(0),
 		        .fps_divider = config.fps_divider,
 		        .bitrate_bps = pc_settings().bitrate_bps,
