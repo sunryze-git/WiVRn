@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "motion_predictor.h"
 #include "polynomial_interpolator.h"
 #include "utils/csv_logger.h"
 #include "wyrm_packets.h"
@@ -56,6 +57,11 @@ class pose_list
 
 	std::optional<csv_logger<debug_data>> dumper;
 
+	// Controllers: the headset sends unpredicted poses and the motion past the newest one is predicted here
+	std::optional<motion_predictor> predictor;
+	void feed_predictor(const polynomial_interpolator<3>::sample & position, const polynomial_interpolator<4, true>::sample & orientation);
+	void predict(XrTime at, polynomial_interpolator<3>::sample & position, polynomial_interpolator<4, true>::sample & orientation);
+
 public:
 	const wyrm::device_id device;
 
@@ -68,6 +74,10 @@ public:
 
 	void update_tracking(const wyrm::from_headset::tracking &, const clock_offset & offset);
 	void set_derived(pose_list * source, xrt_pose offset, bool force = false);
+	void predict_motion()
+	{
+		predictor.emplace();
+	}
 
 	std::tuple<XrTime, xrt_space_relation, device_id> get_pose_at(XrTime at_timestamp_ns);
 

@@ -88,8 +88,7 @@ void wyrm::tracking_control::resolve(XrDuration frame_time, XrDuration latency)
 				step = sample_step;
 				break;
 
-			// High frequency polling for those
-			case device_id::HEAD:
+			// Controllers: one unpredicted pose per frame, extrapolated on the server (motion_predictor)
 			case device_id::LEFT_GRIP:
 			case device_id::LEFT_AIM:
 			case device_id::LEFT_PALM:
@@ -98,6 +97,13 @@ void wyrm::tracking_control::resolve(XrDuration frame_time, XrDuration latency)
 			case device_id::RIGHT_PALM:
 			case device_id::LEFT_PINCH_POSE:
 			case device_id::RIGHT_PINCH_POSE:
+			case device_id::LEFT_POKE:
+			case device_id::RIGHT_POKE:
+				res.pattern.push_back({.device = device_id(device), .prediction_ns = 0});
+				continue;
+
+			// High frequency polling for those
+			case device_id::HEAD:
 				step = sample_step;
 				break;
 

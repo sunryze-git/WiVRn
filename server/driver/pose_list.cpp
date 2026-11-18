@@ -138,6 +138,28 @@ void pose_list::set_derived(pose_list * source, xrt_pose offset, bool force)
 	}
 }
 
+void pose_list::feed_predictor(const polynomial_interpolator<3>::sample & position, const polynomial_interpolator<4, true>::sample & orientation)
+{
+	// Only measured poses: one the headset predicted is not where the controller was
+	if (position.timestamp - position.production_timestamp > 1'000'000)
+		return;
+	if (not position.y or not orientation.y)
+		return predictor->reset();
+
+	motion_predictor::pose sample{
+	        .position = position.y->cast<double>(),
+	        .orientation = Eigen::Quaterniond((*orientation.y)[0], (*orientation.y)[1], (*orientation.y)[2], (*orientation.y)[3]).normalized(),
+	};
+	if (position.dy)
+		sample.linear_velocity = position.dy->cast<double>();
+	if (orientation.dy)
+	{
+		const Eigen::Quaterniond dq((*orientation.dy)[0], (*orientation.dy)[1], (*orientation.dy)[2], (*orientation.dy)[3]);
+		sample.angular_velocity = 2 * (dq * sample.orientation.conjugate()).vec();
+	}
+	predictor->add_sample(position.timestamp, sample);
+}
+
 std::tuple<XrTime, xrt_space_relation, device_id> pose_list::get_pose_at(XrTime at_timestamp_ns)
 {
 	if (auto source = this->source.load())
@@ -163,6 +185,8 @@ void pose_list::reset()
 	std::lock_guard lock(mutex);
 	positions.reset();
 	orientations.reset();
+	if (predictor)
+		predictor->reset();
 }
 
 void pose_list::add_sample(XrTime production_timestamp, XrTime timestamp, const from_headset::tracking::pose & pose, const clock_offset & offset)
@@ -215,6 +239,8 @@ void pose_list::add_sample(XrTime production_timestamp, XrTime timestamp, const 
 	std::lock_guard lock(mutex);
 	positions.add_sample(position);
 	orientations.add_sample(orientation);
+	if (predictor)
+		feed_predictor(position, orientation);
 
 	if (dumper)
 	{
@@ -236,6 +262,25 @@ void pose_list::add_sample(XrTime production_timestamp, XrTime timestamp, const 
 	}
 }
 
+// Past the newest sample, controllers take their pose from the motion predictor
+void pose_list::predict(XrTime at, polynomial_interpolator<3>::sample & position, polynomial_interpolator<4, true>::sample & orientation)
+{
+	if (not position.y or not orientation.y or not predictor->newest() or at <= *predictor->newest())
+		return;
+	const auto predicted = predictor->predict(at);
+	if (not predicted)
+		return;
+
+	const Eigen::Quaternionf q = predicted->orientation.cast<float>();
+	const Eigen::Vector3f w = predicted->angular_velocity.cast<float>();
+	const Eigen::Quaternionf dq = Eigen::Quaternionf{0, w.x(), w.y(), w.z()} * q;
+	position.y = predicted->position.cast<float>();
+	position.dy = predicted->linear_velocity.cast<float>();
+	orientation.y.emplace(q.w(), q.x(), q.y(), q.z());
+	orientation.dy.emplace(0.5f * dq.w(), 0.5f * dq.x(), 0.5f * dq.y(), 0.5f * dq.z());
+	position.timestamp = orientation.timestamp = at;
+}
+
 std::pair<XrTime, xrt_space_relation> pose_list::get_at(XrTime at_timestamp_ns)
 {
 	std::lock_guard lock(mutex);
@@ -247,6 +292,8 @@ std::pair<XrTime, xrt_space_relation> pose_list::get_at(XrTime at_timestamp_ns)
 
 	auto position = positions.get_at(at_timestamp_ns);
 	auto orientation = orientations.get_at(at_timestamp_ns);
+	if (predictor)
+		predict(at_timestamp_ns, position, orientation);
 
 	if (position.y)
 	{

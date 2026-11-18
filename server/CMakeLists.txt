@@ -124,6 +124,7 @@ if (WYRM_BUILD_SERVER)
 			driver/clock_offset.cpp
 			driver/configuration.cpp
 			driver/hand_joints_list.cpp
+			driver/motion_predictor.cpp
 			driver/pose_list.cpp
 			driver/tracking_control.cpp
 			driver/view_list.cpp
@@ -303,10 +304,13 @@ if (WYRM_BUILD_SERVER)
 		add_executable(test-discord-presence test_discord_presence.cpp discord_presence.cpp)
 		target_link_libraries(test-discord-presence PRIVATE nlohmann_json::nlohmann_json)
 		add_test(NAME discord-presence COMMAND test-discord-presence)
-		add_executable(test-pose-prediction driver/test_pose_prediction.cpp driver/pose_list.cpp driver/clock_offset.cpp)
+		add_executable(test-pose-prediction driver/test_pose_prediction.cpp driver/pose_list.cpp driver/motion_predictor.cpp driver/clock_offset.cpp)
 		target_include_directories(test-pose-prediction PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 		target_link_libraries(test-pose-prediction PRIVATE wyrm-common aux_util Eigen3::Eigen)
 		add_test(NAME pose-prediction COMMAND test-pose-prediction)
+		add_executable(replay-pose-prediction driver/replay_pose_prediction.cpp driver/pose_list.cpp driver/motion_predictor.cpp driver/clock_offset.cpp)
+		target_include_directories(replay-pose-prediction PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+		target_link_libraries(replay-pose-prediction PRIVATE wyrm-common aux_util Eigen3::Eigen)
 		add_executable(test-pacer compositor/test_pacer.cpp compositor/pacer.cpp encoder/idr_handler.cpp driver/clock_offset.cpp)
 		target_include_directories(test-pacer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${monado_SOURCE_DIR}/src/xrt/compositor)
 		target_link_libraries(test-pacer PRIVATE wyrm-common aux_util aux_vk comp_util)

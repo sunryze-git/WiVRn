@@ -746,6 +746,8 @@ wyrm_controller::wyrm_controller(xrt_device_name name,
         cnx(cnx)
 {
 	inputs = inputs_array.data();
+	for (pose_list * poses: {&grip, &aim, &palm, &pinch_ext, &poke_ext})
+		poses->predict_motion();
 
 	// Setup input.
 #define SET_INPUT(VENDOR, NAME)                                                     \

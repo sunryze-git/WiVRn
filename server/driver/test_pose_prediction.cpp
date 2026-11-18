@@ -231,6 +231,58 @@ static void test_tracking_confidence()
 	}
 }
 
+// A grip spinning about +Y with angle(t) and rate(t), sampled unpredicted like the headset sends controllers
+static void add_spin(pose_list & poses, XrDuration time, float angle, float rate)
+{
+	const Eigen::Quaternionf q(Eigen::AngleAxisf(angle, Eigen::Vector3f::UnitY()));
+	from_headset::tracking packet{};
+	packet.production_timestamp = packet.timestamp = epoch + time;
+	packet.device_poses.push_back({
+	        .pose = {.orientation = {.x = q.x(), .y = q.y(), .z = q.z(), .w = q.w()}},
+	        .linear_velocity = {},
+	        .angular_velocity = {.x = 0, .y = rate, .z = 0},
+	        .device = device_id::LEFT_GRIP,
+	        .flags = uint8_t(from_headset::pose_flags::orientation_valid | from_headset::pose_flags::position_valid |
+	                         from_headset::pose_flags::linear_velocity_valid | from_headset::pose_flags::angular_velocity_valid),
+	});
+	poses.update_tracking(packet, {.stable = true});
+}
+
+// Largest error, in radians, of poses predicted 55 ms ahead while a grip follows angle(t) from `from` to `to` seconds
+static float predicted_angle_error(auto angle, float from, float to)
+{
+	pose_list poses(device_id::LEFT_GRIP);
+	poses.predict_motion();
+	constexpr XrDuration step = 6'944'444, ahead = 55'000'000;
+	float worst = 0;
+	for (XrDuration time = 0; time * 1e-9f < to; time += step)
+	{
+		const float t = time * 1e-9f;
+		add_spin(poses, time, angle(t), (angle(t + 0.0005f) - angle(t - 0.0005f)) / 0.001f);
+		if (t < from)
+			continue;
+		const auto result = poses.get_at(epoch + time + ahead).second;
+		const Eigen::Quaternionf expected(Eigen::AngleAxisf(angle(t + ahead * 1e-9f), Eigen::Vector3f::UnitY()));
+		worst = std::max(worst, quaternion(result.pose.orientation).angularDistance(expected));
+	}
+	return worst;
+}
+
+static void test_controller_prediction()
+{
+	constexpr float degree = M_PI / 180;
+	// A steady spin continues exactly
+	check(predicted_angle_error([](float t) { return 15 * t; }, 0.5f, 1) < 0.5f * degree);
+	// A wrist flicking 45° each way 5 times a second turns back within the 55 ms: last pose plus velocity is up to
+	// 60° off there
+	const auto flick = [](float t) { return 0.785f * std::sin(31.4f * t); };
+	check(predicted_angle_error(flick, 1, 2) < 5 * degree);
+	// Once the flicking has stopped for 150 ms, so has the prediction
+	check(predicted_angle_error([&](float t) { return t < 1 ? flick(t) : flick(1); }, 1.15f, 1.5f) < 1 * degree);
+	// A controller at rest stays put
+	check(predicted_angle_error([](float) { return 0.3f; }, 0.5f, 1) < 0.01f * degree);
+}
+
 int main(int argc, char ** argv)
 {
 	std::string_view selected = argc > 1 ? argv[1] : "all";
@@ -246,6 +298,8 @@ int main(int argc, char ** argv)
 		test_sample_management();
 	if (selected == "all" or selected == "confidence")
 		test_tracking_confidence();
+	if (selected == "all" or selected == "controllers")
+		test_controller_prediction();
 	std::cout << "Pose prediction (" << selected << "): " << failures << " failures\n";
 	return failures ? 1 : 0;
 }
