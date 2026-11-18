@@ -106,6 +106,10 @@ private:
 	wyrm::foveation foveation;
 
 	std::array<std::unique_ptr<video_encoder>, 3> encoders;
+	// Video rate the headset asked for, and the rate in use after adapting to the link (encoders_mutex)
+	uint32_t requested_bitrate = 0;
+	uint32_t effective_bitrate = 0;
+	void apply_bitrate(uint32_t);
 	uint32_t stream_generation = 1;
 	video_stream_state video_state;
 	std::atomic<bool> decoder_ready = false;
@@ -201,6 +205,9 @@ public:
 	void set_framerate(float hz);
 
 	void set_bitrate(uint32_t);
+	// Lowers the video rate to what the link carries, and raises it back towards the requested rate
+	void adapt_bitrate(uint64_t capacity_bps);
+	uint32_t video_bitrate();
 	void update_tracking(const from_headset::tracking &);
 	void update_foveation_center_override(const from_headset::override_foveation_center &);
 
