@@ -26,6 +26,9 @@ namespace wyrm
 static const int default_port = 9757;
 
 static const int64_t max_extrapolation_ns = 80'000'000;
+
+// Decoded frames the headset keeps per stream for picking the one meant for each display refresh
+static const int decoded_frame_buffer = 3;
 } // namespace wyrm
 
 #cmakedefine01 WYRM_USE_NVENC

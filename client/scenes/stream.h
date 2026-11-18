@@ -23,6 +23,7 @@
 #include "application.h"
 #include "audio/audio.h"
 #include "configuration.h"
+#include "wyrm_config.h"
 #include "decoder/frame_sink.h"
 #include "decoder/shard_accumulator.h"
 #include "render/imgui_impl.h"
@@ -66,7 +67,7 @@ public:
 		stalled,
 		shutdown,
 	};
-	static const size_t image_buffer_size = 3;
+	static const size_t image_buffer_size = wyrm::decoded_frame_buffer;
 
 	app_launcher apps;
 

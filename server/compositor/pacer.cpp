@@ -19,6 +19,7 @@
  */
 
 #include "pacer.h"
+#include "wyrm_config.h"
 
 #include "driver/clock_offset.h"
 
@@ -70,11 +71,17 @@ pacer::pacer(uint64_t frame_duration) :
 			        continue;
 		        auto it = samples.begin() + (samples.size() * 995) / 1000;
 		        std::ranges::nth_element(samples, it);
+		        auto median = samples.begin() + samples.size() / 2;
+		        std::nth_element(samples.begin(), median, it);
 
 		        std::unique_lock lock(mutex);
 		        if (generation != timing_generation)
 			        continue;
-		        safe_present_to_decoded_ns = *it + client_margin_ms.val * U_TIME_1MS_IN_NS;
+		        // The headset keeps only a few decoded frames: one decoded more periods ahead of its display than that
+		        // is replaced before it is shown. Slack beyond typical delivery plus that span can't save a slow frame,
+		        // it only makes every other frame show before the time it was rendered for.
+		        const int64_t held = *median + (decoded_frame_buffer - 1) * frame_duration_ns;
+		        safe_present_to_decoded_ns = std::min(*it, held) + client_margin_ms.val * U_TIME_1MS_IN_NS;
 	        }
         })
 {
