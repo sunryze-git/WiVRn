@@ -33,6 +33,7 @@
 #include "xrt/xrt_defines.h"
 
 #include <array>
+#include <cinttypes>
 #include <format>
 #include <magic_enum.hpp>
 #include <numbers>
@@ -973,7 +974,43 @@ xrt_result_t wyrm_controller::get_tracked_pose(xrt_input_name name, int64_t at_t
 			return XRT_ERROR_INPUT_UNSUPPORTED;
 	}
 	cnx->add_tracking_request(device, target_ns, production_timestamp, now);
+	if (log_prediction_enabled() and (device == grip.device or device == aim.device))
+		log_prediction(device, device == grip.device ? grip : aim, now, at_timestamp_ns, target_ns, production_timestamp);
 	return XRT_SUCCESS;
+}
+
+void wyrm_controller::log_prediction(device_id device, const pose_list & poses, XrTime now, XrTime requested, XrTime looked_up, XrTime production)
+{
+	std::lock_guard lock(prediction_mutex);
+	auto & stats = prediction_log[device == grip.device ? 0 : 1];
+	stats.requested.add(requested - now);
+	stats.looked_up.add(looked_up - now);
+	stats.latency.add(cnx->get_tracking_latency());
+	if (production)
+		stats.from_sample.add(looked_up - production);
+	if (auto newest = poses.get_bounds().second; newest != std::numeric_limits<XrTime>::lowest())
+		stats.past_newest_sample.add(looked_up - newest);
+
+	if (prediction_log_next == 0)
+		prediction_log_next = now + 5'000'000'000;
+	if (now < prediction_log_next)
+		return;
+	prediction_log_next = now + 5'000'000'000;
+	for (auto & s: prediction_log)
+	{
+		if (s.requested.count == 0)
+			continue;
+		U_LOG_I("%s poses (%" PRId64 " in 5 s): game asked %s ahead, looked up %s ahead, predicted %s from the headset sample, "
+		        "%s past the newest headset sample, tracking latency %s",
+		        std::string(magic_enum::enum_name(&s == &prediction_log[0] ? grip.device : aim.device)).c_str(),
+		        s.requested.count,
+		        s.requested.str().c_str(),
+		        s.looked_up.str().c_str(),
+		        s.from_sample.str().c_str(),
+		        s.past_newest_sample.str().c_str(),
+		        s.latency.str().c_str());
+		s = {};
+	}
 }
 
 xrt_result_t wyrm_controller::get_hand_tracking(xrt_input_name name, int64_t desired_timestamp_ns, xrt_hand_joint_set * out_value, int64_t * out_timestamp_ns)

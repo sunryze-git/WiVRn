@@ -18,7 +18,9 @@
 
 #include "app_pacer.h"
 
+#include "duration_summary.h"
 #include "util/u_debug.h"
+#include "util/u_logging.h"
 #include "util/u_metrics.h"
 #include "util/u_time.h"
 #include "util/u_var.h"
@@ -26,6 +28,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cinttypes>
 #include <cmath>
 #include <ranges>
 
@@ -49,6 +52,13 @@ class app_pacer : public u_pacing_app
 	int64_t gpu_time = 0;
 	int64_t compositor_time = 0;
 
+	// With WYRM_LOG_PREDICTION set: the app's frames against their predicted display time, logged every 5 s
+	struct timing_stats
+	{
+		duration_summary compositor_display, wait_to_display, wait_to_submit, wait_to_gpu_done, gpu_done_to_display, display_moved;
+	} timing_log; // locked by mutex
+	int64_t timing_log_next = 0;
+
 	u_var_draggable_f32 min_margin_ms;
 
 	struct frame
@@ -68,6 +78,7 @@ class app_pacer : public u_pacing_app
 		bool discarded = false;
 	};
 	std::array<frame, 16> frames{};
+	void log_timing(const frame & frame, int64_t now);
 
 	frame & get_frame(int64_t id)
 	{
@@ -171,6 +182,12 @@ void app_pacer::predict(int64_t now_ns,
                         int64_t * out_predicted_display_period)
 {
 	*out_frame_id = ++frame_id;
+
+	if (log_prediction_enabled())
+	{
+		std::lock_guard lock(mutex);
+		timing_log.compositor_display.add(compositor_display_time - now_ns);
+	}
 
 	// no need to lock, called in same thread as writes
 	auto min_ready = now_ns + cpu_time + gpu_time + compositor_time;
@@ -283,6 +300,40 @@ void app_pacer::mark_gpu_done(int64_t frame_id, int64_t when_ns)
 	cpu_time = lerp0(cpu_time, std::min(3 * period, frame.delivered - frame.wake_up), 0.1);
 	gpu_time = lerp0(gpu_time, std::min(3 * period, when_ns - frame.delivered), 0.1);
 	write_metrics(frame);
+	if (log_prediction_enabled())
+		log_timing(frame, when_ns);
+}
+
+void app_pacer::log_timing(const frame & frame, int64_t now)
+{
+	timing_log.wait_to_display.add(frame.predicted_display_time - frame.wake_up);
+	if (frame.submit_end)
+		timing_log.wait_to_submit.add(frame.submit_end - frame.wake_up);
+	timing_log.wait_to_gpu_done.add(frame.gpu_done - frame.wake_up);
+	timing_log.gpu_done_to_display.add(frame.predicted_display_time - frame.gpu_done);
+	timing_log.display_moved.add(frame.display_time - frame.predicted_display_time);
+
+	if (timing_log_next == 0)
+		timing_log_next = now + 5'000'000'000;
+	if (now < timing_log_next)
+		return;
+	timing_log_next = now + 5'000'000'000;
+	U_LOG_I("App %" PRId64 " frames (%" PRId64 " in 5 s): xrWaitFrame returned %s before the predicted display time, "
+	        "submitted %s and GPU done %s after xrWaitFrame, GPU done %s before display, display time moved %s at delivery, "
+	        "compositor display time %s ahead at prediction; estimates CPU %.1f ms, GPU %.1f ms, compositor %.1f ms, period %.1f ms",
+	        session_id,
+	        timing_log.wait_to_display.count,
+	        timing_log.wait_to_display.str().c_str(),
+	        timing_log.wait_to_submit.str().c_str(),
+	        timing_log.wait_to_gpu_done.str().c_str(),
+	        timing_log.gpu_done_to_display.str().c_str(),
+	        timing_log.display_moved.str().c_str(),
+	        timing_log.compositor_display.str().c_str(),
+	        cpu_time / 1e6,
+	        gpu_time / 1e6,
+	        compositor_time / 1e6,
+	        period / 1e6);
+	timing_log = {};
 }
 
 pacing_app_factory::pacing_app_factory() :

@@ -23,8 +23,10 @@
 #include "xrt/xrt_device.h"
 
 #include "hand_joints_list.h"
+#include "duration_summary.h"
 #include "pose_list.h"
 
+#include <array>
 #include <mutex>
 #include <vector>
 
@@ -49,6 +51,16 @@ class wyrm_controller : public xrt_device
 	std::vector<xrt_output> outputs_array;
 
 	wyrm::wyrm_session * cnx;
+
+	// With WYRM_LOG_PREDICTION set: how far ahead grip and aim poses are predicted, logged every 5 s
+	struct prediction_stats
+	{
+		duration_summary requested, looked_up, from_sample, past_newest_sample, latency;
+	};
+	std::mutex prediction_mutex;
+	std::array<prediction_stats, 2> prediction_log; // grip, aim
+	XrTime prediction_log_next = 0;
+	void log_prediction(device_id device, const pose_list & poses, XrTime now, XrTime requested, XrTime looked_up, XrTime production);
 
 public:
 	using base_t = xrt_device;

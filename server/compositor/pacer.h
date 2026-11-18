@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "driver/duration_summary.h"
 #include "wyrm_packets.h"
 
 #include <condition_variable>
@@ -54,9 +55,17 @@ private:
 
 	int64_t mean_wake_up_to_present_ns = 1'000'000;
 	int64_t safe_present_to_decoded_ns = 0;
+	int64_t slowest_present_to_decoded_ns = 0; // 99.5th percentile
+	int64_t median_present_to_decoded_ns = 0;
 	int64_t mean_render_to_display_ns = 0;
 
 	int64_t last_wake_up_ns = 0;
+
+	// With WYRM_LOG_PREDICTION set: how far ahead the predicted display time is, logged every 5 s
+	wyrm::duration_summary display_ahead, render_ahead;
+	// From the headset's feedback: what happened to each displayed frame
+	wyrm::duration_summary present_to_encode, encode_to_decoded, decoded_to_displayed, displayed_vs_predicted;
+	int64_t display_log_next = 0;
 
 	u_var_draggable_f32 client_margin_ms;
 

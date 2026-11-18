@@ -29,6 +29,7 @@
 
 #include "os/os_time.h"
 #include "util/u_debug.h"
+#include "util/u_logging.h"
 
 DEBUG_GET_ONCE_FLOAT_OPTION(client_margin_ms, "WYRM_CLIENT_MARGIN_MS", 1.f)
 
@@ -81,6 +82,8 @@ pacer::pacer(uint64_t frame_duration) :
 		        // is replaced before it is shown. Slack beyond typical delivery plus that span can't save a slow frame,
 		        // it only makes every other frame show before the time it was rendered for.
 		        const int64_t held = *median + (decoded_frame_buffer - 1) * frame_duration_ns;
+		        slowest_present_to_decoded_ns = *it;
+		        median_present_to_decoded_ns = *median;
 		        safe_present_to_decoded_ns = std::min(*it, held) + client_margin_ms.val * U_TIME_1MS_IN_NS;
 	        }
         })
@@ -129,6 +132,39 @@ void pacer::predict(
 	        frame_duration_ns);
 
 	out_predicted_display_time_ns = predicted_client_render + mean_render_to_display_ns;
+	if (wyrm::log_prediction_enabled())
+	{
+		display_ahead.add(out_predicted_display_time_ns - now);
+		render_ahead.add(predicted_client_render - now);
+		if (display_log_next == 0)
+			display_log_next = now + 5'000'000'000;
+		if (now >= display_log_next)
+		{
+			display_log_next = now + 5'000'000'000;
+			U_LOG_I("Compositor predicted display %s ahead: client render %s ahead plus headset render to display %.1f ms; "
+			        "wake up to present %.1f ms, safe present to decoded %.1f ms (99.5th percentile %.1f, median %.1f), frame %.1f ms. "
+			        "Displayed frames: desired present to encode %s, encode to decoded %s, decoded to displayed %s, "
+			        "displayed %s after the predicted display time",
+			        display_ahead.str().c_str(),
+			        render_ahead.str().c_str(),
+			        mean_render_to_display_ns / 1e6,
+			        mean_wake_up_to_present_ns / 1e6,
+			        safe_present_to_decoded_ns / 1e6,
+			        slowest_present_to_decoded_ns / 1e6,
+			        median_present_to_decoded_ns / 1e6,
+			        frame_duration_ns / 1e6,
+			        present_to_encode.str().c_str(),
+			        encode_to_decoded.str().c_str(),
+			        decoded_to_displayed.str().c_str(),
+			        displayed_vs_predicted.str().c_str());
+			display_ahead = {};
+			render_ahead = {};
+			present_to_encode = {};
+			encode_to_decoded = {};
+			decoded_to_displayed = {};
+			displayed_vs_predicted = {};
+		}
+	}
 	out_desired_present_time_ns = predicted_client_render - safe_present_to_decoded_ns;
 	out_wake_up_time_ns = out_desired_present_time_ns - mean_wake_up_to_present_ns + margin_ns; // we should be awoken early by the application
 	last_wake_up_ns = out_wake_up_time_ns;
@@ -171,6 +207,16 @@ void pacer::on_feedback(const wyrm::from_headset::feedback & feedback, const clo
 		times.decoded = 0;
 	}
 	times.decoded = std::max(times.decoded, offset.from_headset(feedback.received_from_decoder));
+	if (wyrm::log_prediction_enabled() and feedback.stream_index == 0 and feedback.displayed)
+	{
+		const auto encode_begin = offset.from_headset(feedback.encode_begin);
+		const auto decoded = offset.from_headset(feedback.received_from_decoder);
+		const auto displayed = offset.from_headset(feedback.displayed);
+		present_to_encode.add(encode_begin - when.present_ns);
+		encode_to_decoded.add(decoded - encode_begin);
+		decoded_to_displayed.add(displayed - decoded);
+		displayed_vs_predicted.add(displayed - when.predicted_display_time);
+	}
 
 	if (feedback.stream_index == 0)
 	{

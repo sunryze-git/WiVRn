@@ -247,6 +247,10 @@ public:
 	// Parity per frame in percent of its shards, from the headset (from_headset::link_settings)
 	std::atomic<uint8_t> fec_percent = 0;
 	std::atomic<uint8_t> controller_prediction_percent = 60;
+	XrDuration get_tracking_latency() const
+	{
+		return tracking_latency;
+	}
 
 	template <typename T>
 	void send_control(T && packet)
