@@ -1,0 +1,62 @@
+From f45ec2988d833f7c48bd8d5c2fc451347c5835bb Mon Sep 17 00:00:00 2001
+From: caszuu <caszuul@gmail.com>
+Date: Sat, 25 Apr 2026 19:48:26 -0500
+Subject: [PATCH] c/shaders: basic layer supersampling
+
+Signed-off-by: Sapphire <imsapphire0@gmail.com>
+---
+ src/xrt/auxiliary/render/shaders/layer.comp | 23 +++++++++++++++++----
+ 1 file changed, 19 insertions(+), 4 deletions(-)
+
+diff --git a/src/xrt/auxiliary/render/shaders/layer.comp b/src/xrt/auxiliary/render/shaders/layer.comp
+index d2b1a62af..06f6e9f41 100644
+--- a/src/xrt/auxiliary/render/shaders/layer.comp
++++ b/src/xrt/auxiliary/render/shaders/layer.comp
+@@ -166,7 +166,15 @@ float invert_alpha(float alpha, uint layer)
+ 	return alpha;
+ }
+ 
+-vec2 position_to_view_uv(ivec2 extent, uint ix, uint iy)
++#define SS_SAMPLES 4
++const vec2 ss_offsets[SS_SAMPLES] = {
++	vec2(.4, .2),
++	vec2(.8, .4),
++	vec2(.6, .8),
++	vec2(.2, .6)
++};
++
++vec2 position_to_view_uv(ivec2 extent, uint ix, uint iy, uint ss_idx)
+ {
+ 	// Turn the index into floating point.
+ 	vec2 xy = vec2(float(ix), float(iy));
+@@ -178,7 +186,7 @@ vec2 position_to_view_uv(ivec2 extent, uint ix, uint iy)
+ 	vec2 view_uv = xy * extent_pixel_size;
+ 
+ 	// Emulate a triangle sample position by offset half target pixel size.
+-	view_uv = view_uv + extent_pixel_size / 2.0;
++	view_uv = view_uv + extent_pixel_size * ss_offsets[ss_idx];
+ 
+ 	return view_uv;
+ }
+@@ -643,9 +651,16 @@ void main()
+ 		return;
+ 	}
+ 
+-	vec2 view_uv = position_to_view_uv(extent, ix, iy);
++	// forgive me, for i have sinned
++	// accumulate 4 samples and average them out
++
++	vec4 colour = vec4(0);
++	for (uint ss_idx = 0; ss_idx < SS_SAMPLES; ss_idx++) {
++		vec2 view_uv = position_to_view_uv(extent, ix, iy, ss_idx);
++		colour += do_layers(view_uv);
++	}
+ 
+-	vec4 colour = do_layers(view_uv);
++	colour /= SS_SAMPLES;
+ 
+ 	if (k_do_color_correction) {
+ 		// Do colour correction here since there are no automatic conversion in hardware available.
+-- 
+2.56.0
+
