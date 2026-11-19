@@ -107,7 +107,6 @@ void wyrm::UDP::subscribe_multicast(in6_addr address)
 
 	if (setsockopt(fd, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &subscribe, sizeof(subscribe)) < 0)
 	{
-		::close(fd);
 		throw std::system_error{errno, std::generic_category()};
 	}
 }
@@ -121,7 +120,6 @@ void wyrm::UDP::unsubscribe_multicast(in6_addr address)
 
 	if (setsockopt(fd, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, &subscribe, sizeof(subscribe)) < 0)
 	{
-		::close(fd);
 		throw std::system_error{errno, std::generic_category()};
 	}
 }
@@ -159,7 +157,6 @@ void wyrm::TCP::init()
 	int nodelay = 1;
 	if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay)) < 0)
 	{
-		::close(fd);
 		throw std::system_error{errno, std::generic_category()};
 	}
 
@@ -194,7 +191,6 @@ void connect_tcp(int fd, const sockaddr * address, socklen_t size)
 	}
 	fcntl(fd, F_SETFL, flags);
 	if (error) {
-		::close(fd);
 		throw std::system_error(error, std::generic_category());
 	}
 }
@@ -236,7 +232,6 @@ wyrm::TCPListener::TCPListener(int port)
 	int reuse_addr = 1;
 	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse_addr, sizeof(reuse_addr)) < 0)
 	{
-		::close(fd);
 		throw std::system_error{errno, std::generic_category()};
 	}
 
@@ -247,14 +242,12 @@ wyrm::TCPListener::TCPListener(int port)
 
 	if (bind(fd, (sockaddr *)&addr, sizeof(addr)) < 0)
 	{
-		::close(fd);
 		throw std::system_error{errno, std::generic_category()};
 	}
 
 	int backlog = 1;
 	if (listen(fd, backlog) < 0)
 	{
-		::close(fd);
 		throw std::system_error{errno, std::generic_category()};
 	}
 }
