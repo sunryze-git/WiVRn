@@ -10,7 +10,7 @@
 
 # About
 
-Wyrm is a fork of [WiVRn](https://github.com/WiVRn/WiVRn), originally developed by Guillaume Meunier, Patrick Nicolas, and the WiVRn contributors. Original copyright and license notices are preserved.
+Wyrm is a fork of [WiVRn](https://github.com/WiVRn/WiVRn). Original copyright and license notices are preserved.
 
 Wyrm wirelessly streams a virtual reality game to a standalone VR headset from a <b>Linux</b> computer.
 
