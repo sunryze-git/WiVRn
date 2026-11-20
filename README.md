@@ -179,7 +179,7 @@ Note: Wyrm isn't properly optimized for NVIDIA GPUs due to the lack of developer
 
 The Wyrm source repository is [sunryze-git/Wyrm](https://github.com/sunryze-git/Wyrm).
 
-Wyrm shares WiVRn's executables, app IDs, configuration directory, discovery name, and OpenXR runtime files, so it cannot be installed side by side with WiVRn. Install matching Wyrm server and client builds.
+Wyrm keeps its configuration and pairing data in `~/.config/wyrm`, but shares WiVRn's executables, app IDs, discovery name, and OpenXR runtime files, so it cannot be installed side by side with WiVRn. Install matching Wyrm server and client builds.
 
 # Contributing
 

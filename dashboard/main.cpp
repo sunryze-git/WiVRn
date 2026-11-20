@@ -20,7 +20,7 @@ int main(int argc, char * argv[])
 	KIconTheme::initTheme();
 	QApplication app(argc, argv);
 	KLocalizedString::setApplicationDomain("wivrn-dashboard");
-	app.setOrganizationName(QStringLiteral("wivrn"));
+	app.setOrganizationName(QStringLiteral("wyrm"));
 
 	KAboutData aboutData(
 	        QStringLiteral("wivrn-dashboard"),

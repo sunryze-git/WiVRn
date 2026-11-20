@@ -54,7 +54,7 @@ static std::filesystem::path identity_dir()
 {
 	if (const char * path = std::getenv("FRAME_SHELL_IDENTITY_DIR"))
 		return path;
-	return xdg_config_home() / "wivrn";
+	return xdg_config_home() / "wyrm";
 }
 static std::filesystem::path known_keys_file = resolve_path(identity_dir() / "known_keys.json");
 static std::filesystem::path cookie_file = resolve_path(identity_dir() / "cookie");
@@ -90,7 +90,7 @@ void configuration::set_config_file(const std::filesystem::path & path)
 std::filesystem::path configuration::get_config_file()
 {
 	if (config_file.empty())
-		return resolve_path(xdg_config_home() / "wivrn" / "config.json");
+		return resolve_path(xdg_config_home() / "wyrm" / "config.json");
 	return config_file;
 }
 
@@ -105,7 +105,7 @@ nlohmann::json configuration::read_configuration()
 		             xdg_config_home(),
 		     })
 		{
-			auto path = resolve_path(prefix / "wivrn" / "config.json");
+			auto path = resolve_path(prefix / "wyrm" / "config.json");
 			if (std::filesystem::exists(path))
 			{
 				try

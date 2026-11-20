@@ -1713,7 +1713,7 @@ application::application(application_info info) :
 
 #else
 	wifi = std::make_shared<wifi_lock>();
-	config_path = std::getenv("FRAME_SHELL_CONFIG_DIR") ? std::filesystem::path(std::getenv("FRAME_SHELL_CONFIG_DIR")) : xdg_config_home() / "wivrn";
+	config_path = std::getenv("FRAME_SHELL_CONFIG_DIR") ? std::filesystem::path(std::getenv("FRAME_SHELL_CONFIG_DIR")) : xdg_config_home() / "wyrm";
 	cache_path = xdg_cache_home() / "wivrn";
 #endif
 

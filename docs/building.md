@@ -137,4 +137,4 @@ Wyrm uses WiVRn's executable names (`wivrn-server`, `wivrn-dashboard`, `wivrnctl
 cmake -S . -B build-server -DWIVRN_GITHUB_REPOSITORY=sunryze-git/Wyrm
 ```
 
-Configuration (`~/.config/wivrn`), pairing data, logs, sockets, OpenXR runtime files, and service discovery (`_wivrn._tcp`) use WiVRn's paths and names, so Wyrm shares them with WiVRn and cannot be installed side by side with it.
+Configuration and pairing data live in `~/.config/wyrm`. Logs, sockets, OpenXR runtime files, and service discovery (`_wivrn._tcp`) use WiVRn's paths and names, so Wyrm shares them with WiVRn and cannot be installed side by side with it.
