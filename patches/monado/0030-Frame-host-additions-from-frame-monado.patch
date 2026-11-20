@@ -1,0 +1,2117 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Wyrm <a@invalid>
+Date: Thu, 19 Nov 2026 19:51:54 -0500
+Subject: [PATCH] Frame host additions from frame-monado
+
+App frame metrics, host IPC input capture, background selection and libmonado client queries, from konsti219/frame-monado 60dab488 (wivrn branch).
+---
+ src/external/metrics/monado_metrics.pb.h      |  16 +-
+ src/xrt/auxiliary/bindings/rebinding.py       |  47 ++
+ src/xrt/auxiliary/util/u_metrics.c            | 451 ++++++++++++++++--
+ src/xrt/auxiliary/util/u_metrics.h            |  12 +
+ .../compositor/multi/comp_multi_compositor.c  |  21 +
+ src/xrt/compositor/multi/comp_multi_system.c  |   8 +
+ src/xrt/include/xrt/xrt_handles.h             |  89 ++++
+ src/xrt/include/xrt/xrt_results.h             |   5 +
+ src/xrt/ipc/CMakeLists.txt                    |  15 +
+ .../ipc/server/ipc_input_capture_bindings.py  |  59 +++
+ src/xrt/ipc/server/ipc_server.h               |  41 ++
+ src/xrt/ipc/server/ipc_server_handler.c       |  43 +-
+ src/xrt/ipc/server/ipc_server_input_capture.c | 257 ++++++++++
+ src/xrt/ipc/server/ipc_server_input_capture.h |  17 +
+ .../ipc/server/ipc_server_per_client_thread.c |   3 +
+ src/xrt/ipc/server/ipc_server_process.c       | 106 +++-
+ src/xrt/ipc/shared/ipc_message_channel.h      |  56 +++
+ src/xrt/ipc/shared/ipc_message_channel_unix.c |  17 +
+ .../shared/ipc_message_channel_windows.cpp    |  17 +
+ src/xrt/ipc/shared/ipc_protocol.h             |  16 +-
+ src/xrt/ipc/shared/proto/50-system.json       |  23 +
+ src/xrt/targets/libmonado/libmonado.def       |   5 +
+ src/xrt/targets/libmonado/monado.c            |  88 ++++
+ src/xrt/targets/libmonado/monado.h            |  42 +-
+ 24 files changed, 1393 insertions(+), 61 deletions(-)
+ create mode 100644 src/xrt/auxiliary/bindings/rebinding.py
+ create mode 100644 src/xrt/ipc/server/ipc_input_capture_bindings.py
+ create mode 100644 src/xrt/ipc/server/ipc_server_input_capture.c
+ create mode 100644 src/xrt/ipc/server/ipc_server_input_capture.h
+
+diff --git a/src/external/metrics/monado_metrics.pb.h b/src/external/metrics/monado_metrics.pb.h
+index 47e420e8a..84e129562 100644
+--- a/src/external/metrics/monado_metrics.pb.h
++++ b/src/external/metrics/monado_metrics.pb.h
+@@ -46,6 +46,8 @@ typedef struct _monado_metrics_SessionFrame {
+     uint64_t when_gpu_done_ns;
+     /* ! Was this frame discared. */
+     bool discarded;
++    uint64_t when_submit_begin_ns;
++    uint64_t when_submit_end_ns;
+ } monado_metrics_SessionFrame;
+ 
+ typedef struct _monado_metrics_Used {
+@@ -140,14 +142,14 @@ extern "C" {
+ 
+ /* Initializer values for message structs */
+ #define monado_metrics_Version_init_default      {0, 0}
+-#define monado_metrics_SessionFrame_init_default {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
++#define monado_metrics_SessionFrame_init_default {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+ #define monado_metrics_Used_init_default         {0, 0, 0, 0}
+ #define monado_metrics_SystemFrame_init_default  {0, 0, 0, 0, 0, 0}
+ #define monado_metrics_SystemGpuInfo_init_default {0, 0, 0, 0}
+ #define monado_metrics_SystemPresentInfo_init_default {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+ #define monado_metrics_Record_init_default       {0, {monado_metrics_Version_init_default}}
+ #define monado_metrics_Version_init_zero         {0, 0}
+-#define monado_metrics_SessionFrame_init_zero    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
++#define monado_metrics_SessionFrame_init_zero    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+ #define monado_metrics_Used_init_zero            {0, 0, 0, 0}
+ #define monado_metrics_SystemFrame_init_zero     {0, 0, 0, 0, 0, 0}
+ #define monado_metrics_SystemGpuInfo_init_zero   {0, 0, 0, 0}
+@@ -171,6 +173,8 @@ extern "C" {
+ #define monado_metrics_SessionFrame_when_delivered_ns_tag 12
+ #define monado_metrics_SessionFrame_when_gpu_done_ns_tag 13
+ #define monado_metrics_SessionFrame_discarded_tag 14
++#define monado_metrics_SessionFrame_when_submit_begin_ns_tag 15
++#define monado_metrics_SessionFrame_when_submit_end_ns_tag 16
+ #define monado_metrics_Used_session_id_tag       1
+ #define monado_metrics_Used_session_frame_id_tag 2
+ #define monado_metrics_Used_system_frame_id_tag  3
+@@ -228,7 +232,9 @@ X(a, STATIC,   SINGULAR, UINT64,   when_wait_woke_ns,  10) \
+ X(a, STATIC,   SINGULAR, UINT64,   when_begin_ns,    11) \
+ X(a, STATIC,   SINGULAR, UINT64,   when_delivered_ns,  12) \
+ X(a, STATIC,   SINGULAR, UINT64,   when_gpu_done_ns,  13) \
+-X(a, STATIC,   SINGULAR, BOOL,     discarded,        14)
++X(a, STATIC,   SINGULAR, BOOL,     discarded,        14) \
++X(a, STATIC,   SINGULAR, UINT64,   when_submit_begin_ns,  15) \
++X(a, STATIC,   SINGULAR, UINT64,   when_submit_end_ns,  16)
+ #define monado_metrics_SessionFrame_CALLBACK NULL
+ #define monado_metrics_SessionFrame_DEFAULT NULL
+ 
+@@ -312,8 +318,8 @@ extern const pb_msgdesc_t monado_metrics_Record_msg;
+ 
+ /* Maximum encoded size of messages (where known) */
+ #define MONADO_METRICS_MONADO_METRICS_PB_H_MAX_SIZE monado_metrics_Record_size
+-#define monado_metrics_Record_size               168
+-#define monado_metrics_SessionFrame_size         145
++#define monado_metrics_Record_size               191
++#define monado_metrics_SessionFrame_size         168
+ #define monado_metrics_SystemFrame_size          66
+ #define monado_metrics_SystemGpuInfo_size        44
+ #define monado_metrics_SystemPresentInfo_size    165
+diff --git a/src/xrt/auxiliary/bindings/rebinding.py b/src/xrt/auxiliary/bindings/rebinding.py
+new file mode 100644
+index 000000000..baba9efaf
+--- /dev/null
++++ b/src/xrt/auxiliary/bindings/rebinding.py
+@@ -0,0 +1,47 @@
++# Copyright 2020-2025, Collabora, Ltd.
++# Copyright 2024-2026, NVIDIA CORPORATION.
++# SPDX-License-Identifier: BSL-1.0
++"""Shared expansion of OpenXR binding aliases."""
++
++def is_rebinding_helper(rebinding):
++    return rebinding.get("helper", False) is True
++
++
++def get_expanded_rebinding_entries(name, rebinding, rebindings, errors=None, stack=None):
++    if stack is None:
++        stack = []
++
++    if name in stack:
++        if errors is not None:
++            cycle = " -> ".join(stack + [name])
++            errors.append(f"{name}: circular rebinding helper dependency: {cycle}")
++        return {}
++
++    entries = {}
++    stack = stack + [name]
++    for helper_name in rebinding.get("helpers", []):
++        helper = rebindings.get(helper_name)
++        if helper is None:
++            if errors is not None:
++                errors.append(f"{name}: unknown rebinding helper {helper_name}")
++            continue
++        if not is_rebinding_helper(helper):
++            if errors is not None:
++                errors.append(f"{name}: rebinding helper {helper_name} is not marked as a helper")
++            continue
++        helper_entries = get_expanded_rebinding_entries(helper_name, helper, rebindings, errors, stack)
++        entries.update(helper_entries)
++
++    entries.update(rebinding.get("bindings", {}))
++    return entries
++
++
++def iter_rebinding_bindings(rebinding):
++    """Yield enabled source and target rebinding paths."""
++    for source, target in rebinding.get("expanded_bindings", rebinding.get("bindings", {})).items():
++        if target is False:
++            continue
++        if target is True:
++            yield source, source
++        else:
++            yield source, target
+diff --git a/src/xrt/auxiliary/util/u_metrics.c b/src/xrt/auxiliary/util/u_metrics.c
+index acace7743..768222c0c 100644
+--- a/src/xrt/auxiliary/util/u_metrics.c
++++ b/src/xrt/auxiliary/util/u_metrics.c
+@@ -15,15 +15,48 @@
+ #include "monado_metrics.pb.h"
+ #include "pb_encode.h"
+ 
++#include <errno.h>
++#include <fcntl.h>
+ #include <stdio.h>
+ 
++#if defined(XRT_OS_LINUX)
++#include <signal.h>
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <unistd.h>
++#endif
++
++#if defined(XRT_OS_WINDOWS)
++#include <io.h>
++#endif
++
+ #define VERSION_MAJOR 1
+ #define VERSION_MINOR 1
+ 
+-static FILE *g_file = NULL;
+-static struct os_mutex g_file_mutex;
++#define BUFFER_SIZE (monado_metrics_Record_size + 10)
++
++enum u_metrics_sink_type
++{
++	U_METRICS_SINK_TYPE_REGULAR_FILE,
++	U_METRICS_SINK_TYPE_SOCKET,
++};
++
++struct u_metrics_sink
++{
++	enum u_metrics_sink_type type;
++	union {
++		FILE *file;
++#if defined(XRT_OS_LINUX)
++		xrt_file_handle_t socket;
++#endif
++	};
++};
++
++static struct u_metrics_sink *g_metrics_sinks = NULL;
++static size_t g_metrics_sink_count = 0;
++static struct os_mutex g_metrics_mutex;
+ static bool g_metrics_initialized = false;
+-static bool g_metrics_early_flush = false;
+ 
+ DEBUG_GET_ONCE_OPTION(metrics_file, "XRT_METRICS_FILE", NULL)
+ DEBUG_GET_ONCE_BOOL_OPTION(metrics_early_flush, "XRT_METRICS_EARLY_FLUSH", false)
+@@ -37,36 +70,64 @@ DEBUG_GET_ONCE_BOOL_OPTION(metrics_early_flush, "XRT_METRICS_EARLY_FLUSH", false
+  */
+ 
+ static void
+-write_record(monado_metrics_Record *r)
++encode_record(monado_metrics_Record *r, uint8_t out_buffer[BUFFER_SIZE], size_t *out_size)
+ {
+-	uint8_t buffer[monado_metrics_Record_size + 10]; // Including submessage
+-
+-
+-	pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
++	pb_ostream_t stream = pb_ostream_from_buffer(out_buffer, BUFFER_SIZE);
+ 	bool ret = pb_encode_submessage(&stream, &monado_metrics_Record_msg, r);
+ 	if (!ret) {
+ 		U_LOG_E("Failed to encode metrics message!");
++		*out_size = 0;
+ 		return;
+ 	}
+ 
+-	os_mutex_lock(&g_file_mutex);
++	*out_size = stream.bytes_written;
++}
+ 
+-	fwrite(buffer, stream.bytes_written, 1, g_file);
++static bool
++write_buffer_to_regular_file(uint8_t *buffer, size_t size, FILE *file)
++{
++	return fwrite(buffer, size, 1, file) == 1;
++}
+ 
+-	if (g_metrics_early_flush) {
+-		fflush(g_file);
+-	}
++#if defined(XRT_OS_LINUX)
++static bool
++write_buffer_to_socket(uint8_t *buffer, size_t size, int socket)
++{
++	return (size_t)send(socket, buffer, size, MSG_NOSIGNAL) == size;
++}
++#endif
+ 
+-	os_mutex_unlock(&g_file_mutex);
++static bool
++write_buffer_to_sink_locked(uint8_t *buffer, size_t size, struct u_metrics_sink *sink)
++{
++	switch (sink->type) {
++	case U_METRICS_SINK_TYPE_REGULAR_FILE: return write_buffer_to_regular_file(buffer, size, sink->file);
++#if defined(XRT_OS_LINUX)
++	case U_METRICS_SINK_TYPE_SOCKET: return write_buffer_to_socket(buffer, size, sink->socket);
++#endif
++	default: assert(0 && "unhandled enum value");
++	}
++	return false;
+ }
+ 
+-static void
+-write_version(uint32_t major, uint32_t minor)
++static bool
++write_record_to_sink_locked(monado_metrics_Record *r, struct u_metrics_sink *sink)
+ {
+-	if (!g_metrics_initialized) {
+-		return;
++	uint8_t buffer[BUFFER_SIZE];
++	size_t size = 0;
++
++	encode_record(r, buffer, &size);
++
++	if (size < 1) {
++		return false;
+ 	}
+ 
++	return write_buffer_to_sink_locked(buffer, size, sink);
++}
++
++static bool
++write_version_to_sink_locked(uint32_t major, uint32_t minor, struct u_metrics_sink *sink)
++{
+ 	monado_metrics_Record record = monado_metrics_Record_init_default;
+ 
+ 	// Select which filed is used.
+@@ -74,7 +135,300 @@ write_version(uint32_t major, uint32_t minor)
+ 	record.record.version.major = major;
+ 	record.record.version.minor = minor;
+ 
+-	write_record(&record);
++	return write_record_to_sink_locked(&record, sink);
++}
++
++static void
++close_sink_regular_file(struct u_metrics_sink *sink)
++{
++	if (!sink->file) {
++		return;
++	}
++
++	fclose(sink->file);
++	sink->file = NULL;
++}
++
++#if defined(XRT_OS_LINUX)
++static void
++close_sink_socket(struct u_metrics_sink *sink)
++{
++	if (sink->socket == XRT_FILE_HANDLE_INVALID) {
++		return;
++	}
++
++	close(sink->socket);
++	sink->socket = XRT_FILE_HANDLE_INVALID;
++}
++#endif
++
++static void
++close_sink_stream_locked(struct u_metrics_sink *sink)
++{
++	switch (sink->type) {
++	case U_METRICS_SINK_TYPE_REGULAR_FILE: close_sink_regular_file(sink); break;
++#if defined(XRT_OS_LINUX)
++	case U_METRICS_SINK_TYPE_SOCKET: close_sink_socket(sink); break;
++#endif
++	default: assert(0 && "unhandled enum value");
++	}
++}
++
++static void
++close_sink_locked(struct u_metrics_sink *sink)
++{
++	close_sink_stream_locked(sink);
++
++	size_t sink_num = sink - g_metrics_sinks;
++	memcpy(g_metrics_sinks + sink_num, g_metrics_sinks + (sink_num + 1),
++	       sizeof(struct u_metrics_sink) * (g_metrics_sink_count - (sink_num + 1)));
++	g_metrics_sink_count--;
++
++	if (!g_metrics_sink_count) {
++		free(g_metrics_sinks);
++		g_metrics_sinks = NULL;
++		return;
++	}
++
++	size_t new_size = sizeof(struct u_metrics_sink) * g_metrics_sink_count;
++	struct u_metrics_sink *new_sinks = (struct u_metrics_sink *)realloc(g_metrics_sinks, new_size);
++	if (new_sinks) {
++		g_metrics_sinks = new_sinks;
++	}
++}
++
++static xrt_result_t
++add_sink(struct u_metrics_sink definition)
++{
++	bool succeeded = false;
++
++	os_mutex_lock(&g_metrics_mutex);
++
++	size_t new_size = sizeof(struct u_metrics_sink) * (g_metrics_sink_count + 1);
++	struct u_metrics_sink *new_sinks = (struct u_metrics_sink *)realloc(g_metrics_sinks, new_size);
++
++	if (new_sinks) {
++		g_metrics_sinks = new_sinks;
++
++		struct u_metrics_sink *sink = &new_sinks[g_metrics_sink_count];
++		*sink = definition;
++
++		succeeded = write_version_to_sink_locked(VERSION_MAJOR, VERSION_MINOR, sink);
++		if (succeeded) {
++			g_metrics_sink_count++;
++		}
++	}
++
++	os_mutex_unlock(&g_metrics_mutex);
++
++	if (new_sinks == NULL) {
++		return XRT_ERROR_OUT_OF_MEMORY;
++	}
++
++	if (!succeeded) {
++		close_sink_stream_locked(&definition);
++	}
++	return XRT_SUCCESS;
++}
++
++static xrt_result_t
++add_file(FILE *file, xrt_file_handle_t handle, bool early_flush)
++{
++	bool close_file = file != NULL;
++	bool close_handle = !close_file && handle != XRT_FILE_HANDLE_INVALID;
++	enum u_metrics_sink_type type;
++	xrt_result_t result;
++
++#if defined(XRT_OS_WINDOWS)
++
++	if (file != NULL && handle == XRT_FILE_HANDLE_INVALID) {
++		handle = _get_osfhandle(_fileno(file));
++	}
++
++	DWORD handle_type = FILE_TYPE_UNKNOWN;
++	if (handle != XRT_FILE_HANDLE_INVALID) {
++		SetLastError(0);
++		handle_type = GetFileType(handle);
++		if (handle_type == FILE_TYPE_UNKNOWN && GetLastError() != 0) {
++			U_LOG_E("Could not get type of handle %p!", handle);
++			result = XRT_ERROR_INVALID_ARGUMENT;
++			goto done;
++		}
++	}
++
++	switch (handle_type) {
++	case FILE_TYPE_DISK:
++	case FILE_TYPE_PIPE:
++	case FILE_TYPE_CHAR:
++	case FILE_TYPE_REMOTE:
++	case FILE_TYPE_UNKNOWN: type = U_METRICS_SINK_TYPE_REGULAR_FILE; break;
++	default: result = XRT_ERROR_INVALID_ARGUMENT; goto done;
++	}
++
++	if (handle_type == FILE_TYPE_PIPE) {
++		DWORD mode = PIPE_READMODE_BYTE | PIPE_NOWAIT;
++		if (!SetNamedPipeHandleState(handle, &mode, NULL, NULL)) {
++			U_LOG_E("Could not set pipe handle %p to nonblocking!", handle);
++			result = XRT_ERROR_INVALID_ARGUMENT;
++			goto done;
++		}
++	}
++
++	if (file == NULL) {
++		int fd = _open_osfhandle((intptr_t)handle, _O_WRONLY);
++		if (fd == -1) {
++			U_LOG_E("Could not convert handle %p to fd!", handle);
++			result = XRT_ERROR_OUT_OF_MEMORY;
++			goto done;
++		}
++
++		file = _fdopen(fd, "wb");
++		if (file == NULL) {
++			U_LOG_E("Could not open fd %d as file!", fd);
++			_close(fd);
++			result = XRT_ERROR_OUT_OF_MEMORY;
++			goto done;
++		}
++
++		close_file = true;
++		close_handle = false;
++	}
++
++#elif defined(XRT_OS_LINUX)
++
++	if (file != NULL && handle == XRT_FILE_HANDLE_INVALID) {
++		handle = fileno(file);
++	}
++
++	struct stat st;
++	memset(&st, 0, sizeof(st));
++	if (handle == XRT_FILE_HANDLE_INVALID) {
++		st.st_mode = S_IFIFO;
++	} else if (fstat(handle, &st) != 0) {
++		result = XRT_ERROR_INVALID_ARGUMENT;
++		goto done;
++	}
++
++	switch (st.st_mode & S_IFMT) {
++	case S_IFREG:
++	case S_IFBLK:
++	case S_IFCHR: type = U_METRICS_SINK_TYPE_REGULAR_FILE; break;
++	case S_IFSOCK: type = U_METRICS_SINK_TYPE_SOCKET; break;
++	case S_IFDIR:
++	case S_IFLNK:
++	default: result = XRT_ERROR_INVALID_ARGUMENT; goto done;
++	}
++
++	if (type == U_METRICS_SINK_TYPE_REGULAR_FILE && file == NULL) {
++		file = fdopen(handle, "wb");
++		if (file == NULL) {
++			U_LOG_E("Could not open fd %d as file!", handle);
++			result = XRT_ERROR_OUT_OF_MEMORY;
++			goto done;
++		}
++
++		close_file = true;
++		close_handle = false;
++	}
++
++	if (type != U_METRICS_SINK_TYPE_REGULAR_FILE) {
++		if (file != NULL) {
++			int new_handle = dup(handle);
++			if (new_handle == -1) {
++				U_LOG_E("Could not duplicate fd %d!", handle);
++				result = XRT_ERROR_OUT_OF_MEMORY;
++				goto done;
++			}
++
++			handle = new_handle;
++			close_handle = true;
++		}
++
++		int flags = fcntl(handle, F_GETFL, 0);
++		if (flags == -1) {
++			U_LOG_E("Could not get flags of file descriptor %d!", handle);
++			result = XRT_ERROR_INVALID_ARGUMENT;
++			goto done;
++		}
++
++		flags |= O_NONBLOCK;
++
++		if (fcntl(handle, F_SETFL, flags) == -1) {
++			U_LOG_E("Could not set file descriptor %d to nonblocking!", handle);
++			result = XRT_ERROR_INVALID_ARGUMENT;
++			goto done;
++		}
++	}
++
++#else
++
++	result = XRT_ERROR_FEATURE_NOT_SUPPORTED;
++	goto done;
++
++#endif
++
++	if (type == U_METRICS_SINK_TYPE_REGULAR_FILE && early_flush) {
++		setvbuf(file, NULL, _IONBF, 0);
++	}
++
++	struct u_metrics_sink definition = {
++	    .type = type,
++	};
++	switch (type) {
++	case U_METRICS_SINK_TYPE_REGULAR_FILE: definition.file = file; break;
++#if defined(XRT_OS_LINUX)
++	case U_METRICS_SINK_TYPE_SOCKET: definition.socket = handle; break;
++#endif
++	default: assert(0 && "unhandled enum value");
++	}
++
++	result = add_sink(definition);
++	if (result == XRT_SUCCESS) {
++		if (type == U_METRICS_SINK_TYPE_REGULAR_FILE) {
++			close_file = false;
++		} else {
++			close_handle = false;
++		}
++	}
++
++done:
++	if (close_file) {
++		fclose(file);
++	}
++	if (close_handle) {
++		xrt_file_handle_close(handle);
++	}
++	return result;
++}
++
++static void
++write_record(monado_metrics_Record *r)
++{
++	uint8_t buffer[BUFFER_SIZE];
++	size_t size = 0;
++
++	if (g_metrics_sink_count < 1) {
++		return;
++	}
++
++	encode_record(r, buffer, &size);
++
++	if (size < 1) {
++		return;
++	}
++
++	os_mutex_lock(&g_metrics_mutex);
++
++	for (size_t i = 0; i < g_metrics_sink_count; i++) {
++		struct u_metrics_sink *sink = &g_metrics_sinks[i];
++
++		if (!sink->file || !write_buffer_to_sink_locked(buffer, size, sink)) {
++			close_sink_locked(sink);
++			i--;
++		}
++	}
++
++	os_mutex_unlock(&g_metrics_mutex);
+ }
+ 
+ 
+@@ -87,26 +441,45 @@ write_version(uint32_t major, uint32_t minor)
+ void
+ u_metrics_init(void)
+ {
++	os_mutex_init(&g_metrics_mutex);
++
++	g_metrics_initialized = true;
++
+ 	const char *str = debug_get_option_metrics_file();
+ 	if (str == NULL) {
+ 		U_LOG_D("No metrics file!");
+ 		return;
+ 	}
+ 
+-	g_file = fopen(str, "wb");
+-	if (g_file == NULL) {
++	FILE *file = fopen(str, "wb");
++	if (file == NULL) {
+ 		U_LOG_E("Could not open '%s'!", str);
+ 		return;
+ 	}
++	bool early_flush = debug_get_bool_option_metrics_early_flush();
++	u_metrics_add_file(file, early_flush);
+ 
+-	os_mutex_init(&g_file_mutex);
++	U_LOG_I("Opened metrics file: '%s'", str); // NOLINT(clang-analyzer-unix.Stream)
++}
+ 
+-	g_metrics_initialized = true;
+-	g_metrics_early_flush = debug_get_bool_option_metrics_early_flush();
++xrt_result_t
++u_metrics_add_file(FILE *file, bool early_flush)
++{
++	if (!g_metrics_initialized) {
++		return XRT_ERROR_FEATURE_NOT_SUPPORTED;
++	}
++
++	return add_file(file, XRT_FILE_HANDLE_INVALID, early_flush);
++}
+ 
+-	write_version(VERSION_MAJOR, VERSION_MINOR);
++xrt_result_t
++u_metrics_add_file_handle(xrt_file_handle_t handle, bool early_flush)
++{
++	if (!g_metrics_initialized) {
++		return XRT_ERROR_FEATURE_NOT_SUPPORTED;
++	}
+ 
+-	U_LOG_I("Opened metrics file: '%s'", str);
++	return add_file(NULL, handle, early_flush);
+ }
+ 
+ void
+@@ -116,24 +489,34 @@ u_metrics_close(void)
+ 		return;
+ 	}
+ 
+-	U_LOG_I("Closing metrics file: '%s'", debug_get_option_metrics_file());
++	const char *str = debug_get_option_metrics_file();
++	if (str != NULL) {
++		U_LOG_I("Closing metrics file: '%s'", str);
++	}
+ 
+ 	// At least try to avoid races.
+-	os_mutex_lock(&g_file_mutex);
+-	fflush(g_file);
+-	fclose(g_file);
+-	g_file = NULL;
+-	os_mutex_unlock(&g_file_mutex);
++	os_mutex_lock(&g_metrics_mutex);
+ 
+-	os_mutex_destroy(&g_file_mutex);
++	for (size_t i = 0; i < g_metrics_sink_count; i++) {
++		struct u_metrics_sink *sink = &g_metrics_sinks[i];
++
++		close_sink_locked(sink);
++	}
++
++	free(g_metrics_sinks);
++	g_metrics_sinks = NULL;
++
++	os_mutex_unlock(&g_metrics_mutex);
+ 
+ 	g_metrics_initialized = false;
++
++	os_mutex_destroy(&g_metrics_mutex);
+ }
+ 
+ bool
+ u_metrics_is_active(void)
+ {
+-	return g_metrics_initialized;
++	return g_metrics_initialized && g_metrics_sink_count > 0;
+ }
+ 
+ void
+diff --git a/src/xrt/auxiliary/util/u_metrics.h b/src/xrt/auxiliary/util/u_metrics.h
+index c5fbfa3b3..a0de4e0e9 100644
+--- a/src/xrt/auxiliary/util/u_metrics.h
++++ b/src/xrt/auxiliary/util/u_metrics.h
+@@ -10,6 +10,10 @@
+ #pragma once
+ 
+ #include "xrt/xrt_compiler.h"
++#include "xrt/xrt_handles.h"
++#include "xrt/xrt_results.h"
++
++#include <stdio.h>
+ 
+ 
+ #ifdef __cplusplus
+@@ -32,6 +36,8 @@ struct u_metrics_session_frame
+ 	uint64_t when_delivered_ns;
+ 	uint64_t when_gpu_done_ns;
+ 	bool discarded;
++	uint64_t when_submit_begin_ns;
++	uint64_t when_submit_end_ns;
+ };
+ 
+ struct u_metrics_used
+@@ -83,6 +89,12 @@ struct u_metrics_system_present_info
+ void
+ u_metrics_init(void);
+ 
++xrt_result_t
++u_metrics_add_file(FILE *file, bool early_flush);
++
++xrt_result_t
++u_metrics_add_file_handle(xrt_file_handle_t handle, bool early_flush);
++
+ void
+ u_metrics_close(void);
+ 
+diff --git a/src/xrt/compositor/multi/comp_multi_compositor.c b/src/xrt/compositor/multi/comp_multi_compositor.c
+index 0dcf90ca6..88aa1c4c3 100644
+--- a/src/xrt/compositor/multi/comp_multi_compositor.c
++++ b/src/xrt/compositor/multi/comp_multi_compositor.c
+@@ -660,6 +660,17 @@ multi_compositor_layer_begin(struct xrt_compositor *xc, const struct xrt_layer_f
+ 	 */
+ 	wait_for_wait_thread(mc);
+ 
++	/*
++	 * Everything up to here was spent waiting for the previous frame's slot
++	 * to free up, not on this frame's work, so mark the submit window as
++	 * starting now. Metrics consumers use this to separate app GPU time
++	 * from the back-pressure this function applies.
++	 */
++	now_ns = os_monotonic_get_ns();
++	os_mutex_lock(&mc->msc->list_and_timing_lock);
++	u_pa_mark_point(mc->upa, data->frame_id, U_TIMING_POINT_SUBMIT_BEGIN, now_ns);
++	os_mutex_unlock(&mc->msc->list_and_timing_lock);
++
+ 	assert(mc->progress.layer_count == 0);
+ 	U_ZERO(&mc->progress);
+ 
+@@ -798,6 +809,11 @@ multi_compositor_layer_commit(struct xrt_compositor *xc, xrt_graphics_sync_handl
+ 	struct xrt_compositor_fence *xcf = NULL;
+ 	int64_t frame_id = mc->progress.data.frame_id;
+ 
++	int64_t submit_end_ns = os_monotonic_get_ns();
++	os_mutex_lock(&mc->msc->list_and_timing_lock);
++	u_pa_mark_point(mc->upa, frame_id, U_TIMING_POINT_SUBMIT_END, submit_end_ns);
++	os_mutex_unlock(&mc->msc->list_and_timing_lock);
++
+ 	do {
+ 		if (!xrt_graphics_sync_handle_is_valid(sync_handle)) {
+ 			break;
+@@ -845,6 +861,11 @@ multi_compositor_layer_commit_with_semaphore(struct xrt_compositor *xc,
+ 	struct multi_compositor *mc = multi_compositor(xc);
+ 	int64_t frame_id = mc->progress.data.frame_id;
+ 
++	int64_t submit_end_ns = os_monotonic_get_ns();
++	os_mutex_lock(&mc->msc->list_and_timing_lock);
++	u_pa_mark_point(mc->upa, frame_id, U_TIMING_POINT_SUBMIT_END, submit_end_ns);
++	os_mutex_unlock(&mc->msc->list_and_timing_lock);
++
+ 	push_semaphore_to_wait_thread(mc, frame_id, xcsem, value);
+ 
+ 	return XRT_SUCCESS;
+diff --git a/src/xrt/compositor/multi/comp_multi_system.c b/src/xrt/compositor/multi/comp_multi_system.c
+index 325581f61..9bd61067e 100644
+--- a/src/xrt/compositor/multi/comp_multi_system.c
++++ b/src/xrt/compositor/multi/comp_multi_system.c
+@@ -232,6 +232,14 @@ find_active_blend_mode(struct multi_compositor **overlay_sorted_clients, size_t
+ 	if (overlay_sorted_clients == NULL)
+ 		return XRT_BLEND_MODE_OPAQUE;
+ 
++	bool has_background = false;
++	for (size_t k = 0; k < size; ++k) {
++		const struct multi_compositor *mc = overlay_sorted_clients[k];
++		has_background |= mc->state.visible && mc->state.z_order == INT64_MIN;
++	}
++	if (!has_background)
++		return XRT_BLEND_MODE_ALPHA_BLEND;
++
+ 	enum xrt_blend_mode chosen_mode = 0;
+ 	for (size_t k = 0; k < size; ++k) {
+ 		const struct multi_compositor *mc = overlay_sorted_clients[k];
+diff --git a/src/xrt/include/xrt/xrt_handles.h b/src/xrt/include/xrt/xrt_handles.h
+index 3657498cd..01f7b812b 100644
+--- a/src/xrt/include/xrt/xrt_handles.h
++++ b/src/xrt/include/xrt/xrt_handles.h
+@@ -108,6 +108,95 @@ xrt_ipc_handle_close(xrt_ipc_handle_t handle)
+ 
+ #endif // !XRT_OS_WINDOWS
+ 
++/*
++ *
++ * xrt_file_handle_t
++ *
++ */
++
++#if defined(XRT_OS_WINDOWS)
++/*!
++ * The type for a file handle.
++ *
++ * On Windows, this is HANDLE.
++ */
++typedef HANDLE xrt_file_handle_t;
++
++/*!
++ * An invalid value for a file handle.
++ *
++ * Note that there may be more than one value that's invalid - use
++ * @ref xrt_file_handle_is_valid instead of comparing against this!
++ *
++ * @relates xrt_file_handle_t
++ */
++#define XRT_FILE_HANDLE_INVALID INVALID_HANDLE_VALUE
++
++/*!
++ * Check whether a file handle is valid.
++ *
++ * @public @memberof xrt_file_handle_t
++ */
++static inline bool
++xrt_file_handle_is_valid(xrt_file_handle_t handle)
++{
++	return handle != INVALID_HANDLE_VALUE;
++}
++
++/*!
++ * Close a file handle.
++ *
++ * @public @memberof xrt_file_handle_t
++ */
++static inline void
++xrt_file_handle_close(xrt_file_handle_t handle)
++{
++	CloseHandle(handle);
++}
++
++#else // !XRT_OS_WINDOWS
++
++/*!
++ * The type for a file handle.
++ *
++ * On non-Windows, this is a file descriptor.
++ */
++typedef int xrt_file_handle_t;
++
++/*!
++ * An invalid value for a file handle.
++ *
++ * Note that there may be more than one value that's invalid - use
++ * @ref xrt_file_handle_is_valid instead of comparing against this!
++ *
++ * @relates xrt_file_handle_t
++ */
++#define XRT_FILE_HANDLE_INVALID (-1)
++
++/*!
++ * Check whether a file handle is valid.
++ *
++ * @public @memberof xrt_file_handle_t
++ */
++static inline bool
++xrt_file_handle_is_valid(xrt_file_handle_t handle)
++{
++	return handle >= 0;
++}
++
++/*!
++ * Close a file handle.
++ *
++ * @public @memberof xrt_file_handle_t
++ */
++static inline void
++xrt_file_handle_close(xrt_file_handle_t handle)
++{
++	close(handle);
++}
++
++#endif // !XRT_OS_WINDOWS
++
+ /*
+  *
+  * xrt_shmem_handle_t
+diff --git a/src/xrt/include/xrt/xrt_results.h b/src/xrt/include/xrt/xrt_results.h
+index 84d5b1499..801f39673 100644
+--- a/src/xrt/include/xrt/xrt_results.h
++++ b/src/xrt/include/xrt/xrt_results.h
+@@ -287,4 +287,9 @@ typedef enum xrt_result
+ 	 * This does not, however, indicate a permanent inability to start the stream. Other modes may work.
+ 	 */
+ 	XRT_ERROR_STREAMING_START_FAILED = -47,
++
++	/*!
++	 * Failed to allocate system memory required for the operation.
++	 */
++	XRT_ERROR_OUT_OF_MEMORY = -48,
+ } xrt_result_t;
+diff --git a/src/xrt/ipc/CMakeLists.txt b/src/xrt/ipc/CMakeLists.txt
+index e25cff0e9..540505fdd 100644
+--- a/src/xrt/ipc/CMakeLists.txt
++++ b/src/xrt/ipc/CMakeLists.txt
+@@ -133,8 +133,23 @@ endif()
+ ###
+ # Server
+ 
++set(CAPTURE_BINDINGS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../auxiliary/bindings")
++file(GLOB CAPTURE_REBINDINGS CONFIGURE_DEPENDS "${CAPTURE_BINDINGS_DIR}/rebindings/*.json")
++set(CAPTURE_GENERATOR "${CMAKE_CURRENT_SOURCE_DIR}/server/ipc_input_capture_bindings.py")
++add_custom_command(
++    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/ipc_input_capture_bindings.h"
++    COMMAND ${PYTHON_EXECUTABLE} "${CAPTURE_GENERATOR}" "${CAPTURE_BINDINGS_DIR}"
++            "${CMAKE_CURRENT_BINARY_DIR}/ipc_input_capture_bindings.h"
++    DEPENDS "${CAPTURE_GENERATOR}" "${CAPTURE_BINDINGS_DIR}/bindings.py"
++            "${CAPTURE_BINDINGS_DIR}/bindings.json" "${CAPTURE_BINDINGS_DIR}/rebinding.py" ${CAPTURE_REBINDINGS}
++    VERBATIM
++)
++
+ add_library(
+ 	ipc_server STATIC
++    "${CMAKE_CURRENT_BINARY_DIR}/ipc_input_capture_bindings.h"
++    server/ipc_server_input_capture.c
++    server/ipc_server_input_capture.h
+ 	${CMAKE_CURRENT_BINARY_DIR}/ipc_server_generated.c
+ 	${CMAKE_CURRENT_BINARY_DIR}/ipc_server_generated.h
+ 	server/ipc_server.h
+diff --git a/src/xrt/ipc/server/ipc_input_capture_bindings.py b/src/xrt/ipc/server/ipc_input_capture_bindings.py
+new file mode 100644
+index 000000000..78ab5e3c1
+--- /dev/null
++++ b/src/xrt/ipc/server/ipc_input_capture_bindings.py
+@@ -0,0 +1,59 @@
++#!/usr/bin/env python3
++# SPDX-License-Identifier: BSL-1.0
++"""Generate physical input lookup entries from Monado's OpenXR bindings."""
++import json
++import sys
++from pathlib import Path
++
++aux, output = map(Path, sys.argv[1:])
++sys.path.insert(0, str(aux))
++from bindings import Bindings
++from rebinding import get_expanded_rebinding_entries, iter_rebinding_bindings
++
++profiles = Bindings.load_and_parse(aux / "bindings.json").profiles
++native = {}
++families = set()
++for profile in profiles:
++    entries = {}
++    for identifier in profile.identifiers:
++        members = tuple(sorted({component.monado_binding for component in identifier.components
++                                if component.component_name in ("click", "value", "force") and component.monado_binding}))
++        if len(members) > 1:
++            families.add((profile.monado_device_enum, members))
++        for component in identifier.components:
++            if not component.monado_binding or not component.monado_binding.startswith("XRT_INPUT_"):
++                continue
++            paths = component.get_full_openxr_paths()
++            if component.component_name == "position":
++                paths.append(component.subaction_path + component.identifier_json_path)
++            for path in paths:
++                entries[path] = component.monado_binding
++    native[profile.name] = (profile.monado_device_enum, entries)
++
++rows = set()
++for name, (device, entries) in native.items():
++    for path, binding in entries.items():
++        rows.add((device, name, path, binding))
++rebindings = {}
++for path in sorted((aux / "rebindings").glob("*.json")):
++    rebindings.update(json.loads(path.read_text()))
++for name, rebinding in rebindings.items():
++    if rebinding.get("helper") or rebinding.get("target_profile") not in native:
++        continue
++    device, entries = native[rebinding["target_profile"]]
++    expanded = dict(rebinding, expanded_bindings=get_expanded_rebinding_entries(name, rebinding, rebindings))
++    for source, target in iter_rebinding_bindings(expanded):
++        if target in entries:
++            rows.add((device, rebinding["source_profile"], source, entries[target]))
++
++with output.open("w") as f:
++    f.write("// Generated from OpenXR bindings and rebindings.\n")
++    f.write("static const struct capture_binding { enum xrt_device_name device; const char *profile, *path; enum xrt_input_name input; } capture_bindings[] = {\n")
++    for device, profile, path, binding in sorted(rows):
++        f.write(f'    {{{device}, "{profile}", "{path}", {binding}}},\n')
++    f.write("};\n")
++    f.write("static const struct capture_family { enum xrt_device_name device; uint32_t count; enum xrt_input_name inputs[3]; } capture_families[] = {\n")
++    for device, members in sorted(families):
++        assert len(members) <= 3
++        f.write("    {" + device + ", " + str(len(members)) + ", {" + ", ".join(members) + "}},\n")
++    f.write("};\n")
+diff --git a/src/xrt/ipc/server/ipc_server.h b/src/xrt/ipc/server/ipc_server.h
+index 6d93b055a..5b26db980 100644
+--- a/src/xrt/ipc/server/ipc_server.h
++++ b/src/xrt/ipc/server/ipc_server.h
+@@ -96,6 +96,24 @@ struct ipc_swapchain_data
+  *
+  * @ingroup ipc_server
+  */
++struct ipc_capture_input_state {
++    bool held;
++    uint32_t group;
++    bool initialized;
++    struct xrt_input previous;
++};
++
++struct ipc_capture_device_state {
++    struct xrt_device *device;
++    uint32_t count;
++    uint64_t roles_generation;
++    struct ipc_capture_input_state *inputs;
++    struct {
++        enum xrt_input_name name;
++        struct xrt_space_relation relation;
++    } poses[4];
++};
++
+ struct ipc_client_state
+ {
+ 	//! Link back to the main server.
+@@ -145,6 +163,8 @@ struct ipc_client_state
+ 		struct xrt_app_system *xasys[IPC_MAX_CLIENT_APP_SYSTEMS];
+ 	} objects;
+ 
++	struct ipc_capture_device_state capture_devices[XRT_SYSTEM_MAX_DEVICES];
++
+ 	//! Session for this client.
+ 	struct xrt_session *xs;
+ 
+@@ -450,10 +470,22 @@ struct ipc_server
+ 	{
+ 		int active_client_index;
+ 		int last_active_client_index;
++		uint32_t previous_default_client_id;
++		bool default_app_hidden;
++		bool background_suppressed;
+ 
+ 		// Counter for total number of connected clients
+ 		uint32_t connected_client_count;
+ 
++        struct {
++            uint32_t owner_id;
++            pid_t owner_pid;
++            struct ipc_input_capture policy;
++            uint64_t roles_generation;
++            enum xrt_input_name inputs[2][IPC_CAPTURE_MAX_PATHS];
++            uint32_t counts[2];
++        } capture;
++
+ 		struct os_mutex lock;
+ 	} global_state;
+ 
+@@ -497,6 +529,15 @@ ipc_server_get_client_app_state(struct ipc_server *s, uint32_t client_id, struct
+ xrt_result_t
+ ipc_server_set_active_client(struct ipc_server *s, uint32_t client_id);
+ 
++xrt_result_t
++ipc_server_set_background_visible(struct ipc_server *s, bool visible);
++
++xrt_result_t
++ipc_server_set_client_presentation(struct ipc_server *s, uint32_t client_id, uint32_t mode, bool visible);
++
++void
++ipc_server_note_alpha_frame(volatile struct ipc_client_state *ics, enum xrt_blend_mode mode);
++
+ /*!
+  * Toggle the io for this client.
+  *
+diff --git a/src/xrt/ipc/server/ipc_server_handler.c b/src/xrt/ipc/server/ipc_server_handler.c
+index 0d49b27bf..3526362ca 100644
+--- a/src/xrt/ipc/server/ipc_server_handler.c
++++ b/src/xrt/ipc/server/ipc_server_handler.c
+@@ -12,12 +12,14 @@
+ 
+ #include "util/u_misc.h"
+ #include "util/u_handles.h"
++#include "util/u_metrics.h"
+ #include "util/u_pretty_print.h"
+ #include "util/u_visibility_mask.h"
+ #include "util/u_trace_marker.h"
+ 
+ #include "server/ipc_server.h"
+ #include "server/ipc_server_objects.h"
++#include "server/ipc_server_input_capture.h"
+ #include "ipc_server_generated.h"
+ #include "xrt/xrt_defines.h"
+ #include "xrt/xrt_device.h"
+@@ -227,13 +229,6 @@ send_device_inputs(volatile struct ipc_client_state *ics, struct xrt_device *xde
+ 	}
+ 
+ 	volatile struct ipc_client_io_blocks *iob = &ics->client_state.io_blocks;
+-	// Send inputs as varlen data
+-	// We don't need to do any filtering, send the inputs as-is.
+-	if (!iob->block_poses && !iob->block_hand_tracking && !iob->block_inputs) {
+-		// Send the full input state
+-		xret = ipc_send(imc, xdev->inputs, input_size);
+-		IPC_CHK_ALWAYS_RET(ics->server, xret, "ipc_send(inputs)");
+-	}
+ 
+ 	struct xrt_input filtered[1024];
+ 	if (ARRAY_SIZE(filtered) < xdev->input_count) {
+@@ -247,7 +242,7 @@ send_device_inputs(volatile struct ipc_client_state *ics, struct xrt_device *xde
+ 		bool blocked = false;
+ 		switch (XRT_GET_INPUT_TYPE(src->name)) {
+ 		case XRT_INPUT_TYPE_POSE: //
+-			blocked = iob->block_poses && dst->name != XRT_INPUT_GENERIC_HEAD_POSE;
++			blocked = iob->block_poses && src->name != XRT_INPUT_GENERIC_HEAD_POSE;
+ 			break;
+ 		case XRT_INPUT_TYPE_HAND_TRACKING: //
+ 			blocked = iob->block_hand_tracking;
+@@ -273,6 +268,7 @@ send_device_inputs(volatile struct ipc_client_state *ics, struct xrt_device *xde
+ 		}
+ 	}
+ 
++	ipc_capture_filter(ics, xdev, filtered);
+ 	xret = ipc_send(imc, filtered, input_size);
+ 	IPC_CHK_ALWAYS_RET(ics->server, xret, "ipc_send(filtered inputs)");
+ }
+@@ -420,6 +416,20 @@ ipc_handle_system_compositor_get_view_config(volatile struct ipc_client_state *i
+ 	return xrt_syscomp_get_view_config(ics->server->xsysc, view_type, out_view_config);
+ }
+ 
++xrt_result_t
++ipc_handle_system_add_metrics_file_handle(volatile struct ipc_client_state *ics,
++                                          bool early_flush,
++                                          const xrt_file_handle_t *handles,
++                                          const uint32_t handle_count)
++{
++	IPC_TRACE_MARKER();
++
++	for (uint32_t i = 0; i < handle_count; i++) {
++		u_metrics_add_file_handle(handles[i], early_flush);
++	}
++	return XRT_SUCCESS;
++}
++
+ xrt_result_t
+ ipc_handle_session_create(volatile struct ipc_client_state *ics,
+                           const struct xrt_session_info *xsi,
+@@ -1367,6 +1377,7 @@ ipc_handle_compositor_layer_sync(volatile struct ipc_client_state *ics,
+ 	 * Transfer data to underlying compositor.
+ 	 */
+ 
++	ipc_server_note_alpha_frame(ics, slot.data.env_blend_mode);
+ 	xrt_comp_layer_begin(ics->xc, &slot.data);
+ 
+ 	xrt_result_t xret = _update_layers(ics, &slot);
+@@ -1421,6 +1432,7 @@ ipc_handle_compositor_layer_sync_with_semaphore(volatile struct ipc_client_state
+ 	 * Transfer data to underlying compositor.
+ 	 */
+ 
++	ipc_server_note_alpha_frame(ics, slot.data.env_blend_mode);
+ 	xrt_comp_layer_begin(ics->xc, &slot.data);
+ 
+ 	xrt_result_t xret = _update_layers(ics, &slot);
+@@ -1569,6 +1581,19 @@ ipc_handle_system_set_primary_client(volatile struct ipc_client_state *_ics, uin
+ 	return ipc_server_set_active_client(s, client_id);
+ }
+ 
++xrt_result_t
++ipc_handle_system_set_background_visible(volatile struct ipc_client_state *ics, bool visible)
++{
++	return ipc_server_set_background_visible(ics->server, visible);
++}
++
++xrt_result_t
++ipc_handle_system_set_client_presentation(volatile struct ipc_client_state *ics,
++                                        uint32_t client_id, uint32_t mode, bool visible)
++{
++	return ipc_server_set_client_presentation(ics->server, client_id, mode, visible);
++}
++
+ xrt_result_t
+ ipc_handle_system_set_focused_client(volatile struct ipc_client_state *ics, uint32_t client_id)
+ {
+@@ -2104,7 +2129,7 @@ ipc_handle_device_get_tracked_pose(volatile struct ipc_client_state *ics,
+ 	}
+ 
+ 	// Get the pose.
+-	return xrt_device_get_tracked_pose(xdev, name, at_timestamp, out_relation);
++	return ipc_capture_get_pose(ics, xdev, name, at_timestamp, out_relation);
+ }
+ 
+ xrt_result_t
+diff --git a/src/xrt/ipc/server/ipc_server_input_capture.c b/src/xrt/ipc/server/ipc_server_input_capture.c
+new file mode 100644
+index 000000000..768c785d0
+--- /dev/null
++++ b/src/xrt/ipc/server/ipc_server_input_capture.c
+@@ -0,0 +1,257 @@
++// SPDX-License-Identifier: BSL-1.0
++#include "server/ipc_server_input_capture.h"
++#include "ipc_server_generated.h"
++#include "ipc_input_capture_bindings.h"
++#include "os/os_time.h"
++#include "util/u_misc.h"
++#include <stdlib.h>
++#include <string.h>
++
++static void
++compile_capture_locked(struct ipc_server *s, const struct xrt_system_roles *roles)
++{
++	const struct ipc_input_capture *policy = &s->global_state.capture.policy;
++	int32_t indices[] = {roles->left, roles->right};
++	memset(s->global_state.capture.counts, 0, sizeof(s->global_state.capture.counts));
++	for (uint32_t hand = 0; hand < 2; hand++) {
++		if (indices[hand] < 0)
++			continue;
++		struct xrt_device *device = s->xsysd->static_xdevs[indices[hand]];
++		for (uint32_t row = 0; row < ARRAY_SIZE(capture_bindings); row++) {
++			const struct capture_binding *binding = &capture_bindings[row];
++			if (binding->device != device->name || strcmp(binding->profile, policy->profiles[hand]) != 0)
++				continue;
++			for (uint32_t path = 0; path < policy->count; path++) {
++				if (strcmp(binding->path, policy->paths[path]) != 0)
++					continue;
++				uint32_t count = s->global_state.capture.counts[hand];
++				bool duplicate = false;
++				for (uint32_t i = 0; i < count; i++)
++					duplicate |= s->global_state.capture.inputs[hand][i] == binding->input;
++				if (!duplicate) {
++					assert(count < IPC_CAPTURE_MAX_PATHS);
++					s->global_state.capture.inputs[hand][count] = binding->input;
++					s->global_state.capture.counts[hand]++;
++				}
++			}
++		}
++	}
++	s->global_state.capture.roles_generation = roles->generation_id;
++}
++
++xrt_result_t
++ipc_handle_system_set_input_capture(volatile struct ipc_client_state *ics, const struct ipc_input_capture *capture)
++{
++	if (capture->count > IPC_CAPTURE_MAX_PATHS || capture->pose_mask > 3)
++		return XRT_ERROR_IPC_FAILURE;
++	for (uint32_t hand = 0; hand < 2; hand++) {
++		if (!memchr(capture->profiles[hand], 0, IPC_CAPTURE_PATH_SIZE))
++			return XRT_ERROR_IPC_FAILURE;
++	}
++	for (uint32_t i = 0; i < capture->count; i++) {
++		if (!memchr(capture->paths[i], 0, IPC_CAPTURE_PATH_SIZE))
++			return XRT_ERROR_IPC_FAILURE;
++	}
++	struct ipc_server *s = ics->server;
++	os_mutex_lock(&s->global_state.lock);
++	s->global_state.capture.owner_id = ics->client_state.id;
++	s->global_state.capture.owner_pid = ics->client_state.pid;
++	s->global_state.capture.policy = *capture;
++	s->global_state.capture.roles_generation = 0;
++	os_mutex_unlock(&s->global_state.lock);
++	return XRT_SUCCESS;
++}
++
++static int
++capture_hand_locked(volatile struct ipc_client_state *ics,
++                    struct xrt_device *xdev,
++                    const struct xrt_system_roles *roles)
++{
++	struct ipc_server *s = ics->server;
++	if (!s->global_state.capture.owner_id || s->global_state.capture.owner_pid == ics->client_state.pid)
++		return -1;
++	int32_t indices[] = {roles->left, roles->right};
++	for (int hand = 0; hand < 2; hand++) {
++		if (indices[hand] >= 0 && s->xsysd->static_xdevs[indices[hand]] == xdev)
++			return hand;
++	}
++	return -1;
++}
++
++bool
++ipc_capture_blocks_pose(volatile struct ipc_client_state *ics, struct xrt_device *xdev)
++{
++	struct ipc_server *s = ics->server;
++	struct xrt_system_roles roles = {0};
++	xrt_system_devices_get_roles(s->xsysd, &roles);
++	os_mutex_lock(&s->global_state.lock);
++	int hand = capture_hand_locked(ics, xdev, &roles);
++	bool blocked = hand >= 0 && (s->global_state.capture.policy.pose_mask & (1u << hand));
++	os_mutex_unlock(&s->global_state.lock);
++	return blocked;
++}
++
++static bool
++value_equal(enum xrt_input_name name, union xrt_input_value a, union xrt_input_value b)
++{
++	switch (XRT_GET_INPUT_TYPE(name)) {
++	case XRT_INPUT_TYPE_BOOLEAN: return a.boolean == b.boolean;
++	case XRT_INPUT_TYPE_VEC1_ZERO_TO_ONE:
++	case XRT_INPUT_TYPE_VEC1_MINUS_ONE_TO_ONE: return a.vec1.x == b.vec1.x;
++	case XRT_INPUT_TYPE_VEC2_MINUS_ONE_TO_ONE: return a.vec2.x == b.vec2.x && a.vec2.y == b.vec2.y;
++	default: return true;
++	}
++}
++
++static struct ipc_capture_device_state *
++capture_device_state(volatile struct ipc_client_state *ics,
++                     struct xrt_device *xdev,
++                     const struct xrt_system_roles *roles)
++{
++	struct ipc_capture_device_state *state = NULL;
++	for (uint32_t i = 0; i < XRT_SYSTEM_MAX_DEVICES; i++) {
++		struct ipc_capture_device_state *candidate =
++		    (struct ipc_capture_device_state *)&ics->capture_devices[i];
++		if (candidate->device == xdev) {
++			state = candidate;
++			break;
++		}
++		if (!candidate->device && !state)
++			state = candidate;
++	}
++	assert(state);
++	if (state->device != xdev || state->count != xdev->input_count ||
++	    state->roles_generation != roles->generation_id) {
++		free(state->inputs);
++		*state = (struct ipc_capture_device_state){.device = xdev,
++		                                           .count = xdev->input_count,
++		                                           .roles_generation = roles->generation_id,
++		                                           .inputs = calloc(xdev->input_count, sizeof(*state->inputs))};
++		for (uint32_t i = 0; i < xdev->input_count; i++)
++			state->inputs[i].group = i;
++		for (uint32_t family = 0; family < ARRAY_SIZE(capture_families); family++) {
++			if (capture_families[family].device != xdev->name)
++				continue;
++			uint32_t group = xdev->input_count;
++			for (uint32_t i = 0; i < xdev->input_count; i++) {
++				for (uint32_t member = 0; member < capture_families[family].count; member++) {
++					if (xdev->inputs[i].name != capture_families[family].inputs[member])
++						continue;
++					if (group == xdev->input_count)
++						group = state->inputs[i].group;
++					uint32_t old_group = state->inputs[i].group;
++					for (uint32_t j = 0; j < xdev->input_count; j++) {
++						if (state->inputs[j].group == old_group)
++							state->inputs[j].group = group;
++					}
++				}
++			}
++		}
++	}
++	return state;
++}
++
++void
++ipc_capture_filter(volatile struct ipc_client_state *ics, struct xrt_device *xdev, struct xrt_input *inputs)
++{
++	struct ipc_server *s = ics->server;
++	struct xrt_system_roles roles = {0};
++	xrt_system_devices_get_roles(s->xsysd, &roles);
++	bool blocked[1024] = {0};
++	assert(xdev->input_count <= 1024);
++	os_mutex_lock(&s->global_state.lock);
++	int hand = capture_hand_locked(ics, xdev, &roles);
++	if (hand >= 0) {
++		if (s->global_state.capture.roles_generation != roles.generation_id)
++			compile_capture_locked(s, &roles);
++		for (uint32_t i = 0; i < xdev->input_count; i++) {
++			for (uint32_t j = 0; j < s->global_state.capture.counts[hand]; j++) {
++				blocked[i] |= s->global_state.capture.inputs[hand][j] == inputs[i].name;
++			}
++		}
++	}
++	os_mutex_unlock(&s->global_state.lock);
++	struct ipc_capture_device_state *state = capture_device_state(ics, xdev, &roles);
++	int64_t now = os_monotonic_get_ns();
++	union xrt_input_value zero = {0};
++	bool active[1024] = {0}, captured[1024] = {0};
++	for (uint32_t i = 0; i < xdev->input_count; i++) {
++		uint32_t group = state->inputs[i].group;
++		active[group] |= inputs[i].active && !value_equal(inputs[i].name, inputs[i].value, zero);
++		captured[group] |= blocked[i];
++	}
++	for (uint32_t group = 0; group < xdev->input_count; group++) {
++		state->inputs[group].held = active[group] && (state->inputs[group].held || captured[group]);
++	}
++	for (uint32_t i = 0; i < xdev->input_count; i++) {
++		struct xrt_input *input = &inputs[i];
++		enum xrt_input_type type = XRT_GET_INPUT_TYPE(input->name);
++		if (type != XRT_INPUT_TYPE_BOOLEAN && type != XRT_INPUT_TYPE_VEC1_ZERO_TO_ONE &&
++		    type != XRT_INPUT_TYPE_VEC1_MINUS_ONE_TO_ONE && type != XRT_INPUT_TYPE_VEC2_MINUS_ONE_TO_ONE)
++			continue;
++		struct ipc_capture_input_state *held = &state->inputs[i];
++		if (held->initialized && held->previous.name != input->name)
++			held->initialized = false;
++		uint32_t group = held->group;
++		bool suppress = captured[group] || state->inputs[group].held;
++		if (suppress)
++			input->value = zero;
++		if (held->initialized && held->previous.name == input->name && held->previous.active == input->active &&
++		    value_equal(input->name, input->value, held->previous.value)) {
++			input->timestamp = held->previous.timestamp;
++		} else if (suppress) {
++			input->timestamp = now;
++		}
++		held->previous = *input;
++		held->initialized = true;
++	}
++}
++
++xrt_result_t
++ipc_capture_get_pose(volatile struct ipc_client_state *ics,
++                     struct xrt_device *xdev,
++                     enum xrt_input_name name,
++                     int64_t at_timestamp,
++                     struct xrt_space_relation *out_relation)
++{
++	struct xrt_system_roles roles = {0};
++	xrt_system_devices_get_roles(ics->server->xsysd, &roles);
++	struct ipc_server *s = ics->server;
++	os_mutex_lock(&s->global_state.lock);
++	int hand = capture_hand_locked(ics, xdev, &roles);
++	os_mutex_unlock(&s->global_state.lock);
++	if (hand < 0)
++		return xrt_device_get_tracked_pose(xdev, name, at_timestamp, out_relation);
++	struct ipc_capture_device_state *state = capture_device_state(ics, xdev, &roles);
++	uint32_t slot;
++	for (slot = 0; slot < ARRAY_SIZE(state->poses); slot++) {
++		if (state->poses[slot].name == name || !state->poses[slot].name)
++			break;
++	}
++	assert(slot < ARRAY_SIZE(state->poses));
++	if (state->poses[slot].name && ipc_capture_blocks_pose(ics, xdev)) {
++		*out_relation = state->poses[slot].relation;
++		out_relation->linear_velocity = (struct xrt_vec3){0};
++		out_relation->angular_velocity = (struct xrt_vec3){0};
++		return XRT_SUCCESS;
++	}
++	xrt_result_t result = xrt_device_get_tracked_pose(xdev, name, at_timestamp, out_relation);
++	if (result == XRT_SUCCESS) {
++		state->poses[slot].name = name;
++		state->poses[slot].relation = *out_relation;
++	}
++	return result;
++}
++
++void
++ipc_capture_cleanup(volatile struct ipc_client_state *ics)
++{
++	struct ipc_server *s = ics->server;
++	if (s->global_state.capture.owner_id == ics->client_state.id) {
++		memset(&s->global_state.capture, 0, sizeof(s->global_state.capture));
++	}
++	for (uint32_t i = 0; i < XRT_SYSTEM_MAX_DEVICES; i++) {
++		free(ics->capture_devices[i].inputs);
++		memset((void *)&ics->capture_devices[i], 0, sizeof(ics->capture_devices[i]));
++	}
++}
+diff --git a/src/xrt/ipc/server/ipc_server_input_capture.h b/src/xrt/ipc/server/ipc_server_input_capture.h
+new file mode 100644
+index 000000000..c408a1231
+--- /dev/null
++++ b/src/xrt/ipc/server/ipc_server_input_capture.h
+@@ -0,0 +1,17 @@
++// SPDX-License-Identifier: BSL-1.0
++#pragma once
++#include "server/ipc_server.h"
++
++void
++ipc_capture_filter(volatile struct ipc_client_state *ics, struct xrt_device *xdev, struct xrt_input *inputs);
++bool
++ipc_capture_blocks_pose(volatile struct ipc_client_state *ics, struct xrt_device *xdev);
++void
++ipc_capture_cleanup(volatile struct ipc_client_state *ics);
++
++xrt_result_t
++ipc_capture_get_pose(volatile struct ipc_client_state *ics,
++                     struct xrt_device *xdev,
++                     enum xrt_input_name name,
++                     int64_t at_timestamp,
++                     struct xrt_space_relation *out_relation);
+diff --git a/src/xrt/ipc/server/ipc_server_per_client_thread.c b/src/xrt/ipc/server/ipc_server_per_client_thread.c
+index a322e61d8..ff3709230 100644
+--- a/src/xrt/ipc/server/ipc_server_per_client_thread.c
++++ b/src/xrt/ipc/server/ipc_server_per_client_thread.c
+@@ -19,6 +19,7 @@
+ #include "shared/ipc_shmem.h"
+ #include "shared/ipc_utils.h"
+ #include "server/ipc_server.h"
++#include "server/ipc_server_input_capture.h"
+ #include "server/ipc_server_thread_shutdown.h"
+ #include "ipc_server_generated.h"
+ 
+@@ -106,6 +107,8 @@ common_shutdown(volatile struct ipc_client_state *ics)
+ 	ipc_shmem_destroy((xrt_shmem_handle_t *)&ics->ism_handle, (void **)&ics->server->isms[ics->server_thread_index],
+ 	                  sizeof(struct ipc_shared_memory));
+ 
++	ipc_capture_cleanup(ics);
++
+ 	ics->server->threads[ics->server_thread_index].state = IPC_THREAD_STOPPING;
+ 	ics->server_thread_index = -1;
+ 	memset((void *)&ics->client_state, 0, sizeof(struct ipc_app_state));
+diff --git a/src/xrt/ipc/server/ipc_server_process.c b/src/xrt/ipc/server/ipc_server_process.c
+index 62a93840f..373a0f8e7 100644
+--- a/src/xrt/ipc/server/ipc_server_process.c
++++ b/src/xrt/ipc/server/ipc_server_process.c
+@@ -293,6 +293,7 @@ init_server_state(struct ipc_server *s)
+ 
+ 	s->global_state.active_client_index = -1; // we start off with no active client.
+ 	s->global_state.last_active_client_index = -1;
++	s->global_state.previous_default_client_id = 0;
+ 	s->global_state.connected_client_count = 0; // No clients connected initially
+ 	s->current_slot_index = 0;
+ 
+@@ -452,11 +453,18 @@ main_loop(struct ipc_server *s)
+  *
+  */
+ 
++static bool
++client_is_overlay(volatile struct ipc_client_state *ics)
++{
++	uint32_t mode = ics->client_state.presentation_mode;
++	return mode == 2 || (mode == 0 && (ics->client_state.session_overlay || ics->client_state.session_alpha));
++}
++
+ static void
+ handle_overlay_client_events(volatile struct ipc_client_state *ics, int active_id, int prev_active_id)
+ {
+ 	// Is an overlay session?
+-	if (!ics->client_state.session_overlay) {
++	if (!client_is_overlay(ics)) {
+ 		return;
+ 	}
+ 
+@@ -494,16 +502,16 @@ handle_focused_client_events(volatile struct ipc_client_state *ics, int active_i
+ 
+ 	// Set visible + focused if we are the primary application
+ 	if (ics->server_thread_index == active_id) {
+-		visible = true;
+-		focused = true;
++		visible = !ics->server->global_state.background_suppressed;
++		focused = visible;
+ 		z_order = INT64_MIN;
+ 	}
+ 
+ 	// Set all overlays to always active and focused.
+-	if (ics->client_state.session_overlay) {
+-		visible = true;
+-		focused = true;
+-		z_order = ics->client_state.z_order;
++	if (client_is_overlay(ics)) {
++		visible = !ics->client_state.presentation_hidden;
++		focused = visible;
++		z_order = ics->client_state.z_order == INT64_MIN ? 0 : ics->client_state.z_order;
+ 	}
+ 
+ 	ics->client_state.session_visible = visible;
+@@ -545,7 +553,8 @@ update_server_state_locked(struct ipc_server *s)
+ 
+ 		volatile struct ipc_client_state *ics = &s->threads[s->global_state.active_client_index].ics;
+ 
+-		if (ics->client_state.session_active &&
++		if (ics->client_state.session_active && !ics->client_state.presentation_hidden &&
++		    !client_is_overlay(ics) &&
+ 		    s->global_state.active_client_index == s->global_state.last_active_client_index) {
+ 			return;
+ 		}
+@@ -566,7 +575,8 @@ update_server_state_locked(struct ipc_server *s)
+ 	// do we have a fallback application?
+ 	for (uint32_t i = 0; i < IPC_MAX_CLIENTS; i++) {
+ 		volatile struct ipc_client_state *ics = &s->threads[i].ics;
+-		if (ics->client_state.session_overlay == false && ics->server_thread_index >= 0 &&
++		if (!s->global_state.default_app_hidden && !client_is_overlay(ics) &&
++		    !ics->client_state.presentation_hidden && ics->server_thread_index >= 0 &&
+ 		    ics->client_state.session_active) {
+ 			fallback_active_application = i;
+ 			set_idle = false;
+@@ -578,12 +588,17 @@ update_server_state_locked(struct ipc_server *s)
+ 	// instead.
+ 	if (s->global_state.active_client_index >= 0) {
+ 		volatile struct ipc_client_state *ics = &s->threads[s->global_state.active_client_index].ics;
+-		if (!(ics->client_state.session_overlay == false && ics->client_state.session_active)) {
++		if (s->global_state.default_app_hidden || client_is_overlay(ics) ||
++		    ics->client_state.presentation_hidden || !ics->client_state.session_active) {
+ 			s->global_state.active_client_index = fallback_active_application;
+ 		}
+ 	}
+ 
+ 
++	if (s->global_state.active_client_index < 0) {
++		s->global_state.active_client_index = fallback_active_application;
++	}
++
+ 	// if we have no applications to fallback to, enable the idle
+ 	// wallpaper.
+ 	if (set_idle) {
+@@ -635,6 +650,7 @@ get_client_app_state_locked(struct ipc_server *s, uint32_t client_id, struct ipc
+ 	}
+ 
+ 	struct ipc_app_state ias = ics->client_state;
++	ias.session_overlay = client_is_overlay(ics);
+ 
+ 	// @todo: track this data in the ipc_client_state struct
+ 	ias.primary_application = false;
+@@ -661,8 +677,12 @@ set_active_client_locked(struct ipc_server *s, uint32_t client_id)
+ 
+ 	// The active client is decided by index, so get that from the ics.
+ 	int index = ics->server_thread_index;
++	ics->client_state.presentation_hidden = false;
++	s->global_state.default_app_hidden = false;
+ 
+ 	if (index != s->global_state.active_client_index) {
++		s->global_state.previous_default_client_id = s->global_state.active_client_index >= 0
++		    ? s->threads[s->global_state.active_client_index].ics.client_state.id : 0;
+ 		s->global_state.active_client_index = index;
+ 		update_server_state_locked(s);
+ 	}
+@@ -670,6 +690,69 @@ set_active_client_locked(struct ipc_server *s, uint32_t client_id)
+ 	return XRT_SUCCESS;
+ }
+ 
++static void
++presentation_changed_locked(struct ipc_server *s, volatile struct ipc_client_state *ics)
++{
++	if (s->global_state.active_client_index == ics->server_thread_index && !client_is_overlay(ics) &&
++	    ics->client_state.presentation_hidden) {
++		s->global_state.default_app_hidden = true;
++		s->global_state.active_client_index = -1;
++	}
++	if (s->global_state.active_client_index == ics->server_thread_index && client_is_overlay(ics)) {
++		uint32_t id = s->global_state.previous_default_client_id;
++		volatile struct ipc_client_state *previous = id != 0 ? find_client_locked(s, id) : NULL;
++		s->global_state.active_client_index =
++		    previous != NULL && !client_is_overlay(previous) && !previous->client_state.presentation_hidden
++		        ? previous->server_thread_index
++		        : -1;
++	}
++	// Presentation changes need a flush even when the default app stays the same.
++	s->global_state.last_active_client_index = -1;
++	update_server_state_locked(s);
++}
++
++xrt_result_t
++ipc_server_set_background_visible(struct ipc_server *s, bool visible)
++{
++	os_mutex_lock(&s->global_state.lock);
++	s->global_state.background_suppressed = !visible;
++	flush_state_to_all_clients_locked(s);
++	os_mutex_unlock(&s->global_state.lock);
++	return XRT_SUCCESS;
++}
++
++xrt_result_t
++ipc_server_set_client_presentation(struct ipc_server *s, uint32_t client_id, uint32_t mode, bool visible)
++{
++	if (mode > 2) {
++		return XRT_ERROR_IPC_FAILURE;
++	}
++	os_mutex_lock(&s->global_state.lock);
++	volatile struct ipc_client_state *ics = find_client_locked(s, client_id);
++	if (ics == NULL) {
++		os_mutex_unlock(&s->global_state.lock);
++		return XRT_ERROR_IPC_FAILURE;
++	}
++	ics->client_state.presentation_mode = mode;
++	ics->client_state.presentation_hidden = !visible;
++	presentation_changed_locked(s, ics);
++	os_mutex_unlock(&s->global_state.lock);
++	return XRT_SUCCESS;
++}
++
++void
++ipc_server_note_alpha_frame(volatile struct ipc_client_state *ics, enum xrt_blend_mode mode)
++{
++	if (mode != XRT_BLEND_MODE_ALPHA_BLEND || ics->client_state.session_alpha) {
++		return;
++	}
++	struct ipc_server *s = ics->server;
++	os_mutex_lock(&s->global_state.lock);
++	ics->client_state.session_alpha = true;
++	presentation_changed_locked(s, ics);
++	os_mutex_unlock(&s->global_state.lock);
++}
++
+ static xrt_result_t
+ toggle_io_client_locked(struct ipc_server *s, uint32_t client_id)
+ {
+@@ -969,9 +1052,10 @@ ipc_server_activate_session(volatile struct ipc_client_state *ics)
+ 	// Multiple threads could call this at the same time.
+ 	os_mutex_lock(&s->global_state.lock);
+ 
++	ics->client_state.session_alpha = false;
+ 	ics->client_state.session_active = true;
+ 
+-	if (ics->client_state.session_overlay) {
++	if (client_is_overlay(ics)) {
+ 		// For new active overlay sessions only update this session.
+ 		handle_focused_client_events(ics, s->global_state.active_client_index,
+ 		                             s->global_state.last_active_client_index);
+diff --git a/src/xrt/ipc/shared/ipc_message_channel.h b/src/xrt/ipc/shared/ipc_message_channel.h
+index 6ece46049..a61638d4c 100644
+--- a/src/xrt/ipc/shared/ipc_message_channel.h
++++ b/src/xrt/ipc/shared/ipc_message_channel.h
+@@ -219,6 +219,62 @@ ipc_send_handles_shmem(struct ipc_message_channel *imc,
+  */
+ 
+ 
++/*!
++ * @name File handle utilities
++ * @brief Send/receive file handles along with scalar/aggregate message data.
++ * @{
++ */
++
++/*!
++ * Receive a message along with a known number of file handles over the IPC
++ * channel.
++ *
++ * @param imc Message channel to use
++ * @param[out] out_data Pointer to the buffer to fill with data. Must not be
++ * null.
++ * @param[in] size Maximum size to read, must be greater than 0
++ * @param[out] out_handles Array of file handles to populate.  Must not be
++ * null.
++ * @param[in] handle_count Number of elements to receive into @p out_handles,
++ * must be greater than 0 and must match the value provided at the other end.
++ *
++ * @public @memberof ipc_message_channel
++ * @see xrt_file_handle_t
++ */
++xrt_result_t
++ipc_receive_handles_file(struct ipc_message_channel *imc,
++                         void *out_data,
++                         size_t size,
++                         xrt_file_handle_t *out_handles,
++                         uint32_t handle_count);
++
++
++/*!
++ * Send a message along with file handles over the IPC channel.
++ *
++ * @param imc Message channel to use
++ * @param[in] data Pointer to the data buffer to send. Must not be
++ * null: use a filler message if necessary.
++ * @param[in] size Size of data pointed-to by @p data, must be greater than 0
++ * @param[out] handles Array of file handles to send.  Must not be null.
++ * @param[in] handle_count Number of elements in @p handles, must be greater
++ * than 0. If this is variable, it must also be separately transmitted ahead of
++ * time, because the receiver must have the same value in its receive call.
++ *
++ * @public @memberof ipc_message_channel
++ * @see xrt_file_handle_t
++ */
++xrt_result_t
++ipc_send_handles_file(struct ipc_message_channel *imc,
++                      const void *data,
++                      size_t size,
++                      const xrt_file_handle_t *handles,
++                      uint32_t handle_count);
++/*!
++ * @}
++ */
++
++
+ /*!
+  * @name Graphics buffer handle utilities
+  * @brief Send/receive graphics buffer handles along with scalar/aggregate
+diff --git a/src/xrt/ipc/shared/ipc_message_channel_unix.c b/src/xrt/ipc/shared/ipc_message_channel_unix.c
+index b7a4824ee..1831bd8d0 100644
+--- a/src/xrt/ipc/shared/ipc_message_channel_unix.c
++++ b/src/xrt/ipc/shared/ipc_message_channel_unix.c
+@@ -252,6 +252,23 @@ ipc_send_handles_shmem(struct ipc_message_channel *imc,
+ 	return ipc_send_fds(imc, data, size, handles, handle_count);
+ }
+ 
++xrt_result_t
++ipc_receive_handles_file(
++    struct ipc_message_channel *imc, void *out_data, size_t size, xrt_file_handle_t *out_handles, uint32_t handle_count)
++{
++	return ipc_receive_fds(imc, out_data, size, out_handles, handle_count);
++}
++
++xrt_result_t
++ipc_send_handles_file(struct ipc_message_channel *imc,
++                      const void *data,
++                      size_t size,
++                      const xrt_file_handle_t *handles,
++                      uint32_t handle_count)
++{
++	return ipc_send_fds(imc, data, size, handles, handle_count);
++}
++
+ 
+ /*
+  *
+diff --git a/src/xrt/ipc/shared/ipc_message_channel_windows.cpp b/src/xrt/ipc/shared/ipc_message_channel_windows.cpp
+index ae745a3c0..66a0f4510 100644
+--- a/src/xrt/ipc/shared/ipc_message_channel_windows.cpp
++++ b/src/xrt/ipc/shared/ipc_message_channel_windows.cpp
+@@ -213,6 +213,23 @@ ipc_send_handles_shmem(struct ipc_message_channel *imc,
+ 	return ipc_send_handles(imc, data, size, handles, handle_count);
+ }
+ 
++xrt_result_t
++ipc_receive_handles_file(
++    struct ipc_message_channel *imc, void *out_data, size_t size, xrt_file_handle_t *out_handles, uint32_t handle_count)
++{
++	return ipc_receive_handles(imc, out_data, size, out_handles, handle_count);
++}
++
++xrt_result_t
++ipc_send_handles_file(struct ipc_message_channel *imc,
++                      const void *data,
++                      size_t size,
++                      const xrt_file_handle_t *handles,
++                      uint32_t handle_count)
++{
++	return ipc_send_handles(imc, data, size, handles, handle_count);
++}
++
+ xrt_result_t
+ ipc_receive_handles_graphics_sync(struct ipc_message_channel *imc,
+                                   void *out_data,
+diff --git a/src/xrt/ipc/shared/ipc_protocol.h b/src/xrt/ipc/shared/ipc_protocol.h
+index 3c9dca04f..25aabbb30 100644
+--- a/src/xrt/ipc/shared/ipc_protocol.h
++++ b/src/xrt/ipc/shared/ipc_protocol.h
+@@ -32,7 +32,7 @@
+ 
+ 
+ #define IPC_CRED_SIZE 1    // auth not implemented
+-#define IPC_BUF_SIZE 2048  // must be >= largest message length in bytes
++#define IPC_BUF_SIZE 16384  // must be >= largest message length in bytes
+ #define IPC_MAX_VIEWS 8    // max views we will return configs for
+ #define IPC_MAX_FORMATS 32 // max formats our server-side compositor supports
+ #define IPC_MAX_DEVICES 8  // max number of devices we will map using shared mem
+@@ -360,6 +360,17 @@ struct ipc_client_description
+ 	struct xrt_application_info info;
+ };
+ 
++#define IPC_CAPTURE_MAX_PATHS 64
++#define IPC_CAPTURE_PATH_SIZE 128
++
++struct ipc_input_capture
++{
++    char profiles[2][IPC_CAPTURE_PATH_SIZE];
++    char paths[IPC_CAPTURE_MAX_PATHS][IPC_CAPTURE_PATH_SIZE];
++    uint32_t count;
++    uint32_t pose_mask;
++};
++
+ struct ipc_client_list
+ {
+ 	uint32_t ids[IPC_MAX_CLIENTS];
+@@ -394,6 +405,9 @@ struct ipc_app_state
+ 	bool session_visible;
+ 	bool session_focused;
+ 	bool session_overlay;
++	bool session_alpha;
++	bool presentation_hidden;
++	uint32_t presentation_mode;
+ 	struct ipc_client_io_blocks io_blocks;
+ 	uint32_t z_order;
+ 	pid_t pid;
+diff --git a/src/xrt/ipc/shared/proto/50-system.json b/src/xrt/ipc/shared/proto/50-system.json
+index ed0ce0256..21ed61e1e 100644
+--- a/src/xrt/ipc/shared/proto/50-system.json
++++ b/src/xrt/ipc/shared/proto/50-system.json
+@@ -28,6 +28,22 @@
+ 		]
+ 	},
+ 
++	"system_set_client_presentation": {
++		"in": [
++			{"name": "id", "type": "uint32_t"},
++			{"name": "mode", "type": "uint32_t"},
++			{"name": "visible", "type": "bool"}
++		]
++	},
++
++	"system_set_background_visible": {
++		"in": [{"name": "visible", "type": "bool"}]
++	},
++
++	"system_set_input_capture": {
++		"in": [{"name": "capture", "type": "struct ipc_input_capture"}]
++	},
++
+ 	"system_set_focused_client": {
+ 		"in": [
+ 			{"name": "id", "type": "uint32_t"}
+@@ -112,5 +128,12 @@
+ 		"out": [
+ 			{"name": "view_config", "type": "struct xrt_view_config"}
+ 		]
++	},
++
++	"system_add_metrics_file_handle": {
++		"in": [
++			{"name": "early_flush", "type": "bool"}
++		],
++		"in_handles": {"type": "xrt_file_handle_t"}
+ 	}
+ }
+diff --git a/src/xrt/targets/libmonado/libmonado.def b/src/xrt/targets/libmonado/libmonado.def
+index d699ff05a..a9b124e84 100644
+--- a/src/xrt/targets/libmonado/libmonado.def
++++ b/src/xrt/targets/libmonado/libmonado.def
+@@ -6,7 +6,11 @@ EXPORTS
+     mnd_root_update_client_list
+     mnd_root_get_number_clients
+     mnd_root_get_client_name
++    mnd_root_get_client_pid
+     mnd_root_get_client_state
++    mnd_root_set_input_capture
++    mnd_root_set_background_visible
++    mnd_root_set_client_presentation
+     mnd_root_set_client_primary
+     mnd_root_set_client_focused
+     mnd_root_toggle_client_io_active
+@@ -25,3 +29,4 @@ EXPORTS
+     mnd_root_get_device_brightness
+     mnd_root_set_device_brightness
+     mnd_root_comp_set_chroma_key_params
++    mnd_root_push_metrics_fd
+diff --git a/src/xrt/targets/libmonado/monado.c b/src/xrt/targets/libmonado/monado.c
+index 59b82204e..a78dadbb8 100644
+--- a/src/xrt/targets/libmonado/monado.c
++++ b/src/xrt/targets/libmonado/monado.c
+@@ -341,6 +341,23 @@ mnd_root_get_client_name(mnd_root_t *root, uint32_t client_id, const char **out_
+ 	return MND_SUCCESS;
+ }
+ 
++mnd_result_t
++mnd_root_get_client_pid(mnd_root_t *root, uint32_t client_id, int32_t *out_pid)
++{
++	CHECK_NOT_NULL(root);
++	CHECK_CLIENT_ID(client_id);
++	CHECK_NOT_NULL(out_pid);
++
++	mnd_result_t mret = get_client_info(root, client_id);
++	if (mret < 0) {
++		return mret; // Prints error.
++	}
++
++	*out_pid = (int32_t)root->app_state.pid;
++
++	return MND_SUCCESS;
++}
++
+ mnd_result_t
+ mnd_root_get_client_state(mnd_root_t *root, uint32_t client_id, uint32_t *out_flags)
+ {
+@@ -367,6 +384,8 @@ mnd_root_get_client_state(mnd_root_t *root, uint32_t client_id, uint32_t *out_fl
+ 	flags |= (iob->block_hand_tracking) ? MND_CLIENT_HT_BLOCKED : 0u;
+ 	flags |= (iob->block_inputs) ? MND_CLIENT_INPUTS_BLOCKED : 0u;
+ 	flags |= (iob->block_outputs) ? MND_CLIENT_OUTPUTS_BLOCKED : 0u;
++	flags |= root->app_state.presentation_mode == 1 ? MND_CLIENT_PRESENTATION_DEFAULT : 0u;
++	flags |= root->app_state.presentation_mode == 2 ? MND_CLIENT_PRESENTATION_OVERLAY : 0u;
+ 	*out_flags = flags;
+ 
+ 	return MND_SUCCESS;
+@@ -387,6 +406,53 @@ mnd_root_set_client_primary(mnd_root_t *root, uint32_t client_id)
+ 	return MND_SUCCESS;
+ }
+ 
++mnd_result_t
++mnd_root_set_input_capture(mnd_root_t *root,
++                           const char *left_profile,
++                           const char *right_profile,
++                           const char *const *paths,
++                           uint32_t count,
++                           uint32_t pose_mask)
++{
++	CHECK_NOT_NULL(root);
++	CHECK_NOT_NULL(left_profile);
++	CHECK_NOT_NULL(right_profile);
++	if (count > IPC_CAPTURE_MAX_PATHS || pose_mask > 3 || (count && !paths)) {
++		return MND_ERROR_INVALID_VALUE;
++	}
++	struct ipc_input_capture capture = {.count = count, .pose_mask = pose_mask};
++	const char *profiles[] = {left_profile, right_profile};
++	for (uint32_t hand = 0; hand < 2; hand++) {
++		if (strlen(profiles[hand]) >= IPC_CAPTURE_PATH_SIZE)
++			return MND_ERROR_INVALID_VALUE;
++		strcpy(capture.profiles[hand], profiles[hand]);
++	}
++	for (uint32_t i = 0; i < count; i++) {
++		if (!paths[i] || strlen(paths[i]) >= IPC_CAPTURE_PATH_SIZE)
++			return MND_ERROR_INVALID_VALUE;
++		strcpy(capture.paths[i], paths[i]);
++	}
++	xrt_result_t r = ipc_call_system_set_input_capture(&root->ipc_c, &capture);
++	return r == XRT_SUCCESS ? MND_SUCCESS : MND_ERROR_OPERATION_FAILED;
++}
++
++mnd_result_t
++mnd_root_set_background_visible(mnd_root_t *root, bool visible)
++{
++	CHECK_NOT_NULL(root);
++	xrt_result_t r = ipc_call_system_set_background_visible(&root->ipc_c, visible);
++	return r == XRT_SUCCESS ? MND_SUCCESS : MND_ERROR_OPERATION_FAILED;
++}
++
++mnd_result_t
++mnd_root_set_client_presentation(mnd_root_t *root, uint32_t client_id, uint32_t mode, bool visible)
++{
++	CHECK_NOT_NULL(root);
++	CHECK_CLIENT_ID(client_id);
++	xrt_result_t r = ipc_call_system_set_client_presentation(&root->ipc_c, client_id, mode, visible);
++	return r == XRT_SUCCESS ? MND_SUCCESS : MND_ERROR_OPERATION_FAILED;
++}
++
+ mnd_result_t
+ mnd_root_set_client_focused(mnd_root_t *root, uint32_t client_id)
+ {
+@@ -956,3 +1022,25 @@ mnd_root_set_chroma_key_params(
+ 	default: PE("Internal error, shouldn't get here"); return MND_ERROR_OPERATION_FAILED;
+ 	}
+ }
++
++mnd_result_t
++mnd_root_push_metrics_fd(mnd_root_t *root, int fd, bool early_flush)
++{
++	CHECK_NOT_NULL(root);
++	if (fd < 0) {
++		return MND_ERROR_OPERATION_FAILED;
++	}
++
++#if defined(XRT_OS_WINDOWS)
++	xrt_file_handle_t handle = (HANDLE)_get_osfhandle(fd);
++#else
++	xrt_file_handle_t handle = fd;
++#endif
++
++	xrt_result_t xret = ipc_call_system_add_metrics_file_handle(&root->ipc_c, early_flush, &handle, 1);
++	switch (xret) {
++	case XRT_SUCCESS: return MND_SUCCESS;
++	case XRT_ERROR_IPC_FAILURE: PE("Connection error!"); return MND_ERROR_OPERATION_FAILED;
++	default: PE("Internal error, shouldn't get here"); return MND_ERROR_OPERATION_FAILED;
++	}
++}
+diff --git a/src/xrt/targets/libmonado/monado.h b/src/xrt/targets/libmonado/monado.h
+index c2900259a..653afcd91 100644
+--- a/src/xrt/targets/libmonado/monado.h
++++ b/src/xrt/targets/libmonado/monado.h
+@@ -26,7 +26,7 @@ extern "C" {
+ //! Major version of the API.
+ #define MND_API_VERSION_MAJOR 1
+ //! Minor version of the API.
+-#define MND_API_VERSION_MINOR 8
++#define MND_API_VERSION_MINOR 12
+ //! Patch version of the API.
+ #define MND_API_VERSION_PATCH 0
+ 
+@@ -71,6 +71,8 @@ typedef enum mnd_client_flags
+ 	MND_CLIENT_INPUTS_BLOCKED = (1u << 8u),
+ 	//! Supported in version 1.6 and above.
+ 	MND_CLIENT_OUTPUTS_BLOCKED = (1u << 9u),
++	MND_CLIENT_PRESENTATION_DEFAULT = (1u << 10u),
++	MND_CLIENT_PRESENTATION_OVERLAY = (1u << 11u),
+ } mnd_client_flags_t;
+ 
+ /*!
+@@ -317,6 +319,20 @@ mnd_root_get_client_id_at_index(mnd_root_t *root, uint32_t index, uint32_t *out_
+ mnd_result_t
+ mnd_root_get_client_name(mnd_root_t *root, uint32_t client_id, const char **out_name);
+ 
++/*!
++ * Get the process ID of the client.
++ *
++ * @param root        The libmonado state.
++ * @param client_id   ID of client to retrieve the process ID from.
++ * @param[out] out_pid Pointer to populate with the process ID.
++ *
++ * @pre Called @ref mnd_root_update_client_list at least once
++ *
++ * @return MND_SUCCESS on success
++ */
++mnd_result_t
++mnd_root_get_client_pid(mnd_root_t *root, uint32_t client_id, int32_t *out_pid);
++
+ /*!
+  * Get the state flags of the client at the given index.
+  *
+@@ -346,6 +362,18 @@ mnd_root_get_client_state(mnd_root_t *root, uint32_t client_id, uint32_t *out_fl
+ mnd_result_t
+ mnd_root_set_client_primary(mnd_root_t *root, uint32_t client_id);
+ 
++//! Captured physical OpenXR paths, owned by this connection; its process's sessions are exempt.
++mnd_result_t
++mnd_root_set_input_capture(mnd_root_t *root, const char *left_profile, const char *right_profile,
++                           const char *const *paths, uint32_t count, uint32_t pose_mask);
++
++//! Presentation mode: 0 automatic, 1 default app, 2 overlay; visible applies to overlays.
++mnd_result_t
++mnd_root_set_client_presentation(mnd_root_t *root, uint32_t client_id, uint32_t mode, bool visible);
++
++mnd_result_t
++mnd_root_set_background_visible(mnd_root_t *root, bool visible);
++
+ /*!
+  * Set the client at the given index as "focused".
+  *
+@@ -751,6 +779,18 @@ mnd_result_t
+ mnd_root_set_chroma_key_params(
+     mnd_root_t *root, struct mnd_colour_hsv hsv_min, struct mnd_colour_hsv hsv_max, float curve, float despill);
+ 
++/*!
++ * @brief Add a file descriptor to the set of fds to write metrics to.
++ *
++ * @param root              The libmonado state.
++ * @param[in] fd            The file descriptor to write metrics to.
++ * @param[in] early_flush   Whether to buffer metrics (false) or not (true).
++ *
++ * @return MND_SUCCESS on success
++ */
++mnd_result_t
++mnd_root_push_metrics_fd(mnd_root_t *root, int fd, bool early_flush);
++
+ #ifdef __cplusplus
+ }
+ #endif
+-- 
+2.55.0
+
