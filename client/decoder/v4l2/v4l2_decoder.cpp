@@ -601,6 +601,19 @@ void decoder::setup_capture_queue()
 	v4l2_format fmt{};
 	fmt.type = capture_type;
 	ioctl_or_throw(fd.get_fd(), VIDIOC_G_FMT, &fmt, "VIDIOC_G_FMT(CAPTURE)");
+	if (vk_format_for_capture(fmt.fmt.pix_mp.pixelformat) == vk::Format::eUndefined || fmt.fmt.pix_mp.num_planes != 1)
+	{
+		// iris can default to its compressed QC08C/QC10C formats, which Vulkan cannot import
+		const uint32_t offered = fmt.fmt.pix_mp.pixelformat;
+		const uint8_t offered_planes = fmt.fmt.pix_mp.num_planes;
+		fmt.fmt.pix_mp.pixelformat = offered == v4l2_fourcc('Q', '1', '0', 'C') ? V4L2_PIX_FMT_P010 : V4L2_PIX_FMT_NV12;
+		fmt.fmt.pix_mp.num_planes = 1;
+		spdlog::info("V4L2 iris offered CAPTURE format {} with {} planes, requesting {}",
+		             std::string_view(reinterpret_cast<const char *>(&offered), 4),
+		             offered_planes,
+		             capture_format_name(fmt.fmt.pix_mp.pixelformat));
+		ioctl_or_throw(fd.get_fd(), VIDIOC_S_FMT, &fmt, "VIDIOC_S_FMT(CAPTURE)");
+	}
 
 	capture_width = fmt.fmt.pix_mp.width;
 	capture_height = fmt.fmt.pix_mp.height;
