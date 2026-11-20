@@ -176,6 +176,12 @@ void scenes::stream::process_packets()
 				// doesn't render, but the shell still needs the PC's application list
 				poll_shell();
 			}
+			else if (auto now = std::chrono::steady_clock::now(); now >= next_running_query)
+			{
+				// resolution_locked() checks this list when there is no shell
+				next_running_query = now + std::chrono::seconds(2);
+				network_session->send_control(from_headset::get_running_applications{});
+			}
 #endif
 			auto timeout = std::chrono::milliseconds(20);
 			{
@@ -464,7 +470,10 @@ static bool is_stream_command(std::string_view command)
 
 bool scenes::stream::resolution_locked()
 {
-	return not frame_shell::activity(shell_source).known or not frame_shell::activity(shell_source).defaults.empty();
+	// A running app keeps the render size it started with
+	if (frame_shell::enabled())
+		return not frame_shell::activity(shell_source).known or not frame_shell::activity(shell_source).defaults.empty();
+	return std::ranges::any_of(running_applications.lock()->applications, [](const auto & app) { return not app.overlay; });
 }
 
 void scenes::stream::setting_changed(std::string_view key)
@@ -484,6 +493,31 @@ void scenes::stream::setting_changed(std::string_view key)
 		        .mirror_gamepad = config.forward_gamepad,
 		        .enabled_body_parts = config.body_part_mask,
 		});
+}
+
+void scenes::stream::gui_setting_changed(std::string_view key)
+{
+	gui_settings_pending.emplace(key);
+	gui_settings_changed = std::chrono::steady_clock::now();
+}
+
+// Waits for a slider drag to settle, so the PC rebuilds its encoders once per change
+void scenes::stream::flush_gui_settings()
+{
+	if (gui_settings_pending.empty() or std::chrono::steady_clock::now() - gui_settings_changed < std::chrono::milliseconds(300))
+		return;
+	const auto keys = std::exchange(gui_settings_pending, {});
+	// resolution, foveation and codec all resend the same stream settings
+	bool video = false;
+	for (const auto & key: keys)
+	{
+		if (key == "resolution" or key == "foveation" or key == "codec")
+			video = true;
+		else
+			setting_changed(key);
+	}
+	if (video)
+		setting_changed("codec");
 }
 
 void scenes::stream::capture_line(const std::string & line)

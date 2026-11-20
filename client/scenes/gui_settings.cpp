@@ -270,6 +270,8 @@ void settings_video(const settings_context & ctx)
 	if (ctx.stream)
 	{
 		auto & pc = *ctx.stream;
+		auto changed = [&ctx](std::string_view key) { if (ctx.on_stream_setting_changed) ctx.on_stream_setting_changed(key); };
+		const std::string resolution_tip = ctx.on_stream_setting_changed ? _("Close VR applications on the PC to change this setting.") : disconnect_tip;
 		const auto width = ctx.recommended_width;
 		const auto height = ctx.recommended_height;
 		list.push_back({
@@ -278,13 +280,13 @@ void settings_video(const settings_context & ctx)
 		        .description = fmt::format(_cF("render resolution", "Pixels rendered per eye ({}x{}). Lower to gain performance."), int(width * pc.resolution_scale), int(height * pc.resolution_scale)),
 		        .ui = ui_kind::slider,
 		        .get_int = [&config, &pc] { return int(std::lround(pc.resolution_scale * 100)); },
-		        .set_int = [&config, &pc](int v) { pc.resolution_scale = v / 100.0; config.save(); },
+		        .set_int = [&config, &pc, changed](int v) { pc.resolution_scale = v / 100.0; config.save(); changed("resolution"); },
 		        .v_min = 50,
 		        .v_max = config.extended_config ? 350 : 150,
 		        .fmt = "%d%%",
 		        .default_int = int(std::lround(configuration::stream_config{}.resolution_scale * 100)),
-		        .enabled = [&ctx] { return not ctx.in_game; },
-		        .disabled_tooltip = disconnect_tip,
+		        .enabled = [&ctx] { return not ctx.in_game or (ctx.on_stream_setting_changed and not(ctx.resolution_locked and ctx.resolution_locked())); },
+		        .disabled_tooltip = resolution_tip,
 		});
 	}
 
@@ -319,6 +321,9 @@ void settings_streaming(const settings_context & ctx)
 	{
 		auto & pc = *ctx.stream;
 		const configuration::stream_config default_pc;
+		// While streaming, a connected PC's settings apply live where the stream can send them
+		auto live = [&ctx] { return not ctx.in_game or bool(ctx.on_stream_setting_changed); };
+		auto changed = [&ctx](std::string_view key) { if (ctx.on_stream_setting_changed) ctx.on_stream_setting_changed(key); };
 		list.push_back({
 		        .id = "##foveation",
 		        .label = _("Foveated encoding"),
@@ -327,16 +332,17 @@ void settings_streaming(const settings_context & ctx)
 		                               : _("Higher values focus image quality at the center, improving latency, power efficiency and quality."),
 		        .ui = ui_kind::slider,
 		        .get_int = [&config, &pc] { return int(std::lround((1 - config.get_stream_scale(pc)) * 100)); },
-		        .set_int = [&config, &pc](int v) {
+		        .set_int = [&config, &pc, changed](int v) {
 			        if (not config.extended_config)
 				        v = std::clamp(v, 30, 80);
 			        configuration::set_stream_scale(pc, 1 - v * 0.01);
-			        config.save(); },
+			        config.save();
+			        changed("foveation"); },
 		        .v_min = 0,
 		        .v_max = 80,
 		        .fmt = "%d%%",
 		        .default_int = int(std::lround((1 - config.get_stream_scale(default_pc)) * 100)),
-		        .enabled = [&ctx] { return not ctx.in_game; },
+		        .enabled = live,
 		        .disabled_tooltip = disconnect_tip,
 		});
 
@@ -368,9 +374,10 @@ void settings_streaming(const settings_context & ctx)
 		        .description = _("How video is compressed before it is sent to the headset."),
 		        .ui = ui_kind::combo,
 		        .get_int = [&config, &pc, codecs] { return pc.codec ? index(codecs, *pc.codec).value_or(-1) + 1 : 0; },
-		        .set_int = [&config, &pc, codecs](int v) {
+		        .set_int = [&config, &pc, codecs, changed](int v) {
 			        pc.codec = v == 0 ? std::nullopt : std::optional(codecs[v - 1]);
-			        config.save(); },
+			        config.save();
+			        changed("codec"); },
 		        .options = [codecs, codec_name] {
 			        std::vector<std::string> opts;
 			        opts.push_back(codec_name(std::nullopt));
@@ -379,7 +386,7 @@ void settings_streaming(const settings_context & ctx)
 			        return opts; },
 		        .title = _C("setting name", "Video codec"),
 		        .default_int = default_pc.codec ? index(codecs, *default_pc.codec).value_or(-1) + 1 : 0,
-		        .enabled = [&ctx] { return not ctx.in_game; },
+		        .enabled = live,
 		        .disabled_tooltip = disconnect_tip,
 		});
 
@@ -391,9 +398,9 @@ void settings_streaming(const settings_context & ctx)
 			        .description = _("Higher color precision, supported by HEVC and AV1."),
 			        .ui = ui_kind::toggle,
 			        .get_bool = [&config, &pc] { return config.bit_depth == 10; },
-			        .set_bool = [&config, &pc](bool v) { config.bit_depth = v ? 10 : 8; config.save(); },
+			        .set_bool = [&config, changed](bool v) { config.bit_depth = v ? 10 : 8; config.save(); changed("codec"); },
 			        .default_bool = default_config.bit_depth == 10,
-			        .enabled = [&ctx] { return not ctx.in_game; },
+			        .enabled = live,
 			        .disabled_tooltip = disconnect_tip,
 			});
 		}
@@ -412,6 +419,46 @@ void settings_streaming(const settings_context & ctx)
 		        .default_int = int(default_pc.bitrate_bps / mb),
 		});
 
+		// Link settings only reach the PC through the stream's hook
+		if (ctx.on_stream_setting_changed)
+		{
+			list.push_back({
+			        .id = "##fec",
+			        .label = _C("setting name", "Error correction"),
+			        .description = _("Extra data sent with each video frame so that lost packets can be rebuilt."),
+			        .ui = ui_kind::slider,
+			        .get_int = [&pc] { return int(pc.fec_percent); },
+			        .set_int = [&config, &pc, changed](int v) { pc.fec_percent = v; config.save(); changed("fec"); },
+			        .v_min = 0,
+			        .v_max = 50,
+			        .fmt = "%d%%",
+			        .default_int = int(default_pc.fec_percent),
+			});
+			list.push_back({
+			        .id = "##frame_margin",
+			        .label = _C("setting name", "Frame margin"),
+			        .description = _("How much earlier than needed the PC aims to have each frame decoded."),
+			        .ui = ui_kind::slider,
+			        .get_int = [&pc] { return int(pc.frame_margin_ms); },
+			        .set_int = [&config, &pc, changed](int v) { pc.frame_margin_ms = v; config.save(); changed("frame_margin"); },
+			        .v_min = 0,
+			        .v_max = 20,
+			        .fmt = "%d ms",
+			        .default_int = int(default_pc.frame_margin_ms),
+			});
+			list.push_back({
+			        .id = "##controller_prediction",
+			        .label = _C("setting name", "Controller prediction"),
+			        .description = _("Share of the stream's delay that controller positions are predicted over."),
+			        .ui = ui_kind::slider,
+			        .get_int = [&pc] { return int(pc.controller_prediction_percent); },
+			        .set_int = [&config, &pc, changed](int v) { pc.controller_prediction_percent = v; config.save(); changed("controller_prediction"); },
+			        .v_min = 0,
+			        .v_max = 100,
+			        .fmt = "%d%%",
+			        .default_int = int(default_pc.controller_prediction_percent),
+			});
+		}
 	}
 
 	// in-stream: steer where foveation focuses quality

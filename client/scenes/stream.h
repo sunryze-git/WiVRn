@@ -51,6 +51,7 @@
 #include <mutex>
 #include <optional>
 #include <queue>
+#include <set>
 #include <shared_mutex>
 #include <thread>
 #include <vulkan/vulkan_core.h>
@@ -284,6 +285,9 @@ public:
 	bool resolution_locked();
 	// Sends a changed stream setting ("setting" command key) to the PC
 	void setting_changed(std::string_view key);
+	// A settings-menu change, sent once the value has settled; both run on the render thread, which edits the settings
+	void gui_setting_changed(std::string_view key);
+	void flush_gui_settings();
 	// Which links the stream uses ("dongle", "all" or "fastest"); applied on the network thread
 	void set_link_mode(std::string_view mode);
 #endif
@@ -425,6 +429,9 @@ public:
 	std::mutex network_status_mutex;
 	std::string network_status = "null";
 	std::jthread network_status_thread;
+	std::set<std::string, std::less<>> gui_settings_pending;
+	std::chrono::steady_clock::time_point gui_settings_changed{};
+	std::chrono::steady_clock::time_point next_running_query{};
 #endif
 
 	static meta & get_meta_scene();

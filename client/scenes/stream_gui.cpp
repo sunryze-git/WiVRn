@@ -535,6 +535,10 @@ void scenes::stream::gui_settings(float)
 	        .server_hid_forwarding = hid_forwarding_enabled(),
 	        .stream = &pc_settings(),
 	        .on_streaming_changed = [this] { send_settings_changed_packet(session, network_session.get(), application::get_config(), pc_settings()); },
+#ifndef __ANDROID__
+	        .on_stream_setting_changed = [this](std::string_view key) { gui_setting_changed(key); },
+	        .resolution_locked = [this] { return resolution_locked(); },
+#endif
 	        .enter_foveation_adjust = [this] { next_gui_status = stream_tab::foveation_settings; },
 	        .on_foveation_override_changed = [this] {
 		        const auto & config = application::get_config();

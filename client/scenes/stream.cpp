@@ -792,6 +792,9 @@ bool scenes::stream::is_gui_interactable() const
 
 void scenes::stream::render(const XrFrameState & frame_state)
 {
+#ifndef __ANDROID__
+	flush_gui_settings();
+#endif
 	render_into(frame_state, nullptr);
 }
 

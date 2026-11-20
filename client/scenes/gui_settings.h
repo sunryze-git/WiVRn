@@ -62,7 +62,8 @@ struct settings_context
 	// in-stream hooks, empty in the lobby
 	std::function<void()> on_streaming_changed; // refresh rate / spacewarp / bitrate
 	std::function<bool(bool)> on_multilink_changed;
-	std::function<void()> on_video_changed;              // resolution / foveation / codec / bit depth
+	std::function<void(std::string_view)> on_stream_setting_changed; // a connected PC's setting changed while streaming
+	std::function<bool()> resolution_locked;                         // the PC can't take a render size change now
 	std::function<void()> enter_foveation_adjust;        // thumbstick foveation sub-mode
 	std::function<void()> on_foveation_override_changed; // foveation override toggled
 };
