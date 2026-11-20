@@ -54,8 +54,7 @@ def main():
         with open(default_metainfo) as metainfo:
             tree = ET.parse(metainfo)
 
-    releases = tree.findall("releases/release")
-    if args.nightly or not releases:
+    if args.nightly:
         version = (
             subprocess.check_output(["git", "describe", "--tags", "--always"]).decode().strip()
         )
@@ -66,13 +65,13 @@ def main():
         write_entry(
             out=args.out,
             version=version,
-            data=["Nightly build" if args.nightly else "Initial Wyrm fork build"],
+            data=["Nightly build"],
             author=args.author,
             distribution=args.distribution,
             date=datetime.datetime.now().astimezone(),
         )
 
-    for release in releases:
+    for release in tree.find("releases").findall("release"):
         write_entry(
             out=args.out,
             version=release.get("version"),

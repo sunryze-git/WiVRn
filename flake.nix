@@ -38,7 +38,7 @@
               finalAttrs: oldAttrs: {
                 meta = oldAttrs.meta // {
                   mainProgram = "wivrn-dashboard";
-                  homepage = "https://github.com/sunryze-git/Wyrm";
+                  homepage = "https://github.com/sunryze-git/WiVRn";
                 };
                 # Filter the directories and files we don't need to keep to avoid needless rebuilds
                 src = lib.cleanSourceWith {

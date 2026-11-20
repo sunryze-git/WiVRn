@@ -131,10 +131,10 @@ adb kill-server
 
 Wyrm uses WiVRn's executable names (`wivrn-server`, `wivrn-dashboard`, `wivrnctl`, the `wivrn` client binary), `WIVRN_*` CMake options and environment variables, and the `io.github.wivrn.wivrn` and `org.meumeu.wivrn` application IDs. Android builds use `org.meumeu.wivrn.local` unless a different suffix is selected. Server and client builds must use the same fork and revision. Use a fresh build directory when switching from upstream so its cached options and Monado runtime settings are not reused.
 
-`WIVRN_GITHUB_REPOSITORY` selects the GitHub `owner/repository` used by the dashboard for project links and matching APK releases. It defaults to `sunryze-git/Wyrm`; set it to an empty string to disable online release discovery. Private repositories require access and do not expose release downloads anonymously.
+`WIVRN_GITHUB_REPOSITORY` selects the GitHub `owner/repository` used by the dashboard for project links and matching APK releases. It defaults to `sunryze-git/WiVRn`; set it to an empty string to disable online release discovery. Private repositories require access and do not expose release downloads anonymously.
 
 ```sh
 cmake -S . -B build-server -DWIVRN_GITHUB_REPOSITORY=sunryze-git/Wyrm
 ```
 
-Configuration and pairing data live in `~/.config/wyrm`. Logs, sockets, OpenXR runtime files, and service discovery (`_wivrn._tcp`) use WiVRn's paths and names, so Wyrm shares them with WiVRn and cannot be installed side by side with it.
+Configuration and pairing data live in `~/.config/wyrm`. The dashboard's settings, server logs and downloaded APK also live under `wyrm` (`~/.config/wyrm`, `~/.local/state/wyrm/wivrn-dashboard`, `~/.cache/wyrm/wivrn-dashboard`). Sockets, OpenXR runtime files, and service discovery (`_wivrn._tcp`) use WiVRn's paths and names, so Wyrm shares them with WiVRn and cannot be installed side by side with it.

@@ -106,7 +106,7 @@ option(ENABLE_COLOURED_OUTPUT "Always produce ANSI-coloured output (GNU/Clang on
 
 # Share the upstream environment catalog; this is an asset dependency, not a release source.
 set(WIVRN_ENVIRONMENTS_URL "https://github.com/WiVRn/WiVRn-environments/releases/latest/download/index.json" CACHE STRING "URL hosting the custom environments json file")
-set(_WIVRN_DEFAULT_REPOSITORY "sunryze-git/Wyrm")
+set(_WIVRN_DEFAULT_REPOSITORY "sunryze-git/WiVRn")
 if(DEFINED ENV{WIVRN_GITHUB_REPOSITORY})
     set(_WIVRN_DEFAULT_REPOSITORY "$ENV{WIVRN_GITHUB_REPOSITORY}")
 endif()

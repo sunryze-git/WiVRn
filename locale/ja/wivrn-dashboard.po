@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: WiVRn-dashboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-10 16:24-0500\n"
+"POT-Creation-Date: 2026-08-30 11:42+0900\n"
 "PO-Revision-Date: 2025-04-10 07:14+0900\n"
 "Last-Translator: Mitsuami Megane <hello@mitsua.me>\n"
 "Language-Team: Japanese <>\n"
@@ -12,78 +12,78 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: dashboard/apk_installer.cpp:147
+#: dashboard/apk_installer.cpp:133
 #, kde-format
 msgid "Cannot save APK file: %1"
 msgstr "APKファイルを保存できませんでした：%1"
 
-#: dashboard/apk_installer.cpp:181
+#: dashboard/apk_installer.cpp:167
 #, kde-format
 msgid "Downloading APK: %1 MB / %2 MB"
 msgstr "APKのダウンロード：%1 MB / %2 MB"
 
-#: dashboard/apk_installer.cpp:183
+#: dashboard/apk_installer.cpp:169
 #, kde-format
 msgid "Downloading APK: %1 MB"
 msgstr "APKのダウンロード：%1 MB"
 
-#: dashboard/apk_installer.cpp:192
+#: dashboard/apk_installer.cpp:178
 #, kde-format
 msgid "Download cancelled"
 msgstr "ダウンロードはキャンセルされました"
 
-#: dashboard/apk_installer.cpp:208
+#: dashboard/apk_installer.cpp:194
 #, kde-format
 msgid "Cannot download APK: %1"
 msgstr "APKをダウンロードできませんでした：%1"
 
-#: dashboard/apk_installer.cpp:231
+#: dashboard/apk_installer.cpp:217
 #, kde-format
 msgid "Installing APK"
 msgstr "APKをインストール中"
 
-#: dashboard/apk_installer.cpp:235
+#: dashboard/apk_installer.cpp:221
 #, kde-format
 msgid "adb failed to start: %1"
 msgstr "adbの起動に失敗しました：%1"
 
-#: dashboard/apk_installer.cpp:245
+#: dashboard/apk_installer.cpp:231
 #, kde-format
 msgid "adb exited abnormally: %1"
 msgstr "adbが異常終了しました：%1"
 
-#: dashboard/apk_installer.cpp:253
+#: dashboard/apk_installer.cpp:239
 #, kde-format
 msgid "The 'adb install' command failed: exit code %1"
 msgstr "「adb install」コマンドは失敗しました、コード%1"
 
-#: dashboard/apk_installer.cpp:258
+#: dashboard/apk_installer.cpp:244
 #, kde-format
 msgid "Installation successful"
 msgstr "インストール成功"
 
-#: dashboard/main.cpp:27
+#: dashboard/main.cpp:26
 #, kde-format
 msgctxt "@title"
-msgid "Wyrm"
-msgstr "Wyrm"
+msgid "WiVRn"
+msgstr "WiVRn"
 
-#: dashboard/main.cpp:29
+#: dashboard/main.cpp:28
 #, kde-format
-msgid "Wyrm server"
-msgstr "Wyrmサーバー"
+msgid "WiVRn server"
+msgstr "WiVRnサーバー"
 
-#: dashboard/main.cpp:31
+#: dashboard/main.cpp:30
 #, kde-format
-msgid "(c) 2022-2026 Wyrm development team"
-msgstr "(c) 2022-2026 Wyrm開発チーム"
+msgid "(c) 2022-2026 WiVRn development team"
+msgstr "(c) 2022-2026 WiVRn開発チーム"
 
-#: dashboard/main.cpp:46
+#: dashboard/main.cpp:40
 #, kde-format
 msgid "Monado"
 msgstr "Monado"
 
-#: dashboard/main.cpp:47
+#: dashboard/main.cpp:41
 #, kde-format
 msgid "OpenXR runtime"
 msgstr "OpenXRランタイム"
@@ -98,23 +98,23 @@ msgstr "戻る"
 
 #: dashboard/qml/ApkInstallPage.qml:12 dashboard/qml/WizardPage.qml:137
 #, kde-format
-msgid "Install the Wyrm app on your headset"
-msgstr "HMDにWyrmアプリをインストールする"
+msgid "Install the WiVRn app on your headset"
+msgstr "HMDにWiVRnアプリをインストールする"
 
-#: dashboard/qml/ApkInstallPage.qml:41 dashboard/qml/WizardPage.qml:148
-#: dashboard/qml/WizardPage.qml:183
+#: dashboard/qml/ApkInstallPage.qml:41 dashboard/qml/WizardPage.qml:157
+#: dashboard/qml/WizardPage.qml:192
 #, kde-format
 msgid "Checking latest release..."
 msgstr "最新リリースを確認中"
 
-#: dashboard/qml/ApkInstallPage.qml:43 dashboard/qml/WizardPage.qml:189
+#: dashboard/qml/ApkInstallPage.qml:43 dashboard/qml/WizardPage.qml:198
 #, kde-format
 msgid "No APK is available for this version"
 msgstr "現在バージョン用の公式APKは提供されていません"
 
 #: dashboard/qml/ApkInstallPage.qml:45 dashboard/qml/Main.qml:376
-#: dashboard/qml/Main.qml:434 dashboard/qml/WizardPage.qml:202
-#: dashboard/qml/WizardPage.qml:328
+#: dashboard/qml/Main.qml:434 dashboard/qml/WizardPage.qml:211
+#: dashboard/qml/WizardPage.qml:337
 #, kde-format
 msgid "ADB is not installed"
 msgstr "ADBはインストールされていません"
@@ -124,12 +124,15 @@ msgstr "ADBはインストールされていません"
 msgid "Connect a headset and make sure developer mode is enabled"
 msgstr "HMDを接続し、開発者モードが有効になっていることを確認してください"
 
-#: dashboard/qml/ApkInstallPage.qml:51 dashboard/qml/WizardPage.qml:195
+#: dashboard/qml/ApkInstallPage.qml:51 dashboard/qml/WizardPage.qml:204
 #, kde-format
 msgid ""
-"Follow the client headset instructions in docs/building.md in the Wyrm "
-"source tree to build your own client."
+"Follow the instructions in the <a href=\"https://github.com/WiVRn/WiVRn/blob/"
+"master/docs/building.md#client-headset\">documentation</a> to build your own "
+"client."
 msgstr ""
+"自分でクライエントをビルドするには、<a href=\"https://github.com/WiVRn/WiVRn/"
+"blob/master/docs/building.md#client-headset\">マニュアル</a>をご覧ください。"
 
 #: dashboard/qml/ConnectUsbDialog.qml:11
 #, kde-format
@@ -138,18 +141,18 @@ msgstr "HMDを選択してください"
 
 #: dashboard/qml/DeviceCard.qml:46
 #, kde-format
-msgid "Wyrm is already installed on this device"
-msgstr "WyrmはこのHMDにすでにインストールされている"
+msgid "WiVRn is already installed on this device"
+msgstr "WiVRnはこのHMDにすでにインストールされている"
 
 #: dashboard/qml/DeviceCard.qml:54
 #, kde-format
-msgid "Reinstall Wyrm"
-msgstr "Wyrmを再インストールする"
+msgid "Reinstall WiVRn"
+msgstr "WiVRnを再インストールする"
 
 #: dashboard/qml/DeviceCard.qml:54
 #, kde-format
-msgid "Install Wyrm"
-msgstr "Wyrmをインストールする"
+msgid "Install WiVRn"
+msgstr "WiVRnをインストールする"
 
 #: dashboard/qml/HeadsetStatsPage.qml:12
 #, kde-format
@@ -196,8 +199,8 @@ msgid "Rename"
 msgstr "名前変更"
 
 #: dashboard/qml/HeadsetsPage.qml:55 dashboard/qml/WizardPage.qml:38
-#: dashboard/qml/WizardPage.qml:88 dashboard/qml/WizardPage.qml:254
-#: dashboard/qml/WizardPage.qml:367
+#: dashboard/qml/WizardPage.qml:88 dashboard/qml/WizardPage.qml:263
+#: dashboard/qml/WizardPage.qml:376
 #, kde-format
 msgid "Cancel"
 msgstr "キャンセル"
@@ -224,8 +227,8 @@ msgstr "ペアリングを無効化する"
 
 #: dashboard/qml/HeadsetsPage.qml:166
 #, kde-format
-msgid "Start the Wyrm app on your headset and use the PIN: %1"
-msgstr "HMDでWyrmアプリを起動し、暗証番号を入力してください：%1"
+msgid "Start the WiVRn app on your headset and use the PIN: %1"
+msgstr "HMDでWiVRnアプリを起動し、暗証番号を入力してください：%1"
 
 #: dashboard/qml/HeadsetsPage.qml:166
 #, kde-format
@@ -244,22 +247,20 @@ msgstr "新しいHMDをペアリングする"
 
 #: dashboard/qml/Main.qml:12
 #, kde-format
-msgid "Wyrm dashboard"
-msgstr "Wyrmダッシュボード"
+msgid "WiVRn dashboard"
+msgstr "WiVRnダッシュボード"
 
 #: dashboard/qml/Main.qml:51
 #, kde-format
-msgid "Quit Wyrm"
-msgstr "Wyrmを終了"
+msgid "Quit WiVRn"
+msgstr "WiVRnを終了"
 
 #: dashboard/qml/Main.qml:52
 #, kde-format
 msgid ""
-"The Wyrm server is active.\n"
+"The WiVRn server is active.\n"
 "Closing the window will terminate it."
-msgstr ""
-"Wyrmサーバーは動作中です。\n"
-"ウィンドウを閉じるとサーバーが停止します。"
+msgstr "WiVRnサーバーは動作中です。\nウィンドウを閉じるとサーバーが停止します。"
 
 #: dashboard/qml/Main.qml:142
 #, kde-format
@@ -326,9 +327,8 @@ msgstr ""
 
 #: dashboard/qml/Main.qml:217
 #, kde-format
-msgid "Steam is installed as a snap. Snaps are not compatible with Wyrm."
-msgstr ""
-"SteamはSnapとしてインストールされています。SnapはWyrmに対応していません。"
+msgid "Steam is installed as a snap. Snaps are not compatible with WiVRn."
+msgstr "SteamはSnapとしてインストールされています。SnapはWiVRnに対応していません。"
 
 #: dashboard/qml/Main.qml:225
 #, kde-format
@@ -354,7 +354,7 @@ msgstr "今すぐ再起動する"
 msgid "Server failed to start"
 msgstr "サーバーは起動できませんでした"
 
-#: dashboard/qml/Main.qml:277 dashboard/qml/TroubleshootPage.qml:90
+#: dashboard/qml/Main.qml:277 dashboard/qml/TroubleshootPage.qml:89
 #, kde-format
 msgid "Open server logs"
 msgstr "ログを見る"
@@ -410,7 +410,7 @@ msgctxt "usb connect button"
 msgid "Connect (wired)"
 msgstr "有線で接続する"
 
-#: dashboard/qml/Main.qml:383 dashboard/qml/WizardPage.qml:330
+#: dashboard/qml/Main.qml:383 dashboard/qml/WizardPage.qml:339
 #, kde-format
 msgid "No headset is connected or your headset is not in developer mode"
 msgstr "HMDが接続されていないか、HMDが開発者モードになっていません"
@@ -438,7 +438,7 @@ msgstr "設定"
 #: dashboard/qml/Main.qml:451
 #, kde-format
 msgid "About"
-msgstr "Wyrmについて"
+msgstr "WiVRnについて"
 
 #: dashboard/qml/Main.qml:456 dashboard/qml/TroubleshootPage.qml:10
 #, kde-format
@@ -512,8 +512,7 @@ msgstr "x264 (ソフトエンコード)"
 #: dashboard/qml/SettingsPage.qml:79
 #, kde-format
 msgid "\"Auto\" will use hardware acceleration if it is available"
-msgstr ""
-"「自動」では、利用可能な場合にハードウェアアクセラレーションを使用します。"
+msgstr "「自動」では、利用可能な場合にハードウェアアクセラレーションを使用します。"
 
 #: dashboard/qml/SettingsPage.qml:89
 #, kde-format
@@ -525,50 +524,22 @@ msgstr "自動起動するアプリケーション："
 msgid "Auto connect from USB"
 msgstr "USBにて自動接続"
 
-#: dashboard/qml/SettingsPage.qml:99
-#, kde-format
-msgid "Share VR activity on Discord"
-msgstr ""
-
 #: dashboard/qml/SettingsPage.qml:102
-#, kde-format
-msgid "Discord application ID:"
-msgstr ""
-
-#: dashboard/qml/SettingsPage.qml:107
-#, kde-format
-msgid "Application ID from the Discord Developer Portal"
-msgstr ""
-
-#: dashboard/qml/SettingsPage.qml:111
-#, kde-format
-msgid ""
-"Create a Discord application named Wyrm and copy its Application ID here. "
-"Shows your headset, active VR application and elapsed session time while "
-"connected. Discord must be running on this PC."
-msgstr ""
-
-#: dashboard/qml/SettingsPage.qml:114
-#, kde-format
-msgid "Developer Portal"
-msgstr ""
-
-#: dashboard/qml/SettingsPage.qml:124
 #, kde-format
 msgid "Advanced options"
 msgstr "詳細設定"
 
-#: dashboard/qml/SettingsPage.qml:130
+#: dashboard/qml/SettingsPage.qml:108
 #, kde-format
 msgid "Check system configuration on start"
 msgstr "起動時にパソコン設定を確認する"
 
-#: dashboard/qml/SettingsPage.qml:136
+#: dashboard/qml/SettingsPage.qml:114
 #, kde-format
 msgid "Expose forwarded input devices via uinput"
 msgstr "入力デバイスの転送"
 
-#: dashboard/qml/SettingsPage.qml:139
+#: dashboard/qml/SettingsPage.qml:117
 #, kde-format
 msgid ""
 "Replicate mouse, keyboard and gamepad connected to the headset as virtual "
@@ -584,22 +555,22 @@ msgstr ""
 "できない場合があります。\n"
 "OpenXR対応アプリでは、仮想デバイスなしでもゲームパッドが使用可能です。"
 
-#: dashboard/qml/SettingsPage.qml:144
+#: dashboard/qml/SettingsPage.qml:122
 #, kde-format
 msgid "Enable debug window"
 msgstr "デバッグ・ウィンドウを表示する"
 
-#: dashboard/qml/SettingsPage.qml:151
+#: dashboard/qml/SettingsPage.qml:129
 #, kde-format
 msgid "Enable SteamVR tracked devices support"
 msgstr "SteamVR・ライトハウス・トラッキング"
 
-#: dashboard/qml/SettingsPage.qml:154
+#: dashboard/qml/SettingsPage.qml:132
 #, kde-format
 msgid ""
 "Allows the use of lighthouse-based controllers and trackers.\n"
 "Requires SteamVR to be installed.\n"
-"Devices must be be powered on before connecting to Wyrm.\n"
+"Devices must be be powered on before connecting to WiVRn.\n"
 "An external tool such as motoc is needed for calibration."
 msgstr ""
 "ライトハウスのコントローラーやトラッカーなどを使用します。\n"
@@ -607,39 +578,39 @@ msgstr ""
 "すべてのデバイスの電源が入ってからHMDを接続しましょう。\n"
 "キャリブレーションはmotocなどのソフトウェアで行います。"
 
-#: dashboard/qml/SettingsPage.qml:160
+#: dashboard/qml/SettingsPage.qml:138
 #, kde-format
 msgid "Clamp extrapolation for SteamVR tracked devices"
 msgstr "SteamVRデバイスの動きの予測を制限する"
 
-#: dashboard/qml/SettingsPage.qml:164
+#: dashboard/qml/SettingsPage.qml:142
 #, kde-format
 msgid "SteamVR max pose extrapolation"
 msgstr "SteamVRデバイスの外挿制限"
 
-#: dashboard/qml/SettingsPage.qml:174
+#: dashboard/qml/SettingsPage.qml:152
 #, kde-format
 msgctxt "value display for SteamVR max pose extrapolation"
 msgid "%1ms"
 msgid_plural "%1ms"
 msgstr[0] "%1ms"
 
-#: dashboard/qml/SettingsPage.qml:179
+#: dashboard/qml/SettingsPage.qml:157
 #, kde-format
 msgid ""
 "Maximum time in milliseconds that poses may be extrapolated ahead for "
 "SteamVR tracked devices. Tune this value if you experience jittery or wobbly "
 "tracking."
 msgstr ""
-"SteamVRデバイスのポーズを外挿する最大時間（ミリ秒）です。追跡にガタつきやふら"
-"つきがある場合は、この値を調整してください。"
+"SteamVRデバイスのポーズを外挿する最大時間（ミリ秒）です。"
+"追跡にガタつきやふらつきがある場合は、この値を調整してください。"
 
-#: dashboard/qml/SettingsPage.qml:184
+#: dashboard/qml/SettingsPage.qml:162
 #, kde-format
 msgid "SteamVR joystick deadzone"
 msgstr "SteamVRジョイスティック・デッドゾーン"
 
-#: dashboard/qml/SettingsPage.qml:199
+#: dashboard/qml/SettingsPage.qml:177
 #, kde-format
 msgid ""
 "Deadzone to apply to joysticks on lighthouse-tracked controllers, such as "
@@ -652,49 +623,49 @@ msgstr ""
 "ベースステーション式以外のコントローラーは、HMDのシステム設定で調整してくださ"
 "い。"
 
-#: dashboard/qml/SettingsPage.qml:207
+#: dashboard/qml/SettingsPage.qml:185
 #, kde-format
 msgid "Custom adb location"
 msgstr "特定なADBの場所"
 
-#: dashboard/qml/SettingsPage.qml:218
+#: dashboard/qml/SettingsPage.qml:196
 #, kde-format
 msgid "Adb location:"
 msgstr "ADBの場所："
 
-#: dashboard/qml/SettingsPage.qml:227
+#: dashboard/qml/SettingsPage.qml:205
 #, kde-format
 msgctxt "browse a file to choose the adb binary"
 msgid "Browse"
 msgstr "参照"
 
-#: dashboard/qml/SettingsPage.qml:237
+#: dashboard/qml/SettingsPage.qml:215
 #, kde-format
 msgid "Default"
 msgstr "デフォルト"
 
-#: dashboard/qml/SettingsPage.qml:251
+#: dashboard/qml/SettingsPage.qml:229
 #, kde-format
 msgctxt "set a custom OpenVR compatibility library"
 msgid "Custom"
 msgstr "カスタム"
 
-#: dashboard/qml/SettingsPage.qml:256
+#: dashboard/qml/SettingsPage.qml:234
 #, kde-format
 msgid "Disabled"
 msgstr "無効"
 
-#: dashboard/qml/SettingsPage.qml:272
+#: dashboard/qml/SettingsPage.qml:250
 #, kde-format
 msgid "OpenVR compatibility library:"
 msgstr "OpenVR実装ライブラリー"
 
-#: dashboard/qml/SettingsPage.qml:302
+#: dashboard/qml/SettingsPage.qml:280
 #, kde-format
 msgid "Library path, excluding bin/linux64/vrclient.so"
 msgstr "ライブラリーの場所（bin/linux64/vrclient.so 無し）"
 
-#: dashboard/qml/SettingsPage.qml:307
+#: dashboard/qml/SettingsPage.qml:285
 #, kde-format
 msgctxt "browse to choose the OpenVR compatibility to use"
 msgid "Browse"
@@ -727,21 +698,21 @@ msgstr "Steam用の起動オプションをコピーしました"
 
 #: dashboard/qml/TroubleshootPage.qml:20
 #, kde-format
-msgid "I cannot find the Wyrm app on my headset"
-msgstr "HMDでWyrmアプリが見つからない"
+msgid "I cannot find the WiVRn app on my headset"
+msgstr "HMDでWiVRnアプリが見つからない"
 
-#: dashboard/qml/TroubleshootPage.qml:21 dashboard/qml/WizardPage.qml:344
+#: dashboard/qml/TroubleshootPage.qml:21 dashboard/qml/WizardPage.qml:353
 #, kde-format
 msgid ""
-"If you installed Wyrm over USB on a Meta or Pico headset, the app is in the "
+"If you installed WiVRn over USB on a Meta or Pico headset, the app is in the "
 "\"unknown sources\" section."
 msgstr ""
 "USBにてインストールされた場合、ライブラリの「提供元不明」タブをご覧ください"
 
 #: dashboard/qml/TroubleshootPage.qml:24
 #, kde-format
-msgid "I cannot see my computer in the Wyrm app"
-msgstr "Wyrmアプリでパソコンが表示されない"
+msgid "I cannot see my computer in the WiVRn app"
+msgstr "WiVRnアプリでパソコンが表示されない"
 
 #: dashboard/qml/TroubleshootPage.qml:25
 #, kde-format
@@ -769,7 +740,7 @@ msgstr "「no route to host」で接続できない"
 
 #: dashboard/qml/TroubleshootPage.qml:36
 #, kde-format
-msgid "I have an \"Incompatible Wyrm server\" error on my headset"
+msgid "I have an \"Incompatible WiVRn server\" error on my headset"
 msgstr "HMDに「互換性のないサーバー」"
 
 #: dashboard/qml/TroubleshootPage.qml:37
@@ -780,7 +751,7 @@ msgid ""
 "server version is <b>%1</b></li></ul>"
 msgstr ""
 "<p>HMDアプリとサーバーのバージョンは一致していることが必要です。</"
-"p><ul><li>HMDアプリのバージョンは「Wyrmについて」タブに確認できます。</"
+"p><ul><li>HMDアプリのバージョンは「WiVRnについて」タブに確認できます。</"
 "li><li>サーバーのバージョンは：<b>%1</b></li></ul>"
 
 #: dashboard/qml/TroubleshootPage.qml:40
@@ -793,9 +764,7 @@ msgstr "HMDに「ペアリングが無効です」"
 msgid ""
 "If you have reinstalled the server or the client or if you want to connect "
 "another headset, you must enable pairing before connecting."
-msgstr ""
-"サーバーまたはクライアントを再インストールした場合や、別のHMDを接続する場合"
-"は、接続前にペアリングを有効にしてください。"
+msgstr "サーバーまたはクライアントを再インストールした場合や、別のHMDを接続する場合は、接続前にペアリングを有効にしてください。"
 
 #: dashboard/qml/TroubleshootPage.qml:41
 #, kde-format
@@ -812,13 +781,13 @@ msgstr "ペアリングは無効です。"
 msgid "I have no sound on my headset"
 msgstr "HMDから音が出ない"
 
-#: dashboard/qml/TroubleshootPage.qml:58 dashboard/qml/WizardPage.qml:397
+#: dashboard/qml/TroubleshootPage.qml:58 dashboard/qml/WizardPage.qml:406
 #, kde-format
 msgid ""
-"When the headset is connected, select \"Wyrm\" as the default audio output "
+"When the headset is connected, select \"WiVRn\" as the default audio output "
 "device for applications to use it."
 msgstr ""
-"HMDが接続した状態で、デフォルト音声出力デバイスを「Wyrm」に設定しましょう。"
+"HMDが接続した状態で、デフォルト音声出力デバイスを「WiVRn」に設定しましょう。"
 
 #: dashboard/qml/TroubleshootPage.qml:61
 #, kde-format
@@ -839,7 +808,7 @@ msgstr ""
 msgid "Report an issue"
 msgstr "問題を報告する"
 
-#: dashboard/qml/TroubleshootPage.qml:85
+#: dashboard/qml/TroubleshootPage.qml:84
 #, kde-format
 msgid "Ask on Discord"
 msgstr "Discordで聞いてみる"
@@ -850,28 +819,28 @@ msgid "Getting started"
 msgstr "はじめに"
 
 #: dashboard/qml/WizardPage.qml:29 dashboard/qml/WizardPage.qml:78
-#: dashboard/qml/WizardPage.qml:244 dashboard/qml/WizardPage.qml:357
-#: dashboard/qml/WizardPage.qml:404 dashboard/qml/WizardPage.qml:441
+#: dashboard/qml/WizardPage.qml:253 dashboard/qml/WizardPage.qml:366
+#: dashboard/qml/WizardPage.qml:413 dashboard/qml/WizardPage.qml:450
 #, kde-format
 msgid "Back"
 msgstr "戻る"
 
 #: dashboard/qml/WizardPage.qml:64
 #, kde-format
-msgid "Welcome to Wyrm"
-msgstr "Wyrmへようこそ"
+msgid "Welcome to WiVRn"
+msgstr "WiVRnへようこそ"
 
 #: dashboard/qml/WizardPage.qml:69
 #, kde-format
 msgid ""
-"This wizard will help you set up Wyrm on your headset and connect it to your "
-"computer."
+"This wizard will help you set up WiVRn on your headset and connect it to "
+"your computer."
 msgstr ""
-"このセットアップウィザードは、HMDにWyrmをインストールし、パソコンに接続できる"
-"ようにご案内します。"
+"このセットアップウィザードは、HMDにWiVRnをインストールし、パソコンに接続でき"
+"るようにご案内します。"
 
-#: dashboard/qml/WizardPage.qml:83 dashboard/qml/WizardPage.qml:249
-#: dashboard/qml/WizardPage.qml:409 dashboard/qml/WizardPage.qml:446
+#: dashboard/qml/WizardPage.qml:83 dashboard/qml/WizardPage.qml:258
+#: dashboard/qml/WizardPage.qml:418 dashboard/qml/WizardPage.qml:455
 #, kde-format
 msgid "Next"
 msgstr "次"
@@ -889,89 +858,105 @@ msgstr "メーカーのマニュアルをご覧ください："
 #: dashboard/qml/WizardPage.qml:142
 #, kde-format
 msgid ""
-"In order to use Wyrm, you will have to install the client app on your "
+"In order to use WiVRn, you will have to install the client app on your "
 "headset.\n"
-"Install the matching Wyrm client directly over USB."
-msgstr ""
+"You can either install it from the Meta store or directly over USB."
+msgstr "WiVRnを使用するには、HMDにクライアントアプリをインストールする必要があります。\nMetaストアから、またはUSB経由で直接インストールできます。"
 
-#: dashboard/qml/WizardPage.qml:155
+#: dashboard/qml/WizardPage.qml:148
+#, kde-format
+msgid "Install from the Meta store"
+msgstr "Metaストアからインストール"
+
+#: dashboard/qml/WizardPage.qml:152
 #, kde-format
 msgid ""
-"A newer release is available: %1 → %2. Use a client that matches your server "
-"version."
+"For the Quest 2, 3, 3S, and Pro, you can get the app from the <a "
+"href=\"https://www.meta.com/experiences/7959676140827574/\">Meta store</a>."
 msgstr ""
+"Quest 2、3、3S、Proの場合、<a href=\"https://www.meta.com/experiences/"
+"7959676140827574/\">Metaストア</a>にて配信中です。"
 
-#: dashboard/qml/WizardPage.qml:162
+#: dashboard/qml/WizardPage.qml:164
 #, kde-format
-msgid "This is a development build. Use a client built from the same revision."
+msgid ""
+"A newer release is available: %1 → %2, the client app on the Meta store may "
+"not be compatible."
 msgstr ""
+"アップデートがあります：%1 → %2。現在バージョンにMetaストア版のHMDアプリは対"
+"応しない可能性があります。"
 
-#: dashboard/qml/WizardPage.qml:172
+#: dashboard/qml/WizardPage.qml:171
+#, kde-format
+msgid ""
+"This is a nightly build, the client app on the Meta store may not be "
+"compatible."
+msgstr ""
+"ナイトビルドのため、Metaストア版のHMDアプリは対応しない可能性があります。"
+
+#: dashboard/qml/WizardPage.qml:181
 #, kde-format
 msgctxt "displayed between 'meta store' and 'install over USB' in the wizard"
 msgid "Or"
 msgstr "か"
 
-#: dashboard/qml/WizardPage.qml:178
+#: dashboard/qml/WizardPage.qml:187
 #, kde-format
 msgid "Install over USB"
 msgstr "USBでインストール"
 
-#: dashboard/qml/WizardPage.qml:210
+#: dashboard/qml/WizardPage.qml:219
 #, kde-format
 msgid ""
 "<p>No headset detected. Make sure that:\n"
 "<ul><li>The ADB udev rules are installed</li><li>The headset is in <a "
 "href=\"#\">developer mode</a></li></ul></p>"
-msgstr ""
-"<p>HMDが見つかりません。以下を確認してください：\n"
-"<ul><li>ADB用のudevルールがインストールされていること</li><li>HMDの<a "
-"href=\"#\">開発者モード</a>が有効になっていること</li></ul></p>"
+msgstr "<p>HMDが見つかりません。以下を確認してください：\n<ul><li>ADB用のudevルールがインストールされていること</li><li>HMDの<a href=\"#\">開発者モード</a>が有効になっていること</li></ul></p>"
 
-#: dashboard/qml/WizardPage.qml:286
+#: dashboard/qml/WizardPage.qml:295
 #, kde-format
 msgid "Important information"
 msgstr "警告"
 
-#: dashboard/qml/WizardPage.qml:292
+#: dashboard/qml/WizardPage.qml:301
 #, kde-format
 msgid ""
-"Wyrm entirely replaces SteamVR, you should not start SteamVR while Wyrm is "
+"WiVRn entirely replaces SteamVR, you should not start SteamVR while WiVRn is "
 "running."
 msgstr ""
-"WyrmはSteamVRの代わりに使うものです。両方を同時に走らせないように気をつけま"
+"WiVRnはSteamVRの代わりに使うものです。両方を同時に走らせないように気をつけま"
 "しょう。"
 
-#: dashboard/qml/WizardPage.qml:304
+#: dashboard/qml/WizardPage.qml:313
 #, kde-format
-msgid "Start the Wyrm app on your headset"
-msgstr "HMDでWyrmアプリを起動しましょう。"
+msgid "Start the WiVRn app on your headset"
+msgstr "HMDでWiVRnアプリを起動しましょう。"
 
-#: dashboard/qml/WizardPage.qml:310
+#: dashboard/qml/WizardPage.qml:319
 #, kde-format
 msgid ""
-"To connect over WiFi, start the Wyrm app on your headset, connect to \"%1\" "
+"To connect over WiFi, start the WiVRn app on your headset, connect to \"%1\" "
 "and enter PIN \"%2\"."
 msgstr ""
-"WiFiで接続するには、HMDのWyrmアプリを使い、「%1」に接続し、暗証番号に「%2」を"
-"入れましょう。"
+"WiFiで接続するには、HMDのWiVRnアプリを使い、「%1」に接続し、暗証番号に「%2」"
+"を入れましょう。"
 
-#: dashboard/qml/WizardPage.qml:317
+#: dashboard/qml/WizardPage.qml:326
 #, kde-format
 msgid "To connect over USB, click on \"Connect by USB\"."
 msgstr "USBで接続するには、「USBで接続する」ボタンをクリックしましょう。"
 
-#: dashboard/qml/WizardPage.qml:320
+#: dashboard/qml/WizardPage.qml:329
 #, kde-format
 msgid "Connect by USB"
 msgstr "USBで接続する"
 
-#: dashboard/qml/WizardPage.qml:340
+#: dashboard/qml/WizardPage.qml:349
 #, kde-format
 msgid "Troubleshooting"
 msgstr "問題解決"
 
-#: dashboard/qml/WizardPage.qml:349
+#: dashboard/qml/WizardPage.qml:358
 #, kde-format
 msgid ""
 "If the server is not visible or the connection fails, check that ports 5353 "
@@ -980,34 +965,34 @@ msgstr ""
 "サーバーが見えない・サーバーに接続できない場合、ファイアウォールのポート5353"
 "（UDP）と9757（TCPとUDPの両方）が開いていることを確認しましょう。"
 
-#: dashboard/qml/WizardPage.qml:362
+#: dashboard/qml/WizardPage.qml:371
 #, kde-format
 msgid "Skip"
 msgstr "スキップ"
 
-#: dashboard/qml/WizardPage.qml:382
+#: dashboard/qml/WizardPage.qml:391
 #, kde-format
 msgid "Connection established"
 msgstr "接続確立"
 
-#: dashboard/qml/WizardPage.qml:387
+#: dashboard/qml/WizardPage.qml:396
 #, kde-format
 msgid "Your headset is now connected."
 msgstr "HMDに接続しました。"
 
-#: dashboard/qml/WizardPage.qml:392 dashboard/qml/WizardPage.qml:434
+#: dashboard/qml/WizardPage.qml:401 dashboard/qml/WizardPage.qml:443
 #, kde-format
 msgid ""
 "To connect another headset, make sure pairing is enabled in the dashboard "
 "before connecting."
 msgstr "他のHMDを接続するには、ペアリングが有効なのかどうか確認しましょう。"
 
-#: dashboard/qml/WizardPage.qml:414 dashboard/qml/WizardPage.qml:451
+#: dashboard/qml/WizardPage.qml:423 dashboard/qml/WizardPage.qml:460
 #, kde-format
 msgid "Finish"
 msgstr "完了"
 
-#: dashboard/qml/WizardPage.qml:429
+#: dashboard/qml/WizardPage.qml:438
 #, kde-format
 msgid "Finished"
 msgstr "完了しました"

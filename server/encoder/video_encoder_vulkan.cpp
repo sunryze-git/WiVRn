@@ -268,11 +268,11 @@ wivrn::video_encoder_vulkan::video_encoder_vulkan(
 
 void wivrn::video_encoder_vulkan::init(const vk::VideoCapabilitiesKHR & video_caps,
 #ifdef VK_KHR_video_encode_intra_refresh
-                                      vk::VideoEncodeIntraRefreshCapabilitiesKHR intra_caps,
+                                       vk::VideoEncodeIntraRefreshCapabilitiesKHR intra_caps,
 #endif
-                                      const vk::VideoProfileInfoKHR & video_profile,
-                                      void * video_session_create_next,
-                                      void * session_params_next)
+                                       const vk::VideoProfileInfoKHR & video_profile,
+                                       void * video_session_create_next,
+                                       void * session_params_next)
 {
 	vk::VideoProfileListInfoKHR video_profile_list{
 	        .profileCount = 1,
@@ -1036,9 +1036,9 @@ void wivrn::video_encoder_vulkan::present_image(vk::Image y_cbcr, vk::SemaphoreS
 		vk::SemaphoreSubmitInfo signal_info{
 		        .semaphore = *sem,
 		        .value = ++sem_value,
-			        .stageMask = *slot_item.transfer_cmd_buf and encode_queue.family_index != vk.transfer_queue.family_index
-			                             ? vk::PipelineStageFlagBits2::eAllCommands
-			                             : vk::PipelineStageFlagBits2::eVideoEncodeKHR,
+		        .stageMask = *slot_item.transfer_cmd_buf and encode_queue.family_index != vk.transfer_queue.family_index
+		                             ? vk::PipelineStageFlagBits2::eAllCommands
+		                             : vk::PipelineStageFlagBits2::eVideoEncodeKHR,
 		};
 
 		std::unique_lock lock(encode_queue.mutex);
@@ -1063,9 +1063,9 @@ void wivrn::video_encoder_vulkan::present_image(vk::Image y_cbcr, vk::SemaphoreS
 		vk::SemaphoreSubmitInfo wait_info{
 		        .semaphore = *sem,
 		        .value = sem_value,
-			        .stageMask = encode_queue.family_index != vk.transfer_queue.family_index
-			                             ? vk::PipelineStageFlagBits2::eAllCommands
-			                             : vk::PipelineStageFlagBits2::eTransfer,
+		        .stageMask = encode_queue.family_index != vk.transfer_queue.family_index
+		                             ? vk::PipelineStageFlagBits2::eAllCommands
+		                             : vk::PipelineStageFlagBits2::eTransfer,
 		};
 
 		std::unique_lock lock(vk.transfer_queue.mutex);
@@ -1100,29 +1100,29 @@ std::optional<wivrn::video_encoder::data> wivrn::video_encoder_vulkan::encode(ui
 	if (auto s = ts_pool.collect(encode_slot))
 	{
 		wivrn::trace::gpu_slice(wivrn::trace::gpu_track::vulkan_encode,
-		                       "encodeVideoKHR",
-		                       s->begin_ns,
-		                       s->end_ns,
-		                       s->frame_index,
-		                       stream_idx);
+		                        "encodeVideoKHR",
+		                        s->begin_ns,
+		                        s->end_ns,
+		                        s->frame_index,
+		                        stream_idx);
 	}
 	if (auto s = ts_pool_image_copy.collect(encode_slot))
 	{
 		wivrn::trace::gpu_slice(wivrn::trace::gpu_track::vulkan_image_copy,
-		                       "vk_copy_image_tmp",
-		                       s->begin_ns,
-		                       s->end_ns,
-		                       s->frame_index,
-		                       stream_idx);
+		                        "vk_copy_image_tmp",
+		                        s->begin_ns,
+		                        s->end_ns,
+		                        s->frame_index,
+		                        stream_idx);
 	}
 	if (auto s = ts_pool_host_copy.collect(encode_slot))
 	{
 		wivrn::trace::gpu_slice(wivrn::trace::gpu_track::vulkan_host_copy,
-		                       "vk_copy_to_host",
-		                       s->begin_ns,
-		                       s->end_ns,
-		                       s->frame_index,
-		                       stream_idx);
+		                        "vk_copy_to_host",
+		                        s->begin_ns,
+		                        s->end_ns,
+		                        s->frame_index,
+		                        stream_idx);
 	}
 
 	// We don't copy the whole buffer, but an estimate of how much we'll need
@@ -1174,11 +1174,11 @@ std::optional<wivrn::video_encoder::data> wivrn::video_encoder_vulkan::encode(ui
 		if (auto s = ts_pool_host_copy_overflow.collect(encode_slot))
 		{
 			wivrn::trace::gpu_slice(wivrn::trace::gpu_track::vulkan_host_copy_overflow,
-			                       "vk_copy_to_host_overflow",
-			                       s->begin_ns,
-			                       s->end_ns,
-			                       s->frame_index,
-			                       stream_idx);
+			                        "vk_copy_to_host_overflow",
+			                        s->begin_ns,
+			                        s->end_ns,
+			                        s->frame_index,
+			                        stream_idx);
 		}
 	}
 

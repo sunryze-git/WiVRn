@@ -1,6 +1,3 @@
-#ifndef __ANDROID__
-#include "linux/frame_shell.h"
-#endif
 /*
  * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
@@ -32,20 +29,25 @@
 #define GLM_FORCE_RADIANS
 
 #include "stream.h"
-#include "frame_selection.h"
-#include "wivrn_foveation.h"
-#include "xr/frame_foveated_projection.h"
+
 #include "application.h"
 #include "audio/audio.h"
 #include "boost/pfr/core.hpp"
 #include "decoder/shard_accumulator.h"
+#include "frame_selection.h"
 #include "inplace_vector.hpp"
+#ifndef __ANDROID__
+#include "linux/frame_shell.h"
+#endif
 #include "spdlog/spdlog.h"
 #include "utils/named_thread.h"
 #include "utils/ranges.h"
 #include "utils/xdg_base_directory.h"
+#include "wivrn_foveation.h"
 #include "wivrn_packets.h"
+#include "xr/frame_foveated_projection.h"
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <mutex>
 #include <ranges>

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: WiVRn-dashboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-10 16:24-0500\n"
+"POT-Creation-Date: 2026-10-01 09:39+0800\n"
 "PO-Revision-Date: 2026-10-01 12:00+0800\n"
 "Last-Translator: Jayden Ha <jayden@jaydenha.uk>\n"
 "Language-Team: Chinese (Taiwan)\n"
@@ -17,84 +17,84 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: dashboard/apk_installer.cpp:147
+#: dashboard/apk_installer.cpp:133
 #, kde-format
 msgid "Cannot save APK file: %1"
 msgstr "無法儲存 APK 檔案：%1"
 
-#: dashboard/apk_installer.cpp:181
+#: dashboard/apk_installer.cpp:167
 #, kde-format
 msgid "Downloading APK: %1 MB / %2 MB"
 msgstr "正在下載 APK: %1 MB / %2 MB"
 
-#: dashboard/apk_installer.cpp:183
+#: dashboard/apk_installer.cpp:169
 #, kde-format
 msgid "Downloading APK: %1 MB"
 msgstr "正在下載 APK: %1 MB"
 
-#: dashboard/apk_installer.cpp:192
+#: dashboard/apk_installer.cpp:178
 #, kde-format
 msgid "Download cancelled"
 msgstr "下載已取消"
 
-#: dashboard/apk_installer.cpp:208
+#: dashboard/apk_installer.cpp:194
 #, kde-format
 msgid "Cannot download APK: %1"
 msgstr "無法下載 APK: %1"
 
-#: dashboard/apk_installer.cpp:231
+#: dashboard/apk_installer.cpp:217
 #, kde-format
 msgid "Installing APK"
 msgstr "正在安裝 APK"
 
-#: dashboard/apk_installer.cpp:235
+#: dashboard/apk_installer.cpp:221
 #, kde-format
 msgid "adb failed to start: %1"
 msgstr "adb 啟動失敗: %1"
 
-#: dashboard/apk_installer.cpp:245
+#: dashboard/apk_installer.cpp:231
 #, kde-format
 msgid "adb exited abnormally: %1"
 msgstr "adb 異常結束: %1"
 
-#: dashboard/apk_installer.cpp:253
+#: dashboard/apk_installer.cpp:239
 #, kde-format
 msgid "The 'adb install' command failed: exit code %1"
 msgstr "'adb install' 指令失敗：結束代碼 %1"
 
-#: dashboard/apk_installer.cpp:258
+#: dashboard/apk_installer.cpp:244
 #, kde-format
 msgid "Installation successful"
 msgstr "安裝成功"
 
-#: dashboard/main.cpp:27
+#: dashboard/main.cpp:26
 #, kde-format
 msgctxt "@title"
-msgid "Wyrm"
-msgstr "Wyrm"
+msgid "WiVRn"
+msgstr "WiVRn"
 
-#: dashboard/main.cpp:29
+#: dashboard/main.cpp:28
 #, kde-format
-msgid "Wyrm server"
-msgstr "Wyrm 伺服器"
+msgid "WiVRn server"
+msgstr "WiVRn 伺服器"
 
-#: dashboard/main.cpp:31
+#: dashboard/main.cpp:30
 #, kde-format
-msgid "(c) 2022-2026 Wyrm development team"
-msgstr "(c) 2022-2026 Wyrm 開發團隊"
+msgid "(c) 2022-2026 WiVRn development team"
+msgstr "(c) 2022-2026 WiVRn 開發團隊"
 
-#: dashboard/main.cpp:46
+#: dashboard/main.cpp:40
 #, kde-format
 msgid "Monado"
 msgstr "Monado"
 
-#: dashboard/main.cpp:47
+#: dashboard/main.cpp:41
 #, kde-format
 msgid "OpenXR runtime"
 msgstr "OpenXR 執行環境"
 
 #: dashboard/qml/About.qml:17 dashboard/qml/ApkInstallPage.qml:65
-#: dashboard/qml/HeadsetStatsPage.qml:36 dashboard/qml/HeadsetsPage.qml:183
+#: dashboard/qml/HeadsetsPage.qml:183 dashboard/qml/HeadsetStatsPage.qml:36
 #: dashboard/qml/TroubleshootPage.qml:71
 #, kde-format
 msgctxt "go back to the home page"
@@ -103,23 +103,23 @@ msgstr "返回"
 
 #: dashboard/qml/ApkInstallPage.qml:12 dashboard/qml/WizardPage.qml:137
 #, kde-format
-msgid "Install the Wyrm app on your headset"
-msgstr "在您的頭戴式裝置上安裝 Wyrm 應用程式"
+msgid "Install the WiVRn app on your headset"
+msgstr "在您的頭戴式裝置上安裝 WiVRn 應用程式"
 
-#: dashboard/qml/ApkInstallPage.qml:41 dashboard/qml/WizardPage.qml:148
-#: dashboard/qml/WizardPage.qml:183
+#: dashboard/qml/ApkInstallPage.qml:41 dashboard/qml/WizardPage.qml:157
+#: dashboard/qml/WizardPage.qml:192
 #, kde-format
 msgid "Checking latest release..."
 msgstr "正在檢查最新版本..."
 
-#: dashboard/qml/ApkInstallPage.qml:43 dashboard/qml/WizardPage.qml:189
+#: dashboard/qml/ApkInstallPage.qml:43 dashboard/qml/WizardPage.qml:198
 #, kde-format
 msgid "No APK is available for this version"
 msgstr "此版本沒有可用的 APK"
 
 #: dashboard/qml/ApkInstallPage.qml:45 dashboard/qml/Main.qml:376
-#: dashboard/qml/Main.qml:434 dashboard/qml/WizardPage.qml:202
-#: dashboard/qml/WizardPage.qml:328
+#: dashboard/qml/Main.qml:434 dashboard/qml/WizardPage.qml:211
+#: dashboard/qml/WizardPage.qml:337
 #, kde-format
 msgid "ADB is not installed"
 msgstr "未安裝 ADB"
@@ -129,12 +129,15 @@ msgstr "未安裝 ADB"
 msgid "Connect a headset and make sure developer mode is enabled"
 msgstr "連接頭戴式裝置並確認已啟用開發人員模式"
 
-#: dashboard/qml/ApkInstallPage.qml:51 dashboard/qml/WizardPage.qml:195
+#: dashboard/qml/ApkInstallPage.qml:51 dashboard/qml/WizardPage.qml:204
 #, kde-format
 msgid ""
-"Follow the client headset instructions in docs/building.md in the Wyrm "
-"source tree to build your own client."
+"Follow the instructions in the <a href=\"https://github.com/WiVRn/WiVRn/blob/"
+"master/docs/building.md#client-headset\">documentation</a> to build your own "
+"client."
 msgstr ""
+"請按照 <a href=\"https://github.com/WiVRn/WiVRn/blob/master/docs/building."
+"md#client-headset\">文件</a>中的說明建置您自己的用戶端。"
 
 #: dashboard/qml/ConnectUsbDialog.qml:11
 #, kde-format
@@ -143,23 +146,18 @@ msgstr "選擇您的頭戴式裝置"
 
 #: dashboard/qml/DeviceCard.qml:46
 #, kde-format
-msgid "Wyrm is already installed on this device"
-msgstr "此裝置已安裝 Wyrm"
+msgid "WiVRn is already installed on this device"
+msgstr "此裝置已安裝 WiVRn"
 
 #: dashboard/qml/DeviceCard.qml:54
 #, kde-format
-msgid "Reinstall Wyrm"
-msgstr "重新安裝 Wyrm"
+msgid "Reinstall WiVRn"
+msgstr "重新安裝 WiVRn"
 
 #: dashboard/qml/DeviceCard.qml:54
 #, kde-format
-msgid "Install Wyrm"
-msgstr "安裝 Wyrm"
-
-#: dashboard/qml/HeadsetStatsPage.qml:12
-#, kde-format
-msgid "Headset statistics"
-msgstr "頭戴式裝置統計資訊"
+msgid "Install WiVRn"
+msgstr "安裝 WiVRn"
 
 #: dashboard/qml/HeadsetsPage.qml:12 dashboard/qml/Main.qml:439
 #, kde-format
@@ -201,8 +199,8 @@ msgid "Rename"
 msgstr "重新命名"
 
 #: dashboard/qml/HeadsetsPage.qml:55 dashboard/qml/WizardPage.qml:38
-#: dashboard/qml/WizardPage.qml:88 dashboard/qml/WizardPage.qml:254
-#: dashboard/qml/WizardPage.qml:367
+#: dashboard/qml/WizardPage.qml:88 dashboard/qml/WizardPage.qml:263
+#: dashboard/qml/WizardPage.qml:376
 #, kde-format
 msgid "Cancel"
 msgstr "取消"
@@ -229,8 +227,8 @@ msgstr "停用配對"
 
 #: dashboard/qml/HeadsetsPage.qml:166
 #, kde-format
-msgid "Start the Wyrm app on your headset and use the PIN: %1"
-msgstr "在您的頭戴式裝置上啟動 Wyrm 應用程式，並使用 PIN 碼：%1"
+msgid "Start the WiVRn app on your headset and use the PIN: %1"
+msgstr "在您的頭戴式裝置上啟動 WiVRn 應用程式，並使用 PIN 碼：%1"
 
 #: dashboard/qml/HeadsetsPage.qml:166
 #, kde-format
@@ -247,23 +245,28 @@ msgstr "啟用配對"
 msgid "Pair a new headset"
 msgstr "配對新的頭戴式裝置"
 
+#: dashboard/qml/HeadsetStatsPage.qml:12
+#, kde-format
+msgid "Headset statistics"
+msgstr "頭戴式裝置統計資訊"
+
 #: dashboard/qml/Main.qml:12
 #, kde-format
-msgid "Wyrm dashboard"
-msgstr "Wyrm 控制面板"
+msgid "WiVRn dashboard"
+msgstr "WiVRn 控制面板"
 
 #: dashboard/qml/Main.qml:51
 #, kde-format
-msgid "Quit Wyrm"
-msgstr "結束 Wyrm"
+msgid "Quit WiVRn"
+msgstr "結束 WiVRn"
 
 #: dashboard/qml/Main.qml:52
 #, kde-format
 msgid ""
-"The Wyrm server is active.\n"
+"The WiVRn server is active.\n"
 "Closing the window will terminate it."
 msgstr ""
-"Wyrm 伺服器正在執行中。\n"
+"WiVRn 伺服器正在執行中。\n"
 "關閉視窗將會停止伺服器。"
 
 #: dashboard/qml/Main.qml:142
@@ -328,8 +331,8 @@ msgstr ""
 
 #: dashboard/qml/Main.qml:217
 #, kde-format
-msgid "Steam is installed as a snap. Snaps are not compatible with Wyrm."
-msgstr "Steam 是以 snap 套件安裝的，snap 與 Wyrm 不相容。"
+msgid "Steam is installed as a snap. Snaps are not compatible with WiVRn."
+msgstr "Steam 是以 snap 套件安裝的，snap 與 WiVRn 不相容。"
 
 #: dashboard/qml/Main.qml:225
 #, kde-format
@@ -353,7 +356,7 @@ msgstr "立即重新啟動"
 msgid "Server failed to start"
 msgstr "伺服器啟動失敗"
 
-#: dashboard/qml/Main.qml:277 dashboard/qml/TroubleshootPage.qml:90
+#: dashboard/qml/Main.qml:277 dashboard/qml/TroubleshootPage.qml:89
 #, kde-format
 msgid "Open server logs"
 msgstr "開啟伺服器日誌"
@@ -409,7 +412,7 @@ msgctxt "usb connect button"
 msgid "Connect (wired)"
 msgstr "連線（有線）"
 
-#: dashboard/qml/Main.qml:383 dashboard/qml/WizardPage.qml:330
+#: dashboard/qml/Main.qml:383 dashboard/qml/WizardPage.qml:339
 #, kde-format
 msgid "No headset is connected or your headset is not in developer mode"
 msgstr "沒有偵測到頭戴式裝置，或您的頭戴式裝置未啟用開發者模式"
@@ -523,50 +526,22 @@ msgstr "自動啟動應用程式："
 msgid "Auto connect from USB"
 msgstr "透過 USB 自動連線"
 
-#: dashboard/qml/SettingsPage.qml:99
-#, kde-format
-msgid "Share VR activity on Discord"
-msgstr ""
-
 #: dashboard/qml/SettingsPage.qml:102
-#, kde-format
-msgid "Discord application ID:"
-msgstr ""
-
-#: dashboard/qml/SettingsPage.qml:107
-#, kde-format
-msgid "Application ID from the Discord Developer Portal"
-msgstr ""
-
-#: dashboard/qml/SettingsPage.qml:111
-#, kde-format
-msgid ""
-"Create a Discord application named Wyrm and copy its Application ID here. "
-"Shows your headset, active VR application and elapsed session time while "
-"connected. Discord must be running on this PC."
-msgstr ""
-
-#: dashboard/qml/SettingsPage.qml:114
-#, kde-format
-msgid "Developer Portal"
-msgstr ""
-
-#: dashboard/qml/SettingsPage.qml:124
 #, kde-format
 msgid "Advanced options"
 msgstr "進階選項"
 
-#: dashboard/qml/SettingsPage.qml:130
+#: dashboard/qml/SettingsPage.qml:108
 #, kde-format
 msgid "Check system configuration on start"
 msgstr "在啟動時檢查系統配置"
 
-#: dashboard/qml/SettingsPage.qml:136
+#: dashboard/qml/SettingsPage.qml:114
 #, kde-format
 msgid "Expose forwarded input devices via uinput"
 msgstr "透過 uinput 提供轉送的輸入裝置"
 
-#: dashboard/qml/SettingsPage.qml:139
+#: dashboard/qml/SettingsPage.qml:117
 #, kde-format
 msgid ""
 "Replicate mouse, keyboard and gamepad connected to the headset as virtual "
@@ -581,47 +556,47 @@ msgstr ""
 "使用。對於透過 OpenXR 存取遊戲控制器的應用程式，即使不建立虛擬裝置也能使用遊"
 "戲控制器。"
 
-#: dashboard/qml/SettingsPage.qml:144
+#: dashboard/qml/SettingsPage.qml:122
 #, kde-format
 msgid "Enable debug window"
 msgstr "啟用偵錯視窗"
 
-#: dashboard/qml/SettingsPage.qml:151
+#: dashboard/qml/SettingsPage.qml:129
 #, kde-format
 msgid "Enable SteamVR tracked devices support"
 msgstr "啟用 SteamVR 追蹤裝置支援"
 
-#: dashboard/qml/SettingsPage.qml:154
+#: dashboard/qml/SettingsPage.qml:132
 #, kde-format
 msgid ""
 "Allows the use of lighthouse-based controllers and trackers.\n"
 "Requires SteamVR to be installed.\n"
-"Devices must be be powered on before connecting to Wyrm.\n"
+"Devices must be be powered on before connecting to WiVRn.\n"
 "An external tool such as motoc is needed for calibration."
 msgstr ""
 "允許使用 Lighthouse 基地台追蹤的控制器和追蹤器。\n"
 "需要安裝 SteamVR。\n"
-"裝置必須在連線到 Wyrm 之前開啟電源。\n"
+"裝置必須在連線到 WiVRn 之前開啟電源。\n"
 "校準需要額外工具，例如 motoc。"
 
-#: dashboard/qml/SettingsPage.qml:160
+#: dashboard/qml/SettingsPage.qml:138
 #, kde-format
 msgid "Clamp extrapolation for SteamVR tracked devices"
 msgstr "限制 SteamVR 追蹤裝置的外推"
 
-#: dashboard/qml/SettingsPage.qml:164
+#: dashboard/qml/SettingsPage.qml:142
 #, kde-format
 msgid "SteamVR max pose extrapolation"
 msgstr "SteamVR 最大姿態外推"
 
-#: dashboard/qml/SettingsPage.qml:174
+#: dashboard/qml/SettingsPage.qml:152
 #, kde-format
 msgctxt "value display for SteamVR max pose extrapolation"
 msgid "%1ms"
 msgid_plural "%1ms"
 msgstr[0] "%1 毫秒"
 
-#: dashboard/qml/SettingsPage.qml:179
+#: dashboard/qml/SettingsPage.qml:157
 #, kde-format
 msgid ""
 "Maximum time in milliseconds that poses may be extrapolated ahead for "
@@ -631,12 +606,12 @@ msgstr ""
 "SteamVR 追蹤裝置的姿態可向前外推的最長時間（毫秒）。如果追蹤出現抖動或晃動，"
 "請調整此數值。"
 
-#: dashboard/qml/SettingsPage.qml:184
+#: dashboard/qml/SettingsPage.qml:162
 #, kde-format
 msgid "SteamVR joystick deadzone"
 msgstr "SteamVR 搖桿死區"
 
-#: dashboard/qml/SettingsPage.qml:199
+#: dashboard/qml/SettingsPage.qml:177
 #, kde-format
 msgid ""
 "Deadzone to apply to joysticks on lighthouse-tracked controllers, such as "
@@ -647,49 +622,49 @@ msgstr ""
 "套用於 Lighthouse 基地台追蹤控制器（例如 Index 控制器）搖桿的死區。\n"
 "若為一體機控制器，可在頭戴式裝置的系統設定中調整死區。"
 
-#: dashboard/qml/SettingsPage.qml:207
+#: dashboard/qml/SettingsPage.qml:185
 #, kde-format
 msgid "Custom adb location"
 msgstr "自訂 adb 位置"
 
-#: dashboard/qml/SettingsPage.qml:218
+#: dashboard/qml/SettingsPage.qml:196
 #, kde-format
 msgid "Adb location:"
 msgstr "adb 位置："
 
-#: dashboard/qml/SettingsPage.qml:227
+#: dashboard/qml/SettingsPage.qml:205
 #, kde-format
 msgctxt "browse a file to choose the adb binary"
 msgid "Browse"
 msgstr "瀏覽"
 
-#: dashboard/qml/SettingsPage.qml:237
+#: dashboard/qml/SettingsPage.qml:215
 #, kde-format
 msgid "Default"
 msgstr "預設"
 
-#: dashboard/qml/SettingsPage.qml:251
+#: dashboard/qml/SettingsPage.qml:229
 #, kde-format
 msgctxt "set a custom OpenVR compatibility library"
 msgid "Custom"
 msgstr "自訂"
 
-#: dashboard/qml/SettingsPage.qml:256
+#: dashboard/qml/SettingsPage.qml:234
 #, kde-format
 msgid "Disabled"
 msgstr "已停用"
 
-#: dashboard/qml/SettingsPage.qml:272
+#: dashboard/qml/SettingsPage.qml:250
 #, kde-format
 msgid "OpenVR compatibility library:"
 msgstr "OpenVR 相容性函式庫："
 
-#: dashboard/qml/SettingsPage.qml:302
+#: dashboard/qml/SettingsPage.qml:280
 #, kde-format
 msgid "Library path, excluding bin/linux64/vrclient.so"
 msgstr "函式庫路徑，不包含 bin/linux64/vrclient.so"
 
-#: dashboard/qml/SettingsPage.qml:307
+#: dashboard/qml/SettingsPage.qml:285
 #, kde-format
 msgctxt "browse to choose the OpenVR compatibility to use"
 msgid "Browse"
@@ -722,22 +697,22 @@ msgstr "已複製 Steam 啟動指令"
 
 #: dashboard/qml/TroubleshootPage.qml:20
 #, kde-format
-msgid "I cannot find the Wyrm app on my headset"
-msgstr "我在頭戴式裝置上找不到 Wyrm 應用程式"
+msgid "I cannot find the WiVRn app on my headset"
+msgstr "我在頭戴式裝置上找不到 WiVRn 應用程式"
 
-#: dashboard/qml/TroubleshootPage.qml:21 dashboard/qml/WizardPage.qml:344
+#: dashboard/qml/TroubleshootPage.qml:21 dashboard/qml/WizardPage.qml:353
 #, kde-format
 msgid ""
-"If you installed Wyrm over USB on a Meta or Pico headset, the app is in the "
+"If you installed WiVRn over USB on a Meta or Pico headset, the app is in the "
 "\"unknown sources\" section."
 msgstr ""
-"如果您是透過 USB 在 Meta 或 Pico 頭戴式裝置上安裝 Wyrm，應用程式會位於「不明"
+"如果您是透過 USB 在 Meta 或 Pico 頭戴式裝置上安裝 WiVRn，應用程式會位於「不明"
 "來源」分類中。"
 
 #: dashboard/qml/TroubleshootPage.qml:24
 #, kde-format
-msgid "I cannot see my computer in the Wyrm app"
-msgstr "我在 Wyrm 應用程式中看不到我的電腦"
+msgid "I cannot see my computer in the WiVRn app"
+msgstr "我在 WiVRn 應用程式中看不到我的電腦"
 
 #: dashboard/qml/TroubleshootPage.qml:25
 #, kde-format
@@ -763,8 +738,8 @@ msgstr "連線失敗，出現「no route to host」"
 
 #: dashboard/qml/TroubleshootPage.qml:36
 #, kde-format
-msgid "I have an \"Incompatible Wyrm server\" error on my headset"
-msgstr "頭戴式裝置上出現「不相容的 Wyrm 伺服器」錯誤"
+msgid "I have an \"Incompatible WiVRn server\" error on my headset"
+msgstr "頭戴式裝置上出現「不相容的 WiVRn 伺服器」錯誤"
 
 #: dashboard/qml/TroubleshootPage.qml:37
 #, kde-format
@@ -805,12 +780,12 @@ msgstr "目前已停用配對"
 msgid "I have no sound on my headset"
 msgstr "我的頭戴式裝置沒有聲音"
 
-#: dashboard/qml/TroubleshootPage.qml:58 dashboard/qml/WizardPage.qml:397
+#: dashboard/qml/TroubleshootPage.qml:58 dashboard/qml/WizardPage.qml:406
 #, kde-format
 msgid ""
-"When the headset is connected, select \"Wyrm\" as the default audio output "
+"When the headset is connected, select \"WiVRn\" as the default audio output "
 "device for applications to use it."
-msgstr "連接頭戴式裝置後，選擇 \"Wyrm\" 作為應用程式使用的預設音訊輸出裝置。"
+msgstr "連接頭戴式裝置後，選擇 \"WiVRn\" 作為應用程式使用的預設音訊輸出裝置。"
 
 #: dashboard/qml/TroubleshootPage.qml:61
 #, kde-format
@@ -831,7 +806,7 @@ msgstr ""
 msgid "Report an issue"
 msgstr "回報問題"
 
-#: dashboard/qml/TroubleshootPage.qml:85
+#: dashboard/qml/TroubleshootPage.qml:84
 #, kde-format
 msgid "Ask on Discord"
 msgstr "在 Discord 上提問"
@@ -842,26 +817,26 @@ msgid "Getting started"
 msgstr "入門指南"
 
 #: dashboard/qml/WizardPage.qml:29 dashboard/qml/WizardPage.qml:78
-#: dashboard/qml/WizardPage.qml:244 dashboard/qml/WizardPage.qml:357
-#: dashboard/qml/WizardPage.qml:404 dashboard/qml/WizardPage.qml:441
+#: dashboard/qml/WizardPage.qml:253 dashboard/qml/WizardPage.qml:366
+#: dashboard/qml/WizardPage.qml:413 dashboard/qml/WizardPage.qml:450
 #, kde-format
 msgid "Back"
 msgstr "返回"
 
 #: dashboard/qml/WizardPage.qml:64
 #, kde-format
-msgid "Welcome to Wyrm"
-msgstr "歡迎使用 Wyrm"
+msgid "Welcome to WiVRn"
+msgstr "歡迎使用 WiVRn"
 
 #: dashboard/qml/WizardPage.qml:69
 #, kde-format
 msgid ""
-"This wizard will help you set up Wyrm on your headset and connect it to your "
-"computer."
-msgstr "此精靈將幫助您在頭戴式裝置上設定 Wyrm，並將其連接到您的電腦。"
+"This wizard will help you set up WiVRn on your headset and connect it to "
+"your computer."
+msgstr "此精靈將幫助您在頭戴式裝置上設定 WiVRn，並將其連接到您的電腦。"
 
-#: dashboard/qml/WizardPage.qml:83 dashboard/qml/WizardPage.qml:249
-#: dashboard/qml/WizardPage.qml:409 dashboard/qml/WizardPage.qml:446
+#: dashboard/qml/WizardPage.qml:83 dashboard/qml/WizardPage.qml:258
+#: dashboard/qml/WizardPage.qml:418 dashboard/qml/WizardPage.qml:455
 #, kde-format
 msgid "Next"
 msgstr "下一步"
@@ -879,35 +854,53 @@ msgstr "請按照以下製造商的說明進行操作:"
 #: dashboard/qml/WizardPage.qml:142
 #, kde-format
 msgid ""
-"In order to use Wyrm, you will have to install the client app on your "
+"In order to use WiVRn, you will have to install the client app on your "
 "headset.\n"
-"Install the matching Wyrm client directly over USB."
+"You can either install it from the Meta store or directly over USB."
 msgstr ""
+"為了使用 WiVRn，您需要在頭戴式裝置上安裝用戶端應用程式。\n"
+"您可以從 Meta 商店安裝，也可以直接透過 USB 安裝。"
 
-#: dashboard/qml/WizardPage.qml:155
+#: dashboard/qml/WizardPage.qml:148
+#, kde-format
+msgid "Install from the Meta store"
+msgstr "從 Meta 商店安裝"
+
+#: dashboard/qml/WizardPage.qml:152
 #, kde-format
 msgid ""
-"A newer release is available: %1 → %2. Use a client that matches your server "
-"version."
+"For the Quest 2, 3, 3S, and Pro, you can get the app from the <a "
+"href=\"https://www.meta.com/experiences/7959676140827574/\">Meta store</a>."
 msgstr ""
+"對於 Quest 2、3、3S 和 Pro，您可以從 <a href=\"https://www.meta.com/"
+"experiences/7959676140827574/\">Meta 商店</a>取得應用程式."
 
-#: dashboard/qml/WizardPage.qml:162
+#: dashboard/qml/WizardPage.qml:164
 #, kde-format
-msgid "This is a development build. Use a client built from the same revision."
-msgstr ""
+msgid ""
+"A newer release is available: %1 → %2, the client app on the Meta store may "
+"not be compatible."
+msgstr "有新版本可用：%1 → %2，Meta 商店上的用戶端應用程式可能不相容。"
 
-#: dashboard/qml/WizardPage.qml:172
+#: dashboard/qml/WizardPage.qml:171
+#, kde-format
+msgid ""
+"This is a nightly build, the client app on the Meta store may not be "
+"compatible."
+msgstr "這是每夜建置版本，Meta 商店上的用戶端應用程式可能不相容。"
+
+#: dashboard/qml/WizardPage.qml:181
 #, kde-format
 msgctxt "displayed between 'meta store' and 'install over USB' in the wizard"
 msgid "Or"
 msgstr "或"
 
-#: dashboard/qml/WizardPage.qml:178
+#: dashboard/qml/WizardPage.qml:187
 #, kde-format
 msgid "Install over USB"
 msgstr "透過 USB 安裝"
 
-#: dashboard/qml/WizardPage.qml:210
+#: dashboard/qml/WizardPage.qml:219
 #, kde-format
 msgid ""
 "<p>No headset detected. Make sure that:\n"
@@ -918,48 +911,48 @@ msgstr ""
 "<ul><li>已安裝 ADB udev 規則</li><li>頭戴式裝置處於 <a href=\"#\">開發者模式"
 "</a></li></ul></p>"
 
-#: dashboard/qml/WizardPage.qml:286
+#: dashboard/qml/WizardPage.qml:295
 #, kde-format
 msgid "Important information"
 msgstr "重要訊息"
 
-#: dashboard/qml/WizardPage.qml:292
+#: dashboard/qml/WizardPage.qml:301
 #, kde-format
 msgid ""
-"Wyrm entirely replaces SteamVR, you should not start SteamVR while Wyrm is "
+"WiVRn entirely replaces SteamVR, you should not start SteamVR while WiVRn is "
 "running."
-msgstr "Wyrm 完全取代了 SteamVR，Wyrm 執行時請勿啟動 SteamVR。"
+msgstr "WiVRn 完全取代了 SteamVR，WiVRn 執行時請勿啟動 SteamVR。"
 
-#: dashboard/qml/WizardPage.qml:304
+#: dashboard/qml/WizardPage.qml:313
 #, kde-format
-msgid "Start the Wyrm app on your headset"
-msgstr "在您的頭戴式裝置上啟動 Wyrm 應用程式"
+msgid "Start the WiVRn app on your headset"
+msgstr "在您的頭戴式裝置上啟動 WiVRn 應用程式"
 
-#: dashboard/qml/WizardPage.qml:310
+#: dashboard/qml/WizardPage.qml:319
 #, kde-format
 msgid ""
-"To connect over WiFi, start the Wyrm app on your headset, connect to \"%1\" "
+"To connect over WiFi, start the WiVRn app on your headset, connect to \"%1\" "
 "and enter PIN \"%2\"."
 msgstr ""
-"要通過 WiFi 連線，請在您的頭戴式裝置上啟動 Wyrm 應用程式，連線至 \"%1\" 並輸"
+"要通過 WiFi 連線，請在您的頭戴式裝置上啟動 WiVRn 應用程式，連線至 \"%1\" 並輸"
 "入 PIN 碼 \"%2\"。"
 
-#: dashboard/qml/WizardPage.qml:317
+#: dashboard/qml/WizardPage.qml:326
 #, kde-format
 msgid "To connect over USB, click on \"Connect by USB\"."
 msgstr "要透過 USB 連線，請點擊 \"透過 USB 連線\"。"
 
-#: dashboard/qml/WizardPage.qml:320
+#: dashboard/qml/WizardPage.qml:329
 #, kde-format
 msgid "Connect by USB"
 msgstr "透過 USB 連線"
 
-#: dashboard/qml/WizardPage.qml:340
+#: dashboard/qml/WizardPage.qml:349
 #, kde-format
 msgid "Troubleshooting"
 msgstr "疑難排解"
 
-#: dashboard/qml/WizardPage.qml:349
+#: dashboard/qml/WizardPage.qml:358
 #, kde-format
 msgid ""
 "If the server is not visible or the connection fails, check that ports 5353 "
@@ -968,34 +961,34 @@ msgstr ""
 "如果看不到伺服器或連線失敗，請確認防火牆已開放 5353（UDP）和 9757（TCP 和 "
 "UDP）連接埠。"
 
-#: dashboard/qml/WizardPage.qml:362
+#: dashboard/qml/WizardPage.qml:371
 #, kde-format
 msgid "Skip"
 msgstr "跳過"
 
-#: dashboard/qml/WizardPage.qml:382
+#: dashboard/qml/WizardPage.qml:391
 #, kde-format
 msgid "Connection established"
 msgstr "連線已建立"
 
-#: dashboard/qml/WizardPage.qml:387
+#: dashboard/qml/WizardPage.qml:396
 #, kde-format
 msgid "Your headset is now connected."
 msgstr "您的頭戴式裝置現在已連線。"
 
-#: dashboard/qml/WizardPage.qml:392 dashboard/qml/WizardPage.qml:434
+#: dashboard/qml/WizardPage.qml:401 dashboard/qml/WizardPage.qml:443
 #, kde-format
 msgid ""
 "To connect another headset, make sure pairing is enabled in the dashboard "
 "before connecting."
 msgstr "如要連接其他頭戴式裝置，請確保在連線之前在儀表板中啟用配對。"
 
-#: dashboard/qml/WizardPage.qml:414 dashboard/qml/WizardPage.qml:451
+#: dashboard/qml/WizardPage.qml:423 dashboard/qml/WizardPage.qml:460
 #, kde-format
 msgid "Finish"
 msgstr "完成"
 
-#: dashboard/qml/WizardPage.qml:429
+#: dashboard/qml/WizardPage.qml:438
 #, kde-format
 msgid "Finished"
 msgstr "已完成"
@@ -1009,3 +1002,165 @@ msgstr "xrizer"
 #, kde-format
 msgid "Open Composite"
 msgstr "Open Composite"
+
+#, kde-format
+#~ msgid "No precompiled APK is available for this version"
+#~ msgstr "此版本沒有預編譯 APK 可用"
+
+#, kde-format
+#~ msgid "The server does not have CAP_SYS_NICE capabilities"
+#~ msgstr "伺服器沒有 CAP_SYS_NICE 權限"
+
+#, kde-format
+#~ msgid ""
+#~ "The CAP_SYS_NICE capability will be used when the server is restarted"
+#~ msgstr "CAP_SYS_NICE 權限將在伺服器重新啟動時生效"
+
+#, kde-format
+#~ msgid "PIN: %1"
+#~ msgstr "PIN: %1"
+
+#, kde-format
+#~ msgctxt "automatically started application"
+#~ msgid "Application"
+#~ msgstr "應用程式"
+
+#, kde-format
+#~ msgctxt "automatic foveation setup"
+#~ msgid "Manual foveation"
+#~ msgstr "手動注視點渲染"
+
+#, kde-format
+#~ msgid "Foveation strength:"
+#~ msgstr "注視點渲染強度:"
+
+#, kde-format
+#~ msgid "%1 %"
+#~ msgstr "%1 %"
+
+#, kde-format
+#~ msgid ""
+#~ "A stronger foveation makes the image sharper in the center than in the "
+#~ "periphery and makes the decoding faster. This is better for fast paced "
+#~ "games.\n"
+#~ "\n"
+#~ "A weaker foveation gives a uniform sharpness in the whole image.\n"
+#~ "\n"
+#~ "The recommended values are between 20% and 50% for headsets without eye "
+#~ "tracking and between 50% and 70% for headsets with eye tracking."
+#~ msgstr ""
+#~ "更強的注視點渲染會使圖像中心比周邊更清晰，並加快解碼速度。這更適合快節奏的"
+#~ "遊戲。\n"
+#~ "\n"
+#~ "較弱的注視點渲染可在整個圖像中提供一致的清晰度。\n"
+#~ "\n"
+#~ "對於沒有眼球追蹤的頭戴式裝置，建議值在 20% 到 50% 之間，對於具有眼球追蹤的"
+#~ "頭戴式裝置，建議值在 50% 到 70% 之間。"
+
+#, kde-format
+#~ msgctxt "weaker foveation"
+#~ msgid "Weaker"
+#~ msgstr "較弱"
+
+#, kde-format
+#~ msgctxt "stronger foveation"
+#~ msgid "Stronger"
+#~ msgstr "較強"
+
+#, kde-format
+#~ msgid "Bitrate:"
+#~ msgstr "位元率:"
+
+#, kde-format
+#~ msgctxt "bitrate"
+#~ msgid "%1 Mbit/s"
+#~ msgstr "%1 Mbit/s"
+
+#, kde-format
+#~ msgid "Encoder layout:"
+#~ msgstr "編碼器佈局:"
+
+#, kde-format
+#~ msgctxt "encoder preset"
+#~ msgid "Automatic"
+#~ msgstr "自動"
+
+#, kde-format
+#~ msgctxt "encoder preset"
+#~ msgid "Manual"
+#~ msgstr "手動"
+
+#, kde-format
+#~ msgctxt "encoder preset"
+#~ msgid "Default preset"
+#~ msgstr "預設"
+
+#, kde-format
+#~ msgctxt "encoder preset"
+#~ msgid "Low latency preset"
+#~ msgstr "低延遲預設"
+
+#, kde-format
+#~ msgctxt "encoder preset"
+#~ msgid "Safe preset"
+#~ msgstr "安全預設"
+
+#, kde-format
+#~ msgid ""
+#~ "To add a new encoder, split an existing encoder by clicking near an "
+#~ "edge.\n"
+#~ "Drag an edge to resize or remove encoders."
+#~ msgstr ""
+#~ "要新增編碼器，請點擊邊緣附近以分割現有編碼器。\n"
+#~ "拖曳邊緣以調整大小或移除編碼器。"
+
+#, kde-format
+#~ msgid "Vulkan (Vulkan Video)"
+#~ msgstr "Vulkan (Vulkan Video)"
+
+#, kde-format
+#~ msgid "Codec:"
+#~ msgstr "編碼器:"
+
+#, kde-format
+#~ msgctxt "automatic codec setup"
+#~ msgid "Auto"
+#~ msgstr "自動"
+
+#, kde-format
+#~ msgid "H.264"
+#~ msgstr "H.264"
+
+#, kde-format
+#~ msgid "H.265"
+#~ msgstr "H.265"
+
+#, kde-format
+#~ msgid "AV1"
+#~ msgstr "AV1"
+
+#, kde-format
+#~ msgid ""
+#~ "If you installed WiVRn over USB on a Meta headset, the app is in the "
+#~ "\"unknown sources\" section."
+#~ msgstr ""
+#~ "如果您透過 USB 在 Meta 頭戴式裝置上安裝了 WiVRn，該應用程式位於「不明來"
+#~ "源」區塊中。"
+
+#, kde-format
+#~ msgid "Select the application you want to start"
+#~ msgstr "選擇您要啟動的應用程式"
+
+#, kde-format
+#~ msgid ""
+#~ "The application you choose will be started automatically when you connect "
+#~ "your headset."
+#~ msgstr "當您連接頭戴式裝置時，您選擇的應用程式將會自動啟動。"
+
+#, kde-format
+#~ msgid ""
+#~ "If the server is not visible or the connection fails, check that port "
+#~ "5353 (UDP) and 9757 (TCP and UDP) are open in your firewall."
+#~ msgstr ""
+#~ "如果伺服器不可見或連線失敗，請檢查您的防火牆是否開啟了連接埠 5353 (UDP) "
+#~ "和 9757 (TCP 和 UDP)。"

@@ -332,7 +332,7 @@ Kirigami.ApplicationWindow {
                         }
 
                         Controls.Label {
-                            visible: WivrnServer.pairingEnabled
+                            visible: WivrnServer.pairingEnabled 
                             text: WivrnServer.pin
                             font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.1
                         }

@@ -1,6 +1,3 @@
-#ifndef __ANDROID__
-#include "linux/frame_shell.h"
-#endif
 /*
  * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
@@ -30,6 +27,9 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "implot.h"
+#ifndef __ANDROID__
+#include "linux/frame_shell.h"
+#endif
 #include "render/ui_theme.h"
 #include "render/ui_widgets.h"
 #include "utils/i18n.h"

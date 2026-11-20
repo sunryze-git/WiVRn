@@ -1,6 +1,3 @@
-#ifndef __ANDROID__
-#include "linux/frame_shell.h"
-#endif
 /*
  * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
@@ -21,6 +18,9 @@
  */
 
 #include "application.h"
+#ifndef __ANDROID__
+#include "linux/frame_shell.h"
+#endif
 #include "scenes/lobby.h"
 #include "spdlog/spdlog.h"
 #include "version.h"

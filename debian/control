@@ -42,7 +42,7 @@ Build-Depends:
  qcoro-qt6-dev,
  xz-utils
 Standards-Version: 4.6.2
-Homepage: https://github.com/sunryze-git/Wyrm
+Homepage: https://github.com/sunryze-git/WiVRn
 
 Package: wivrn
 Architecture: any

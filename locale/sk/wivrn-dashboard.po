@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: WiVRn-dashboard\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-10 16:24-0500\n"
+"POT-Creation-Date: 2026-07-11 14:46+0200\n"
 "PO-Revision-Date: 2026-07-12 21:30+0200\n"
 "Last-Translator: not\n"
 "Language-Team: Slovak <>\n"
@@ -18,84 +18,84 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
 "X-Generator: Lokalize 26.04.3\n"
 
-#: dashboard/apk_installer.cpp:147
+#: dashboard/apk_installer.cpp:133
 #, kde-format
 msgid "Cannot save APK file: %1"
 msgstr "Nepodarilo sa uložiť APK súbor: %1"
 
-#: dashboard/apk_installer.cpp:181
+#: dashboard/apk_installer.cpp:167
 #, kde-format
 msgid "Downloading APK: %1 MB / %2 MB"
 msgstr "Sťahuje sa APK: %1 MB / %2 MB"
 
-#: dashboard/apk_installer.cpp:183
+#: dashboard/apk_installer.cpp:169
 #, kde-format
 msgid "Downloading APK: %1 MB"
 msgstr "Sťahuje sa APK: %1 MB"
 
-#: dashboard/apk_installer.cpp:192
+#: dashboard/apk_installer.cpp:178
 #, kde-format
 msgid "Download cancelled"
 msgstr "Sťahovanie zrušené"
 
-#: dashboard/apk_installer.cpp:208
+#: dashboard/apk_installer.cpp:194
 #, kde-format
 msgid "Cannot download APK: %1"
 msgstr "Nepodarilo sa stiahnúť APK: %1"
 
-#: dashboard/apk_installer.cpp:231
+#: dashboard/apk_installer.cpp:217
 #, kde-format
 msgid "Installing APK"
 msgstr "Inštaluje sa APK"
 
-#: dashboard/apk_installer.cpp:235
+#: dashboard/apk_installer.cpp:221
 #, kde-format
 msgid "adb failed to start: %1"
 msgstr "Nepodarilo sa spustiť adb: %1"
 
-#: dashboard/apk_installer.cpp:245
+#: dashboard/apk_installer.cpp:231
 #, kde-format
 msgid "adb exited abnormally: %1"
 msgstr "adb sa neočakávane ukončilo: %1"
 
-#: dashboard/apk_installer.cpp:253
+#: dashboard/apk_installer.cpp:239
 #, kde-format
 msgid "The 'adb install' command failed: exit code %1"
 msgstr "Príkaz 'adb install' zlyhal: kód ukončenia %1"
 
-#: dashboard/apk_installer.cpp:258
+#: dashboard/apk_installer.cpp:244
 #, kde-format
 msgid "Installation successful"
 msgstr "Inštalácia prebehla úspešne"
 
-#: dashboard/main.cpp:27
+#: dashboard/main.cpp:26
 #, kde-format
 msgctxt "@title"
-msgid "Wyrm"
-msgstr "Wyrm"
+msgid "WiVRn"
+msgstr "WiVRn"
 
-#: dashboard/main.cpp:29
+#: dashboard/main.cpp:28
 #, kde-format
-msgid "Wyrm server"
-msgstr "Wyrm server"
+msgid "WiVRn server"
+msgstr "WiVRn server"
 
-#: dashboard/main.cpp:31
+#: dashboard/main.cpp:30
 #, kde-format
-msgid "(c) 2022-2026 Wyrm development team"
-msgstr "(c) 2022-2026 vývojový tím Wyrm"
+msgid "(c) 2022-2026 WiVRn development team"
+msgstr "(c) 2022-2026 vývojový tím WiVRn"
 
-#: dashboard/main.cpp:46
+#: dashboard/main.cpp:40
 #, kde-format
 msgid "Monado"
 msgstr "Monado"
 
-#: dashboard/main.cpp:47
+#: dashboard/main.cpp:41
 #, kde-format
 msgid "OpenXR runtime"
 msgstr "OpenXR runtime"
 
 #: dashboard/qml/About.qml:17 dashboard/qml/ApkInstallPage.qml:65
-#: dashboard/qml/HeadsetStatsPage.qml:36 dashboard/qml/HeadsetsPage.qml:183
+#: dashboard/qml/HeadsetsPage.qml:183 dashboard/qml/HeadsetStatsPage.qml:36
 #: dashboard/qml/TroubleshootPage.qml:71
 #, kde-format
 msgctxt "go back to the home page"
@@ -104,23 +104,23 @@ msgstr "Späť"
 
 #: dashboard/qml/ApkInstallPage.qml:12 dashboard/qml/WizardPage.qml:137
 #, kde-format
-msgid "Install the Wyrm app on your headset"
-msgstr "Nainštalujte aplikáciu Wyrm do headsetu"
+msgid "Install the WiVRn app on your headset"
+msgstr "Nainštalujte aplikáciu WiVRn do headsetu"
 
-#: dashboard/qml/ApkInstallPage.qml:41 dashboard/qml/WizardPage.qml:148
-#: dashboard/qml/WizardPage.qml:183
+#: dashboard/qml/ApkInstallPage.qml:41 dashboard/qml/WizardPage.qml:157
+#: dashboard/qml/WizardPage.qml:192
 #, kde-format
 msgid "Checking latest release..."
 msgstr "Kontroluje sa najnovšia verzia…"
 
-#: dashboard/qml/ApkInstallPage.qml:43 dashboard/qml/WizardPage.qml:189
+#: dashboard/qml/ApkInstallPage.qml:43 dashboard/qml/WizardPage.qml:198
 #, kde-format
 msgid "No APK is available for this version"
 msgstr "Pre túto verziu nie je dostupné APK"
 
 #: dashboard/qml/ApkInstallPage.qml:45 dashboard/qml/Main.qml:376
-#: dashboard/qml/Main.qml:434 dashboard/qml/WizardPage.qml:202
-#: dashboard/qml/WizardPage.qml:328
+#: dashboard/qml/Main.qml:434 dashboard/qml/WizardPage.qml:211
+#: dashboard/qml/WizardPage.qml:337
 #, kde-format
 msgid "ADB is not installed"
 msgstr "ADB nie je nainštalované"
@@ -130,12 +130,16 @@ msgstr "ADB nie je nainštalované"
 msgid "Connect a headset and make sure developer mode is enabled"
 msgstr "Pripojte headset a uistite sa, že je zapnutý režim pre vývojárov"
 
-#: dashboard/qml/ApkInstallPage.qml:51 dashboard/qml/WizardPage.qml:195
+#: dashboard/qml/ApkInstallPage.qml:51 dashboard/qml/WizardPage.qml:204
 #, kde-format
 msgid ""
-"Follow the client headset instructions in docs/building.md in the Wyrm "
-"source tree to build your own client."
+"Follow the instructions in the <a href=\"https://github.com/WiVRn/WiVRn/blob/"
+"master/docs/building.md#client-headset\">documentation</a> to build your own "
+"client."
 msgstr ""
+"Postupujte podľa pokynov v <a href=\"https://github.com/WiVRn/WiVRn/blob/"
+"master/docs/building.md#client-headset\">dokumentácii</a> pre vytvorenie "
+"vlastného klienta."
 
 #: dashboard/qml/ConnectUsbDialog.qml:11
 #, kde-format
@@ -144,23 +148,18 @@ msgstr "Vyberte svoj headset"
 
 #: dashboard/qml/DeviceCard.qml:46
 #, kde-format
-msgid "Wyrm is already installed on this device"
-msgstr "Wyrm už je na tomto zariadení nainštalovaný"
+msgid "WiVRn is already installed on this device"
+msgstr "WiVRn už je na tomto zariadení nainštalovaný"
 
 #: dashboard/qml/DeviceCard.qml:54
 #, kde-format
-msgid "Reinstall Wyrm"
-msgstr "Preinštalovať Wyrm"
+msgid "Reinstall WiVRn"
+msgstr "Preinštalovať WiVRn"
 
 #: dashboard/qml/DeviceCard.qml:54
 #, kde-format
-msgid "Install Wyrm"
-msgstr "Nainštalovať Wyrm"
-
-#: dashboard/qml/HeadsetStatsPage.qml:12
-#, kde-format
-msgid "Headset statistics"
-msgstr "Štatistiky headsetu"
+msgid "Install WiVRn"
+msgstr "Nainštalovať WiVRn"
 
 #: dashboard/qml/HeadsetsPage.qml:12 dashboard/qml/Main.qml:439
 #, kde-format
@@ -210,8 +209,8 @@ msgid "Rename"
 msgstr "Premenovať"
 
 #: dashboard/qml/HeadsetsPage.qml:55 dashboard/qml/WizardPage.qml:38
-#: dashboard/qml/WizardPage.qml:88 dashboard/qml/WizardPage.qml:254
-#: dashboard/qml/WizardPage.qml:367
+#: dashboard/qml/WizardPage.qml:88 dashboard/qml/WizardPage.qml:263
+#: dashboard/qml/WizardPage.qml:376
 #, kde-format
 msgid "Cancel"
 msgstr "Zrušiť"
@@ -238,8 +237,8 @@ msgstr "Vypnúť párovanie"
 
 #: dashboard/qml/HeadsetsPage.qml:166
 #, kde-format
-msgid "Start the Wyrm app on your headset and use the PIN: %1"
-msgstr "Spustite aplikáciu Wyrm v headsete a zadajte PIN: %1"
+msgid "Start the WiVRn app on your headset and use the PIN: %1"
+msgstr "Spustite aplikáciu WiVRn v headsete a zadajte PIN: %1"
 
 #: dashboard/qml/HeadsetsPage.qml:166
 #, kde-format
@@ -256,23 +255,28 @@ msgstr "Zapnúť párovanie"
 msgid "Pair a new headset"
 msgstr "Spárovať nový headset"
 
+#: dashboard/qml/HeadsetStatsPage.qml:12
+#, kde-format
+msgid "Headset statistics"
+msgstr "Štatistiky headsetu"
+
 #: dashboard/qml/Main.qml:12
 #, kde-format
-msgid "Wyrm dashboard"
-msgstr "Ovládací panel Wyrm"
+msgid "WiVRn dashboard"
+msgstr "Ovládací panel WiVRn"
 
 #: dashboard/qml/Main.qml:51
 #, kde-format
-msgid "Quit Wyrm"
-msgstr "Ukončiť Wyrm"
+msgid "Quit WiVRn"
+msgstr "Ukončiť WiVRn"
 
 #: dashboard/qml/Main.qml:52
 #, kde-format
 msgid ""
-"The Wyrm server is active.\n"
+"The WiVRn server is active.\n"
 "Closing the window will terminate it."
 msgstr ""
-"Server Wyrm je aktívny.\n"
+"Server WiVRn je aktívny.\n"
 "Zatvorením okna sa ukončí."
 
 #: dashboard/qml/Main.qml:142
@@ -341,9 +345,9 @@ msgstr ""
 
 #: dashboard/qml/Main.qml:217
 #, kde-format
-msgid "Steam is installed as a snap. Snaps are not compatible with Wyrm."
+msgid "Steam is installed as a snap. Snaps are not compatible with WiVRn."
 msgstr ""
-"Steam je nainštalovaný ako snap. Snap balíky nie sú kompatibilné s Wyrm."
+"Steam je nainštalovaný ako snap. Snap balíky nie sú kompatibilné s WiVRn."
 
 #: dashboard/qml/Main.qml:225
 #, kde-format
@@ -367,7 +371,7 @@ msgstr "Reštartovať teraz"
 msgid "Server failed to start"
 msgstr "Nepodarilo sa spustiť server"
 
-#: dashboard/qml/Main.qml:277 dashboard/qml/TroubleshootPage.qml:90
+#: dashboard/qml/Main.qml:277 dashboard/qml/TroubleshootPage.qml:89
 #, kde-format
 msgid "Open server logs"
 msgstr "Otvoriť logy servera"
@@ -423,7 +427,7 @@ msgctxt "usb connect button"
 msgid "Connect (wired)"
 msgstr "Pripojiť (káblom)"
 
-#: dashboard/qml/Main.qml:383 dashboard/qml/WizardPage.qml:330
+#: dashboard/qml/Main.qml:383 dashboard/qml/WizardPage.qml:339
 #, kde-format
 msgid "No headset is connected or your headset is not in developer mode"
 msgstr "Žiadny headset nie je pripojený alebo nemá zapnutý režim pre vývojárov"
@@ -537,50 +541,22 @@ msgstr "Automaticky spúšťaná aplikácia:"
 msgid "Auto connect from USB"
 msgstr "Automatické pripojenie cez USB"
 
-#: dashboard/qml/SettingsPage.qml:99
-#, kde-format
-msgid "Share VR activity on Discord"
-msgstr ""
-
 #: dashboard/qml/SettingsPage.qml:102
-#, kde-format
-msgid "Discord application ID:"
-msgstr ""
-
-#: dashboard/qml/SettingsPage.qml:107
-#, kde-format
-msgid "Application ID from the Discord Developer Portal"
-msgstr ""
-
-#: dashboard/qml/SettingsPage.qml:111
-#, kde-format
-msgid ""
-"Create a Discord application named Wyrm and copy its Application ID here. "
-"Shows your headset, active VR application and elapsed session time while "
-"connected. Discord must be running on this PC."
-msgstr ""
-
-#: dashboard/qml/SettingsPage.qml:114
-#, kde-format
-msgid "Developer Portal"
-msgstr ""
-
-#: dashboard/qml/SettingsPage.qml:124
 #, kde-format
 msgid "Advanced options"
 msgstr "Pokročilé nastavenia"
 
-#: dashboard/qml/SettingsPage.qml:130
+#: dashboard/qml/SettingsPage.qml:108
 #, kde-format
 msgid "Check system configuration on start"
 msgstr "Kontrolovať nastavenie systému pri štarte"
 
-#: dashboard/qml/SettingsPage.qml:136
+#: dashboard/qml/SettingsPage.qml:114
 #, kde-format
 msgid "Expose forwarded input devices via uinput"
 msgstr "Sprístupniť presmerované vstupné zariadenia prostredníctvom uinput"
 
-#: dashboard/qml/SettingsPage.qml:139
+#: dashboard/qml/SettingsPage.qml:117
 #, kde-format
 msgid ""
 "Replicate mouse, keyboard and gamepad connected to the headset as virtual "
@@ -593,117 +569,77 @@ msgstr ""
 "Replikovať myš, klávesnicu a gamepad pripojené k headsetu ako virtuálne "
 "zariadenia v počítači.\n"
 "Replikované zariadenia sa zobrazia, akoby boli pripojené priamo k počítaču. "
-"Niektoré klávesy môžu byť vyhradené operačným systémom headsetu a nemusia "
-"byť dostupné. Herný ovládač je k dispozícii aj bez virtuálnych zariadení pre "
-"aplikácie, ktoré k nemu pristupujú prostredníctvom OpenXR."
+"Niektoré klávesy môžu byť vyhradené operačným systémom headsetu a nemusia byť "
+"dostupné. Herný ovládač je k dispozícii aj bez virtuálnych zariadení pre aplik"
+"ácie, "
+"ktoré k nemu pristupujú prostredníctvom OpenXR."
 
-#: dashboard/qml/SettingsPage.qml:144
+#: dashboard/qml/SettingsPage.qml:122
 #, kde-format
 msgid "Enable debug window"
 msgstr "Zapnúť ladiace okno"
 
-#: dashboard/qml/SettingsPage.qml:151
+#: dashboard/qml/SettingsPage.qml:129
 #, kde-format
 msgid "Enable SteamVR tracked devices support"
 msgstr "Zapnúť podporu sledovaných zariadení SteamVR"
 
-#: dashboard/qml/SettingsPage.qml:154
+#: dashboard/qml/SettingsPage.qml:132
 #, kde-format
 msgid ""
 "Allows the use of lighthouse-based controllers and trackers.\n"
 "Requires SteamVR to be installed.\n"
-"Devices must be be powered on before connecting to Wyrm.\n"
+"Devices must be be powered on before connecting to WiVRn.\n"
 "An external tool such as motoc is needed for calibration."
 msgstr ""
 "Umožňuje používanie ovládačov a trackerov založených na systéme Lighthouse.\n"
 "Vyžaduje nainštalovaný SteamVR.\n"
-"Zariadenia musia byť zapnuté pred pripojením k Wyrm.\n"
+"Zariadenia musia byť zapnuté pred pripojením k WiVRn.\n"
 "Na kalibráciu je potrebný externý nástroj ako motoc."
 
-#: dashboard/qml/SettingsPage.qml:160
-#, kde-format
-msgid "Clamp extrapolation for SteamVR tracked devices"
-msgstr ""
-
-#: dashboard/qml/SettingsPage.qml:164
-#, kde-format
-msgid "SteamVR max pose extrapolation"
-msgstr ""
-
-#: dashboard/qml/SettingsPage.qml:174
-#, kde-format
-msgctxt "value display for SteamVR max pose extrapolation"
-msgid "%1ms"
-msgid_plural "%1ms"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-
-#: dashboard/qml/SettingsPage.qml:179
-#, kde-format
-msgid ""
-"Maximum time in milliseconds that poses may be extrapolated ahead for "
-"SteamVR tracked devices. Tune this value if you experience jittery or wobbly "
-"tracking."
-msgstr ""
-
-#: dashboard/qml/SettingsPage.qml:184
-#, kde-format
-msgid "SteamVR joystick deadzone"
-msgstr ""
-
-#: dashboard/qml/SettingsPage.qml:199
-#, kde-format
-msgid ""
-"Deadzone to apply to joysticks on lighthouse-tracked controllers, such as "
-"Index.\n"
-"For standalone controllers, deadzones may be adjusted via the headset's "
-"system settings."
-msgstr ""
-
-#: dashboard/qml/SettingsPage.qml:207
+#: dashboard/qml/SettingsPage.qml:140
 #, kde-format
 msgid "Custom adb location"
 msgstr "Vlastná cesta k adb"
 
-#: dashboard/qml/SettingsPage.qml:218
+#: dashboard/qml/SettingsPage.qml:151
 #, kde-format
 msgid "Adb location:"
 msgstr "Cesta k adb:"
 
-#: dashboard/qml/SettingsPage.qml:227
+#: dashboard/qml/SettingsPage.qml:160
 #, kde-format
 msgctxt "browse a file to choose the adb binary"
 msgid "Browse"
 msgstr "Prehľadať"
 
-#: dashboard/qml/SettingsPage.qml:237
+#: dashboard/qml/SettingsPage.qml:170
 #, kde-format
 msgid "Default"
 msgstr "Predvolená"
 
-#: dashboard/qml/SettingsPage.qml:251
+#: dashboard/qml/SettingsPage.qml:184
 #, kde-format
 msgctxt "set a custom OpenVR compatibility library"
 msgid "Custom"
 msgstr "Vlastná"
 
-#: dashboard/qml/SettingsPage.qml:256
+#: dashboard/qml/SettingsPage.qml:189
 #, kde-format
 msgid "Disabled"
 msgstr "Vypnutá"
 
-#: dashboard/qml/SettingsPage.qml:272
+#: dashboard/qml/SettingsPage.qml:205
 #, kde-format
 msgid "OpenVR compatibility library:"
 msgstr "Knižnica kompatibility OpenVR:"
 
-#: dashboard/qml/SettingsPage.qml:302
+#: dashboard/qml/SettingsPage.qml:235
 #, kde-format
 msgid "Library path, excluding bin/linux64/vrclient.so"
 msgstr "Cesta ku knižnici (okrem bin/linux64/vrclient.so)"
 
-#: dashboard/qml/SettingsPage.qml:307
+#: dashboard/qml/SettingsPage.qml:240
 #, kde-format
 msgctxt "browse to choose the OpenVR compatibility to use"
 msgid "Browse"
@@ -737,22 +673,22 @@ msgstr "Spúšťací príkaz pre Steam bol skopírovaný"
 
 #: dashboard/qml/TroubleshootPage.qml:20
 #, kde-format
-msgid "I cannot find the Wyrm app on my headset"
-msgstr "Neviem nájsť aplikáciu Wyrm v headsete"
+msgid "I cannot find the WiVRn app on my headset"
+msgstr "Neviem nájsť aplikáciu WiVRn v headsete"
 
-#: dashboard/qml/TroubleshootPage.qml:21 dashboard/qml/WizardPage.qml:344
+#: dashboard/qml/TroubleshootPage.qml:21 dashboard/qml/WizardPage.qml:353
 #, kde-format
 msgid ""
-"If you installed Wyrm over USB on a Meta or Pico headset, the app is in the "
+"If you installed WiVRn over USB on a Meta or Pico headset, the app is in the "
 "\"unknown sources\" section."
 msgstr ""
-"Ak ste nainštalovali Wyrm cez USB na Meta alebo Pico headsete, aplikácia sa "
+"Ak ste nainštalovali WiVRn cez USB na Meta alebo Pico headsete, aplikácia sa "
 "nachádza v sekcii „neznáme zdroje“."
 
 #: dashboard/qml/TroubleshootPage.qml:24
 #, kde-format
-msgid "I cannot see my computer in the Wyrm app"
-msgstr "Nevidím svoj počítač v aplikácii Wyrm"
+msgid "I cannot see my computer in the WiVRn app"
+msgstr "Nevidím svoj počítač v aplikácii WiVRn"
 
 #: dashboard/qml/TroubleshootPage.qml:25
 #, kde-format
@@ -779,7 +715,7 @@ msgstr "Pripojenie zlyhá s chybou „no route to host“"
 
 #: dashboard/qml/TroubleshootPage.qml:36
 #, kde-format
-msgid "I have an \"Incompatible Wyrm server\" error on my headset"
+msgid "I have an \"Incompatible WiVRn server\" error on my headset"
 msgstr "Zobrazila sa chyba „Verzia servera nie je kompatibilná“ na headsete"
 
 #: dashboard/qml/TroubleshootPage.qml:37
@@ -822,13 +758,13 @@ msgstr "Párovanie je momentálne vypnuté."
 msgid "I have no sound on my headset"
 msgstr "V headsete nemám zvuk"
 
-#: dashboard/qml/TroubleshootPage.qml:58 dashboard/qml/WizardPage.qml:397
+#: dashboard/qml/TroubleshootPage.qml:58 dashboard/qml/WizardPage.qml:406
 #, kde-format
 msgid ""
-"When the headset is connected, select \"Wyrm\" as the default audio output "
+"When the headset is connected, select \"WiVRn\" as the default audio output "
 "device for applications to use it."
 msgstr ""
-"Keď je headset pripojený, vyberte „Wyrm“ ako predvolené zvukové zariadenie, "
+"Keď je headset pripojený, vyberte „WiVRn“ ako predvolené zvukové zariadenie, "
 "aby ho aplikácie používali."
 
 #: dashboard/qml/TroubleshootPage.qml:61
@@ -851,7 +787,7 @@ msgstr ""
 msgid "Report an issue"
 msgstr "Nahlásiť problém"
 
-#: dashboard/qml/TroubleshootPage.qml:85
+#: dashboard/qml/TroubleshootPage.qml:84
 #, kde-format
 msgid "Ask on Discord"
 msgstr "Opýtať sa na Discorde"
@@ -862,28 +798,28 @@ msgid "Getting started"
 msgstr "Začíname"
 
 #: dashboard/qml/WizardPage.qml:29 dashboard/qml/WizardPage.qml:78
-#: dashboard/qml/WizardPage.qml:244 dashboard/qml/WizardPage.qml:357
-#: dashboard/qml/WizardPage.qml:404 dashboard/qml/WizardPage.qml:441
+#: dashboard/qml/WizardPage.qml:253 dashboard/qml/WizardPage.qml:366
+#: dashboard/qml/WizardPage.qml:413 dashboard/qml/WizardPage.qml:450
 #, kde-format
 msgid "Back"
 msgstr "Späť"
 
 #: dashboard/qml/WizardPage.qml:64
 #, kde-format
-msgid "Welcome to Wyrm"
-msgstr "Vitaj vo Wyrm"
+msgid "Welcome to WiVRn"
+msgstr "Vitaj vo WiVRn"
 
 #: dashboard/qml/WizardPage.qml:69
 #, kde-format
 msgid ""
-"This wizard will help you set up Wyrm on your headset and connect it to your "
-"computer."
+"This wizard will help you set up WiVRn on your headset and connect it to "
+"your computer."
 msgstr ""
-"Tento sprievodca vám pomôže nastaviť Wyrm na vašom headsete a pripojiť ho k "
+"Tento sprievodca vám pomôže nastaviť WiVRn na vašom headsete a pripojiť ho k "
 "počítaču."
 
-#: dashboard/qml/WizardPage.qml:83 dashboard/qml/WizardPage.qml:249
-#: dashboard/qml/WizardPage.qml:409 dashboard/qml/WizardPage.qml:446
+#: dashboard/qml/WizardPage.qml:83 dashboard/qml/WizardPage.qml:258
+#: dashboard/qml/WizardPage.qml:418 dashboard/qml/WizardPage.qml:455
 #, kde-format
 msgid "Next"
 msgstr "Ďalej"
@@ -901,35 +837,58 @@ msgstr "Postupujte podľa inštrukcií od výrobcu:"
 #: dashboard/qml/WizardPage.qml:142
 #, kde-format
 msgid ""
-"In order to use Wyrm, you will have to install the client app on your "
+"In order to use WiVRn, you will have to install the client app on your "
 "headset.\n"
-"Install the matching Wyrm client directly over USB."
+"You can either install it from the Meta store or directly over USB."
 msgstr ""
+"Na používanie WiVRn je potrebné nainštalovať klientsku aplikáciu do "
+"headsetu.\n"
+"Môžete ju nainštalovať buď z Meta obchodu alebo priamo cez USB."
 
-#: dashboard/qml/WizardPage.qml:155
+#: dashboard/qml/WizardPage.qml:148
+#, kde-format
+msgid "Install from the Meta store"
+msgstr "Nainštalovať z Meta obchodu"
+
+#: dashboard/qml/WizardPage.qml:152
 #, kde-format
 msgid ""
-"A newer release is available: %1 → %2. Use a client that matches your server "
-"version."
+"For the Quest 2, 3, 3S, and Pro, you can get the app from the <a "
+"href=\"https://www.meta.com/experiences/7959676140827574/\">Meta store</a>."
 msgstr ""
+"Pre Quest 2, 3, 3S a Pro si môžete aplikáciu stiahnuť z <a href=\"https://"
+"www.meta.com/experiences/7959676140827574/\">obchodu Meta</a>."
 
-#: dashboard/qml/WizardPage.qml:162
+#: dashboard/qml/WizardPage.qml:164
 #, kde-format
-msgid "This is a development build. Use a client built from the same revision."
+msgid ""
+"A newer release is available: %1 → %2, the client app on the Meta store may "
+"not be compatible."
 msgstr ""
+"K dispozícii je novšia verzia: %1 → %2, aplikácia z obchodu Meta nemusí byť "
+"kompatibilná."
 
-#: dashboard/qml/WizardPage.qml:172
+#: dashboard/qml/WizardPage.qml:171
+#, kde-format
+msgid ""
+"This is a nightly build, the client app on the Meta store may not be "
+"compatible."
+msgstr ""
+"Toto je nightly verzia, aplikácia z Meta obchodu s ňou nemusí byť "
+"kompatibilná."
+
+#: dashboard/qml/WizardPage.qml:181
 #, kde-format
 msgctxt "displayed between 'meta store' and 'install over USB' in the wizard"
 msgid "Or"
 msgstr "Alebo"
 
-#: dashboard/qml/WizardPage.qml:178
+#: dashboard/qml/WizardPage.qml:187
 #, kde-format
 msgid "Install over USB"
 msgstr "Nainštalovať cez USB"
 
-#: dashboard/qml/WizardPage.qml:210
+#: dashboard/qml/WizardPage.qml:219
 #, kde-format
 msgid ""
 "<p>No headset detected. Make sure that:\n"
@@ -940,50 +899,50 @@ msgstr ""
 "<ul><li>Máte nainštalované udev pravidlá pre ADB</li><li>headset je vo  <a "
 "href=\"#\">režim pre vývojárov</a></li></ul></p>"
 
-#: dashboard/qml/WizardPage.qml:286
+#: dashboard/qml/WizardPage.qml:295
 #, kde-format
 msgid "Important information"
 msgstr "Dôležité informácie"
 
-#: dashboard/qml/WizardPage.qml:292
+#: dashboard/qml/WizardPage.qml:301
 #, kde-format
 msgid ""
-"Wyrm entirely replaces SteamVR, you should not start SteamVR while Wyrm is "
+"WiVRn entirely replaces SteamVR, you should not start SteamVR while WiVRn is "
 "running."
 msgstr ""
-"Wyrm úplne nahrádza SteamVR, preto by ste SteamVR nemali spúšťať, ak je Wyrm "
-"spustený."
+"WiVRn úplne nahrádza SteamVR, preto by ste SteamVR nemali spúšťať, ak je "
+"WiVRn spustený."
 
-#: dashboard/qml/WizardPage.qml:304
+#: dashboard/qml/WizardPage.qml:313
 #, kde-format
-msgid "Start the Wyrm app on your headset"
-msgstr "Spustite aplikáciu Wyrm v headsete"
+msgid "Start the WiVRn app on your headset"
+msgstr "Spustite aplikáciu WiVRn v headsete"
 
-#: dashboard/qml/WizardPage.qml:310
+#: dashboard/qml/WizardPage.qml:319
 #, kde-format
 msgid ""
-"To connect over WiFi, start the Wyrm app on your headset, connect to \"%1\" "
+"To connect over WiFi, start the WiVRn app on your headset, connect to \"%1\" "
 "and enter PIN \"%2\"."
 msgstr ""
-"Na pripojenie cez Wi-Fi spustite aplikáciu Wyrm v headsete, pripojte sa k "
+"Na pripojenie cez Wi-Fi spustite aplikáciu WiVRn v headsete, pripojte sa k "
 "\"%1“ a zadajte PIN \"%2“."
 
-#: dashboard/qml/WizardPage.qml:317
+#: dashboard/qml/WizardPage.qml:326
 #, kde-format
 msgid "To connect over USB, click on \"Connect by USB\"."
 msgstr "Pre pripojenie cez USB kliknite na \"Pripojiť cez USB“."
 
-#: dashboard/qml/WizardPage.qml:320
+#: dashboard/qml/WizardPage.qml:329
 #, kde-format
 msgid "Connect by USB"
 msgstr "Pripojiť cez USB"
 
-#: dashboard/qml/WizardPage.qml:340
+#: dashboard/qml/WizardPage.qml:349
 #, kde-format
 msgid "Troubleshooting"
 msgstr "Riešenie problémov"
 
-#: dashboard/qml/WizardPage.qml:349
+#: dashboard/qml/WizardPage.qml:358
 #, kde-format
 msgid ""
 "If the server is not visible or the connection fails, check that ports 5353 "
@@ -992,22 +951,22 @@ msgstr ""
 "Ak server nie je viditeľný alebo pripojenie zlyhá, skontrolujte, či máte vo "
 "firewalle otvorené porty 5353 (UDP) a 9757 (TCP aj UDP)."
 
-#: dashboard/qml/WizardPage.qml:362
+#: dashboard/qml/WizardPage.qml:371
 #, kde-format
 msgid "Skip"
 msgstr "Preskočiť"
 
-#: dashboard/qml/WizardPage.qml:382
+#: dashboard/qml/WizardPage.qml:391
 #, kde-format
 msgid "Connection established"
 msgstr "Pripojenie nadviazané"
 
-#: dashboard/qml/WizardPage.qml:387
+#: dashboard/qml/WizardPage.qml:396
 #, kde-format
 msgid "Your headset is now connected."
 msgstr "Headset je teraz pripojený."
 
-#: dashboard/qml/WizardPage.qml:392 dashboard/qml/WizardPage.qml:434
+#: dashboard/qml/WizardPage.qml:401 dashboard/qml/WizardPage.qml:443
 #, kde-format
 msgid ""
 "To connect another headset, make sure pairing is enabled in the dashboard "
@@ -1016,12 +975,12 @@ msgstr ""
 "Ak chcete pripojiť ďalší headset, uistite sa, že je v ovládacom paneli "
 "zapnuté párovanie."
 
-#: dashboard/qml/WizardPage.qml:414 dashboard/qml/WizardPage.qml:451
+#: dashboard/qml/WizardPage.qml:423 dashboard/qml/WizardPage.qml:460
 #, kde-format
 msgid "Finish"
 msgstr "Dokončiť"
 
-#: dashboard/qml/WizardPage.qml:429
+#: dashboard/qml/WizardPage.qml:438
 #, kde-format
 msgid "Finished"
 msgstr "Hotovo"
@@ -1035,3 +994,180 @@ msgstr "xrizer"
 #, kde-format
 msgid "Open Composite"
 msgstr "Open Composite"
+
+#, kde-format
+#~ msgid "Forward keyboard & mouse from headset"
+#~ msgstr "Preposielať klávesnicu a myš z headsetu"
+
+#, kde-format
+#~ msgid ""
+#~ "Keyboard and mouse connected to the client will act as if connected to "
+#~ "the server. Client OS may reserve specific keys and combinations, which "
+#~ "cannot be forwarded."
+#~ msgstr ""
+#~ "Klávesnica a myš pripojené ku klientovi sa budú správať, akoby boli "
+#~ "pripojené k serveru. Niektoré klávesy alebo skratky však môže klientský "
+#~ "systém blokovať."
+
+#, kde-format
+#~ msgid ""
+#~ "If you installed WiVRn over USB on a Meta headset, the app is in the "
+#~ "\"unknown sources\" section."
+#~ msgstr ""
+#~ "Ak ste nainštalovali WiVRn cez USB na Meta headsete, aplikácia sa "
+#~ "nachádza v sekcii „neznáme zdroje“."
+
+#, kde-format
+#~ msgid "No precompiled APK is available for this version"
+#~ msgstr "Pre túto verziu nie je dostupné predkompilované APK"
+
+#, kde-format
+#~ msgid "The server does not have CAP_SYS_NICE capabilities"
+#~ msgstr "Server nemá oprávnenia CAP_SYS_NICE"
+
+#, kde-format
+#~ msgid ""
+#~ "The CAP_SYS_NICE capability will be used when the server is restarted"
+#~ msgstr "CAP_SYS_NICE bude použité po reštarte servera"
+
+#, kde-format
+#~ msgid "PIN: %1"
+#~ msgstr "PIN: %1"
+
+#, kde-format
+#~ msgctxt "automatically started application"
+#~ msgid "Application"
+#~ msgstr "Aplikácia"
+
+#, kde-format
+#~ msgctxt "automatic foveation setup"
+#~ msgid "Manual foveation"
+#~ msgstr "Manuálne foveovanie"
+
+#, kde-format
+#~ msgid "Foveation strength:"
+#~ msgstr "Sila foveovania"
+
+#, kde-format
+#~ msgid "%1 %"
+#~ msgstr "%1 %"
+
+#, kde-format
+#~ msgid ""
+#~ "A stronger foveation makes the image sharper in the center than in the "
+#~ "periphery and makes the decoding faster. This is better for fast paced "
+#~ "games.\n"
+#~ "\n"
+#~ "A weaker foveation gives a uniform sharpness in the whole image.\n"
+#~ "\n"
+#~ "The recommended values are between 20% and 50% for headsets without eye "
+#~ "tracking and between 50% and 70% for headsets with eye tracking."
+#~ msgstr ""
+#~ "Silnejšia foveácia zvyšuje ostrosť v strede obrazu a znižuje ju na "
+#~ "okrajoch, čím zrýchľuje dekódovanie. Je vhodnejšia pre rýchle hry.\n"
+#~ "\n"
+#~ "Slabšia foveácia zachováva rovnomernú ostrosť v celom obraze.\n"
+#~ "\n"
+#~ "Odporúčané hodnoty sú medzi 20 % a 50 % pre headsety bez sledovania očí a "
+#~ "medzi 50 % a 70 % pre headsety so sledovaním očí."
+
+#, kde-format
+#~ msgctxt "weaker foveation"
+#~ msgid "Weaker"
+#~ msgstr "Slabšia"
+
+#, kde-format
+#~ msgctxt "stronger foveation"
+#~ msgid "Stronger"
+#~ msgstr "Silnejšia"
+
+#, kde-format
+#~ msgid "Bitrate:"
+#~ msgstr "Dátový tok:"
+
+#, kde-format
+#~ msgctxt "bitrate"
+#~ msgid "%1 Mbit/s"
+#~ msgstr "%1 Mbit/s"
+
+#, kde-format
+#~ msgid "Encoder layout:"
+#~ msgstr "Rozloženie enkodéra:"
+
+#, kde-format
+#~ msgctxt "encoder preset"
+#~ msgid "Automatic"
+#~ msgstr "Automaticky"
+
+#, kde-format
+#~ msgctxt "encoder preset"
+#~ msgid "Manual"
+#~ msgstr "Manuálne"
+
+#, kde-format
+#~ msgctxt "encoder preset"
+#~ msgid "Default preset"
+#~ msgstr "Predvolený profil"
+
+#, kde-format
+#~ msgctxt "encoder preset"
+#~ msgid "Low latency preset"
+#~ msgstr "Profil s nízkou odozvou"
+
+#, kde-format
+#~ msgctxt "encoder preset"
+#~ msgid "Safe preset"
+#~ msgstr "Bezpečný profil"
+
+#, kde-format
+#~ msgid ""
+#~ "To add a new encoder, split an existing encoder by clicking near an "
+#~ "edge.\n"
+#~ "Drag an edge to resize or remove encoders."
+#~ msgstr ""
+#~ "Ak chcete pridať nový enkodér, rozdeľte existujúci kliknutím pri jeho "
+#~ "okraji.\n"
+#~ "Potiahnutím okraja môžete meniť veľkosť alebo enkodér odstrániť."
+
+#, kde-format
+#~ msgid "Vulkan (Vulkan Video)"
+#~ msgstr "Vulkan (Vulkan Video)"
+
+#, kde-format
+#~ msgid "Codec:"
+#~ msgstr "Kodek:"
+
+#, kde-format
+#~ msgctxt "automatic codec setup"
+#~ msgid "Auto"
+#~ msgstr "Auto"
+
+#, kde-format
+#~ msgid "H.264"
+#~ msgstr "H.264"
+
+#, kde-format
+#~ msgid "H.265"
+#~ msgstr "H.265"
+
+#, kde-format
+#~ msgid "AV1"
+#~ msgstr "AV1"
+
+#, kde-format
+#~ msgid ""
+#~ "If the server is not visible or the connection fails, check that port "
+#~ "5353 (UDP) and 9757 (TCP and UDP) are open in your firewall."
+#~ msgstr ""
+#~ "Ak server nie je viditeľný alebo sa nepodarilo pripojenie, skontrolujte, "
+#~ "či sú vo vašom firewalle otvorené porty 5353 (UDP) a 9757 (TCP aj UDP)."
+
+#, kde-format
+#~ msgid "Select the application you want to start"
+#~ msgstr "Vyberte aplikáciu, ktorú chcete spustiť"
+
+#, kde-format
+#~ msgid ""
+#~ "The application you choose will be started automatically when you connect "
+#~ "your headset."
+#~ msgstr "Vybraná aplikácia sa spustí automaticky po pripojení headsetu."

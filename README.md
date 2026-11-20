@@ -2,7 +2,7 @@
 
 <div align="center">
   
-[![License: GPL v3](images/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) ![CI](https://github.com/sunryze-git/Wyrm/workflows/Build/badge.svg) ![Format](https://github.com/sunryze-git/Wyrm/workflows/Format/badge.svg)
+[![License: GPL v3](images/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) ![CI](https://github.com/sunryze-git/WiVRn/workflows/Build/badge.svg) ![Format](https://github.com/sunryze-git/WiVRn/workflows/Format/badge.svg)
   
 </div>
 <p align="center"><img src="images/wivrn.svg" width="180"></p>
@@ -156,9 +156,9 @@ If the server list is empty in the headset app:
 <details><summary>How do I see server logs when using the dashboard?</summary>
 
 - Click **Troubleshoot > Open server logs**
-- Or, navigate to `${XDG_STATE_HOME}/wivrn/wivrn-dashboard`
-  - In other words, on common setups, the dashboard writes logs to `~/.local/state/wivrn/wivrn-dashboard`
-  - For Wyrm Flatpak, the dashboard writes logs to `~/.var/app/io.github.wivrn.wivrn/.local/state/wivrn/wivrn-dashboard`</details>
+- Or, navigate to `${XDG_STATE_HOME}/wyrm/wivrn-dashboard`
+  - In other words, on common setups, the dashboard writes logs to `~/.local/state/wyrm/wivrn-dashboard`
+  - For Wyrm Flatpak, the dashboard writes logs to `~/.var/app/io.github.wivrn.wivrn/.local/state/wyrm/wivrn-dashboard`</details>
 
 <details><summary>My NVIDIA GPU P-State is limited to P2 instead of reaching the highest P0 while using the NVIDIA NVENC encoder</summary>
     
@@ -177,9 +177,9 @@ Note: Wyrm isn't properly optimized for NVIDIA GPUs due to the lack of developer
 
 # Project
 
-The Wyrm source repository is [sunryze-git/Wyrm](https://github.com/sunryze-git/Wyrm).
+The Wyrm source repository is [sunryze-git/WiVRn](https://github.com/sunryze-git/WiVRn).
 
-Wyrm keeps its configuration and pairing data in `~/.config/wyrm`, but shares WiVRn's executables, app IDs, discovery name, and OpenXR runtime files, so it cannot be installed side by side with WiVRn. Install matching Wyrm server and client builds.
+Wyrm keeps its configuration and pairing data in `~/.config/wyrm`, and the dashboard keeps its settings, server logs (`~/.local/state/wyrm/wivrn-dashboard`) and downloaded APK (`~/.cache/wyrm/wivrn-dashboard`) under `wyrm` as well. It shares WiVRn's executables, app IDs, sockets, discovery name (`_wivrn._tcp`) and OpenXR runtime files, so it cannot be installed side by side with WiVRn. Install matching Wyrm server and client builds.
 
 # Contributing
 

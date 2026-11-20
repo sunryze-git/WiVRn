@@ -319,10 +319,10 @@ wivrn_session::~wivrn_session()
 }
 
 xrt_result_t wivrn::wivrn_session::create_session(std::unique_ptr<wivrn_connection> connection,
-                                                b_system & system,
-                                                xrt_system_devices ** out_xsysd,
-                                                xrt_space_overseer ** out_xspovrs,
-                                                xrt_system_compositor ** out_xsysc)
+                                                  b_system & system,
+                                                  xrt_system_devices ** out_xsysd,
+                                                  xrt_space_overseer ** out_xspovrs,
+                                                  xrt_system_compositor ** out_xsysc)
 {
 	std::unique_ptr<wivrn_session> self;
 	try
