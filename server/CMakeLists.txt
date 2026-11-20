@@ -223,17 +223,21 @@ if (WYRM_BUILD_SERVER)
 		target_link_libraries(wyrm-server PRIVATE PkgConfig::libpipewire)
 	endif()
 
-	# The frame shell's PC host services: a Rust static library from desktop/
-	set(FRAME_HOST_LIBRARY "" CACHE FILEPATH "libframe_host.a, built from the frame shell's desktop/")
-	if(NOT FRAME_HOST_LIBRARY)
-		message(FATAL_ERROR "Set FRAME_HOST_LIBRARY to libframe_host.a")
-	endif()
-	pkg_check_modules(FRAME_HOST REQUIRED IMPORTED_TARGET gstreamer-1.0 gstreamer-base-1.0 gstreamer-app-1.0 dbus-1 xkbcommon libpipewire-0.3)
 	target_include_directories(wyrm-server PRIVATE ${FRAME_ABI_INCLUDE_DIR})
 	# Needs the packets' OpenXR types, which wyrm-common is built without
 	target_sources(wyrm-server PRIVATE ../common/fec.cpp ../common/shard_stream.cpp)
 	target_link_libraries(wyrm-server PRIVATE leopard)
-	target_link_libraries(wyrm-server PRIVATE ${FRAME_HOST_LIBRARY} PkgConfig::FRAME_HOST PkgConfig::glib2 dl m rt util)
+
+	if(WYRM_FRAME_HOST)
+		# The frame shell's PC host services: a Rust static library from desktop/
+		set(FRAME_HOST_LIBRARY "" CACHE FILEPATH "libframe_host.a, built from the frame shell's desktop/")
+		if(NOT FRAME_HOST_LIBRARY)
+			message(FATAL_ERROR "Set FRAME_HOST_LIBRARY to libframe_host.a")
+		endif()
+		pkg_check_modules(FRAME_HOST REQUIRED IMPORTED_TARGET gstreamer-1.0 gstreamer-base-1.0 gstreamer-app-1.0 dbus-1 xkbcommon libpipewire-0.3)
+		target_compile_definitions(wyrm-server PRIVATE WYRM_FRAME_HOST)
+		target_link_libraries(wyrm-server PRIVATE ${FRAME_HOST_LIBRARY} PkgConfig::FRAME_HOST PkgConfig::glib2 dl m rt util)
+	endif()
 
 	# Generate dbus interface code as a separate target to avoid warnings in generated code
 	add_custom_command(OUTPUT wyrm_server_dbus.c wyrm_server_dbus.h

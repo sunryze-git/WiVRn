@@ -23,7 +23,10 @@
 #include "audio_link.h"
 #include "clock_offset.h"
 #include "compositor/compositor.h"
+#include "configuration.h"
+#ifdef WYRM_FRAME_HOST
 #include "desktop_link.h"
+#endif
 #include "eye_osc.h"
 #include "inplace_vector.hpp"
 #include "packet_pacer.h"
@@ -127,7 +130,9 @@ class wyrm_session : public xrt_system_devices
 
 	std::jthread net_thread;
 	std::jthread worker_thread;
+#ifdef WYRM_FRAME_HOST
 	std::unique_ptr<desktop_link<wyrm_session>> desktop;
+#endif
 	std::unique_ptr<eye_osc> eye_osc_sender;
 
 	thread_safe<std::exception_ptr> net_exception;

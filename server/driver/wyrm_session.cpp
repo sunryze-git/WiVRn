@@ -396,7 +396,9 @@ void wyrm_session::start(ipc_server * server)
 void wyrm_session::stop()
 {
 	net_thread = std::jthread();
+#ifdef WYRM_FRAME_HOST
 	desktop.reset();
+#endif
 	worker_thread = std::jthread();
 }
 
@@ -425,7 +427,9 @@ void wyrm_session::request_stop()
 
 void wyrm_session::pause_session()
 {
+#ifdef WYRM_FRAME_HOST
 	desktop.reset();
+#endif
 	assert(mnd_ipc_server);
 
 	// notify clients about session pause
@@ -490,6 +494,7 @@ void wyrm_session::resume_session()
 	// resume session and notify clients
 
 	worker_thread = std::jthread([this](std::stop_token stop) { return run_worker(stop); });
+#ifdef WYRM_FRAME_HOST
 	try
 	{
 		char hostname[256] = "PC";
@@ -500,6 +505,7 @@ void wyrm_session::resume_session()
 	{
 		U_LOG_E("%s", e.what());
 	}
+#endif
 	update_client_states(true, true);
 	hmd.update_presence(true, os_monotonic_get_ns());
 }
@@ -1570,14 +1576,18 @@ void wyrm_session::destroy()
 
 void wyrm::wyrm_session::operator()(from_headset::shell_input && event)
 {
+#ifdef WYRM_FRAME_HOST
 	if (desktop)
 		(*desktop)(std::move(event));
+#endif
 }
 
 void wyrm::wyrm_session::operator()(from_headset::shell_message && event)
 {
+#ifdef WYRM_FRAME_HOST
 	if (desktop)
 		(*desktop)(std::move(event));
+#endif
 }
 
 void wyrm::wyrm_session::operator()(from_headset::link_settings && event)
@@ -1586,8 +1596,10 @@ void wyrm::wyrm_session::operator()(from_headset::link_settings && event)
 	if (std::min<uint8_t>(event.fec_percent, 50) != fec_percent)
 		U_LOG_I("Link: %u%% parity, %u ms frame margin", event.fec_percent, event.frame_margin_ms);
 	fec_percent = std::min<uint8_t>(event.fec_percent, 50);
+#ifdef WYRM_FRAME_HOST
 	if (desktop)
 		desktop->fec_percent = fec_percent.load();
+#endif
 	compositor.set_frame_margin(std::min<uint8_t>(event.frame_margin_ms, 20));
 	const uint8_t prediction = std::min<uint8_t>(event.controller_prediction_percent, 100);
 	if (controller_prediction_percent.exchange(prediction) != prediction)
@@ -1598,8 +1610,10 @@ void wyrm::wyrm_session::operator()(from_headset::video_nack && nack)
 {
 	if (nack.stream < to_headset::video_shard::desktop_streams)
 		compositor.on_nack(nack);
+#ifdef WYRM_FRAME_HOST
 	else if (desktop)
 		desktop->resend(nack);
+#endif
 }
 
 void wyrm::wyrm_session::operator()(from_headset::video_active && event)
@@ -1615,8 +1629,10 @@ void wyrm::wyrm_session::operator()(from_headset::frame_eyes && eyes)
 
 void wyrm::wyrm_session::operator()(from_headset::desktop_keyframe && event)
 {
+#ifdef WYRM_FRAME_HOST
 	if (desktop)
 		(*desktop)(std::move(event));
+#endif
 }
 
 void wyrm::wyrm_session::operator()(const from_headset::video_stream_ready & ready)
