@@ -83,8 +83,15 @@ scenes::stream::stream(std::string server_name, scene & parent_scene) :
 	height = views[0].recommendedImageRectHeight;
 }
 
+bool scenes::stream::runtime_sets_refresh_rate() const
+{
+	return instance.get_runtime_name().starts_with("SteamVR") and instance.has_extension(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME);
+}
+
 float scenes::stream::preferred_refresh_rate()
 {
+	if (runtime_sets_refresh_rate())
+		return session.get_current_refresh_rate();
 	if (float rate = application::get_config().preferred_refresh_rate)
 		return rate;
 	std::ifstream file(xdg_config_home() / "frame-shell" / "refresh-rate");
@@ -199,6 +206,9 @@ std::shared_ptr<scenes::stream> scenes::stream::create(std::unique_ptr<wivrn_ses
 			info.available_refresh_rates = self->session.get_refresh_rates();
 			info.settings.preferred_refresh_rate = self->preferred_refresh_rate();
 			info.settings.minimum_refresh_rate = config.minimum_refresh_rate.value_or(0);
+			// The PC follows SteamVR's changes through refresh_rate_changed
+			if (self->runtime_sets_refresh_rate())
+				info.available_refresh_rates = {info.settings.preferred_refresh_rate};
 		}
 		info.settings.fps_divider = config.fps_divider;
 
@@ -1379,7 +1389,8 @@ void scenes::stream::setup(const to_headset::video_stream_description & descript
 	try
 	{
 		spdlog::info("setup, refresh rate {}", description.refresh_rate);
-		session.set_refresh_rate(description.refresh_rate);
+		if (not runtime_sets_refresh_rate())
+			session.set_refresh_rate(description.refresh_rate);
 
 		// Close old hardware sessions outside the callback lock before creating replacements.
 		std::array<accumulator_images, decoder_count> retired;
@@ -1432,7 +1443,8 @@ void scenes::stream::setup_reprojection_swapchain(uint32_t swapchain_width, uint
 	assert(swapchain_height);
 	device.waitIdle();
 	spdlog::info("swapchain setup, refresh rate {}", video_stream_description->refresh_rate);
-	session.set_refresh_rate(video_stream_description->refresh_rate);
+	if (not runtime_sets_refresh_rate())
+		session.set_refresh_rate(video_stream_description->refresh_rate);
 
 	auto views = system.view_configuration_views(viewconfig);
 

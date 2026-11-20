@@ -226,7 +226,8 @@ void settings_video(const settings_context & ctx)
 
 	if (not rates.empty())
 	{
-		const auto system_managed = rates.size() < 2;
+		// SteamVR sets the rate per app in its own settings and refuses requests
+		const auto system_managed = rates.size() < 2 or ctx.instance.get_runtime_name().starts_with("SteamVR");
 		int default_rate_index = index(rates, default_config.preferred_refresh_rate).value_or(-1) + 1;
 
 		list.push_back({

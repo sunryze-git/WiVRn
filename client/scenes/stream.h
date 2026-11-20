@@ -281,6 +281,8 @@ public:
 	}
 	// The stream's refresh setting, or the shell's display setting when the stream's is automatic
 	float preferred_refresh_rate();
+	// SteamVR runs each app at the rate set in its own settings and refuses requests for another
+	bool runtime_sets_refresh_rate() const;
 #ifndef __ANDROID__
 	// Frame shell: refuses a render size change while the PC's app can't take one
 	bool resolution_locked();
