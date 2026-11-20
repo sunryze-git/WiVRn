@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -20,7 +20,7 @@
 #pragma once
 
 #include "hostname.h"
-#include "wyrm_config.h"
+#include "wivrn_config.h"
 #include <array>
 #include <chrono>
 #include <filesystem>
@@ -30,9 +30,9 @@
 #include <string>
 #include <variant>
 
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 
-namespace wyrm
+namespace wivrn
 {
 
 enum class service_publication
@@ -46,7 +46,7 @@ struct configuration
 	struct encoder
 	{
 		std::string name;
-		std::optional<wyrm::video_codec> codec;
+		std::optional<wivrn::video_codec> codec;
 		std::map<std::string, std::string> options;
 		std::optional<std::string> device;
 	};
@@ -72,8 +72,8 @@ struct configuration
 	bool discord_rich_presence = true;
 	std::string discord_application_id;
 	float video_pacing = 1.25f; // send-rate multiplier; zero disables pacing
-	int port = wyrm::default_port;
-	std::string hostname = wyrm::hostname();
+	int port = wivrn::default_port;
+	std::string hostname = wivrn::hostname();
 	service_publication publication = service_publication::avahi;
 
 	// monostate: default value, string: user defined, nullptr: disabled
@@ -101,4 +101,4 @@ void remove_known_key(const std::string & key);
 void rename_known_key(headset_key key);
 void update_last_connection_timestamp(const std::string & key);
 
-} // namespace wyrm
+} // namespace wivrn

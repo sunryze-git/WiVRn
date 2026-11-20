@@ -3,7 +3,7 @@
 #include <memory>
 #include <string>
 
-namespace wyrm
+namespace wivrn
 {
 // Where a decoder delivers its frames: the VR stream scene, or a frame shell desktop receiver
 class frame_sink
@@ -16,4 +16,4 @@ public:
     virtual void video_stream_failed(uint64_t, const std::string &) {}
 	virtual void push_blit_handle(shard_accumulator * decoder, std::shared_ptr<shard_accumulator::blit_handle> handle) = 0;
 };
-} // namespace wyrm
+} // namespace wivrn

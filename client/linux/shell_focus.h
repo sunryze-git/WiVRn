@@ -10,7 +10,7 @@ namespace frame_shell
 class focus_reader
 {
 	std::array<bool, 256> held{};
-	std::array<wyrm::interaction_profile, 3> profiles{};
+	std::array<wivrn::interaction_profile, 3> profiles{};
 	std::array<float, 256> last_value{};
 	std::array<XrTime, 256> last_change{};
 
@@ -19,7 +19,7 @@ public:
 	focus_reader(const focus_reader &) = delete;
 	focus_reader & operator=(const focus_reader &) = delete;
 
-	void filter(wyrm::from_headset::inputs & inputs, XrTime now, const std::array<wyrm::interaction_profile, 3> & current_profiles)
+	void filter(wivrn::from_headset::inputs & inputs, XrTime now, const std::array<wivrn::interaction_profile, 3> & current_profiles)
 	{
 		if (profiles != current_profiles)
 		{
@@ -31,7 +31,7 @@ public:
 		for (const auto & input: inputs.values)
 		{
 			auto id = static_cast<uint8_t>(input.id);
-			auto group = wyrm::input_groups[id];
+			auto group = wivrn::input_groups[id];
 			active[group] |= input.value != 0;
 			captured[group] |= current.inputs[id];
 		}
@@ -41,7 +41,7 @@ public:
 		for (auto & input: inputs.values)
 		{
 			auto index = static_cast<uint8_t>(input.id);
-			auto group = wyrm::input_groups[index];
+			auto group = wivrn::input_groups[index];
 			bool suppress = captured[group] || held[group];
 			float value = suppress ? 0 : input.value;
 			if (value != last_value[index])

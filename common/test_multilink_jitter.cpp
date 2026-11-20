@@ -15,7 +15,7 @@
 #include <thread>
 #include <unistd.h>
 
-using namespace wyrm;
+using namespace wivrn;
 using namespace std::chrono_literals;
 
 static void check(bool condition, std::source_location where = std::source_location::current())

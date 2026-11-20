@@ -2,7 +2,7 @@
 #pragma once
 #include <cstdint>
 
-namespace wyrm
+namespace wivrn
 {
 // Return the first phase-aligned deadline at or after ready, never in the past.
 inline int64_t next_frame_deadline(int64_t phase, int64_t ready, int64_t period)
@@ -11,4 +11,4 @@ inline int64_t next_frame_deadline(int64_t phase, int64_t ready, int64_t period)
 		return phase;
 	return phase + ((ready - phase + period - 1) / period) * period;
 }
-} // namespace wyrm
+} // namespace wivrn

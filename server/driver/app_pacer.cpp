@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -35,7 +35,7 @@
 // Default value is half the compositor margin
 DEBUG_GET_ONCE_FLOAT_OPTION(min_margin_ms, "U_PACING_APP_MIN_MARGIN_MS", 1.5f)
 
-namespace wyrm
+namespace wivrn
 {
 
 class app_pacer : public u_pacing_app
@@ -52,7 +52,7 @@ class app_pacer : public u_pacing_app
 	int64_t gpu_time = 0;
 	int64_t compositor_time = 0;
 
-	// With WYRM_LOG_PREDICTION set: the app's frames against their predicted display time, logged every 5 s
+	// With WIVRN_LOG_PREDICTION set: the app's frames against their predicted display time, logged every 5 s
 	struct timing_stats
 	{
 		duration_summary compositor_display, wait_to_display, wait_to_submit, wait_to_gpu_done, gpu_done_to_display, display_moved;
@@ -369,4 +369,4 @@ int64_t pacing_app_factory::get_frame_time()
 	return std::ranges::max(std::ranges::transform_view(app_pacers, [](auto * pacer) { return pacer->get_app_time(); }));
 }
 
-} // namespace wyrm
+} // namespace wivrn

@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <optional>
 
-namespace wyrm::shards
+namespace wivrn::shards
 {
 inline constexpr auto stalled_shard_delay = std::chrono::milliseconds(3);
 inline constexpr auto shard_request_interval = std::chrono::milliseconds(8);
@@ -35,4 +35,4 @@ inline std::chrono::milliseconds recovery_poll_timeout(
 		return maximum;
 	return std::clamp(std::chrono::ceil<std::chrono::milliseconds>(*deadline - now), std::chrono::milliseconds::zero(), maximum);
 }
-} // namespace wyrm::shards
+} // namespace wivrn::shards

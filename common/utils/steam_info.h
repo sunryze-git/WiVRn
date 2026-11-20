@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -23,7 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace wyrm
+namespace wivrn
 {
 
 class steam
@@ -68,4 +68,4 @@ struct steam_shortcut
 	std::optional<std::filesystem::path> icon;
 };
 
-} // namespace wyrm
+} // namespace wivrn

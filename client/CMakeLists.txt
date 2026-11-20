@@ -12,7 +12,7 @@ set(SPIRV_REFLECT_STATIC_LIB ON)
 set(SPIRV_REFLECT_INSTALL OFF)
 
 FetchContent_MakeAvailable(simdjson spdlog glm fastgltf imgui stb implot uni-algo entt spirv-reflect)
-if(ANDROID AND WYRM_USE_ANDROID_BIN_LIBKTX)
+if(ANDROID AND WIVRN_USE_ANDROID_BIN_LIBKTX)
     if(NOT EXISTS ${FETCHCONTENT_BASE_DIR}/KTX-Software-${KTX_VERSION}-Android.zip)
         file(DOWNLOAD
             https://github.com/KhronosGroup/KTX-Software/releases/download/${KTX_VERSION_FULL}/KTX-Software-${KTX_VERSION}-Android.zip
@@ -24,7 +24,7 @@ if(ANDROID AND WYRM_USE_ANDROID_BIN_LIBKTX)
     add_library(ktx INTERFACE)
     target_link_libraries(ktx INTERFACE ${FETCHCONTENT_BASE_DIR}/KTX-Software-${KTX_VERSION}-Android/${ANDROID_ABI}/lib/libktx.so)
     target_include_directories(ktx INTERFACE ${FETCHCONTENT_BASE_DIR}/KTX-Software-${KTX_VERSION}-Android/${ANDROID_ABI}/include)
-elseif(WYRM_USE_SYSTEM_LIBKTX AND NOT ANDROID)
+elseif(WIVRN_USE_SYSTEM_LIBKTX AND NOT ANDROID)
 else()
     FetchContent_MakeAvailable(libktx)
 endif()
@@ -39,19 +39,19 @@ target_include_directories(stb INTERFACE ${stb_SOURCE_DIR})
 
 if(ANDROID)
     file(REMOVE_RECURSE ${RESOURCES_DIRECTORIES}/lib ${ANDROID_LIB_DIRECTORIES})
-    add_library(wyrm MODULE)
+    add_library(wivrn MODULE)
 
     find_library(ANDROID_LIBRARY NAMES android REQUIRED)
     find_library(MEDIA_LIBRARY NAMES mediandk REQUIRED)
     find_library(AAUDIO_LIBRARY NAMES aaudio REQUIRED)
-    target_link_libraries(wyrm ${ANDROID_LIBRARY} ${MEDIA_LIBRARY} ${AAUDIO_LIBRARY})
+    target_link_libraries(wivrn ${ANDROID_LIBRARY} ${MEDIA_LIBRARY} ${AAUDIO_LIBRARY})
 
     # The OpenXR loader must be dynamically loaded or the Oculus store will refuse it with "Oculus SDK not found or older than 1.0"
     set(DYNAMIC_LOADER ON)
     FetchContent_MakeAvailable(openxr_loader)
-    target_link_libraries(wyrm openxr_loader)
+    target_link_libraries(wivrn openxr_loader)
     # Protocol headers are also consumed by common code and its tests.
-    target_link_libraries(wyrm-common PUBLIC OpenXR::headers)
+    target_link_libraries(wivrn-common PUBLIC OpenXR::headers)
 
     # libcurl
     set(BUILD_CURL_EXE OFF)
@@ -62,29 +62,29 @@ if(ANDROID)
     set(BUILD_EXAMPLES OFF)
 
     FetchContent_MakeAvailable(curl)
-    target_link_libraries(wyrm libcurl_static)
+    target_link_libraries(wivrn libcurl_static)
 
-    target_link_libraries(wyrm native_app_glue)
-    target_compile_definitions(wyrm PRIVATE -DXR_USE_PLATFORM_ANDROID -DVK_USE_PLATFORM_ANDROID_KHR)
-    target_link_options(wyrm PRIVATE -Wl,--undefined=ANativeActivity_onCreate)
+    target_link_libraries(wivrn native_app_glue)
+    target_compile_definitions(wivrn PRIVATE -DXR_USE_PLATFORM_ANDROID -DVK_USE_PLATFORM_ANDROID_KHR)
+    target_link_options(wivrn PRIVATE -Wl,--undefined=ANativeActivity_onCreate)
 
-    target_link_options(wyrm
+    target_link_options(wivrn
         PRIVATE
         -Wl,--version-script,${CMAKE_CURRENT_SOURCE_DIR}/android/exported_symbols.txt
         # This causes the linker to emit an error when a version script names a
         # symbol that is not found, rather than silently ignoring that line.
         -Wl,--no-undefined-version
     )
-    set_target_properties(wyrm PROPERTIES LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/android/exported_symbols.txt)
+    set_target_properties(wivrn PROPERTIES LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/android/exported_symbols.txt)
 
     file(GLOB PLATFORM_SOURCE CONFIGURE_DEPENDS
         "android/*.cpp"
         "audio/android/*.cpp"
         "decoder/android/*.cpp"
         )
-    target_sources(wyrm PRIVATE ${PLATFORM_SOURCE})
+    target_sources(wivrn PRIVATE ${PLATFORM_SOURCE})
 
-    if (WYRM_ADDRESS_SANITIZER)
+    if (WIVRN_ADDRESS_SANITIZER)
         file(MAKE_DIRECTORY
             ${RESOURCES_DIRECTORIES}/lib/${CMAKE_ANDROID_ARCH_ABI}
             ${ANDROID_LIB_DIRECTORIES}/${CMAKE_ANDROID_ARCH_ABI})
@@ -101,25 +101,25 @@ if(ANDROID)
         )
     endif()
 else()
-    add_executable(wyrm)
+    add_executable(wivrn)
 
-    if (WYRM_USE_SYSTEM_OPENXR)
-        target_link_libraries(wyrm OpenXR::openxr_loader OpenXR::headers)
+    if (WIVRN_USE_SYSTEM_OPENXR)
+        target_link_libraries(wivrn OpenXR::openxr_loader OpenXR::headers)
     else()
         FetchContent_MakeAvailable(openxr_loader)
-        target_link_libraries(wyrm openxr_loader)
+        target_link_libraries(wivrn openxr_loader)
     endif()
     # Protocol headers are also consumed by common code and its tests.
-    target_link_libraries(wyrm-common PUBLIC OpenXR::headers)
+    target_link_libraries(wivrn-common PUBLIC OpenXR::headers)
 
-    target_link_libraries(wyrm Fontconfig::Fontconfig CURL::libcurl)
+    target_link_libraries(wivrn Fontconfig::Fontconfig CURL::libcurl)
 
-    if(WYRM_USE_V4L2)
+    if(WIVRN_USE_V4L2)
         file(GLOB CLIENT_V4L2_SOURCE CONFIGURE_DEPENDS
             "decoder/v4l2/*.cpp")
         list(APPEND PLATFORM_SOURCE ${CLIENT_V4L2_SOURCE})
     else()
-        target_link_libraries(wyrm PkgConfig::LIBAV_CLIENT)
+        target_link_libraries(wivrn PkgConfig::LIBAV_CLIENT)
         file(GLOB PLATFORM_SOURCE CONFIGURE_DEPENDS
             "decoder/ffmpeg/*.cpp")
     endif()
@@ -128,19 +128,19 @@ else()
         "linux/*.cpp")
     list(APPEND PLATFORM_SOURCE ${CLIENT_LINUX_SOURCE})
 
-    if(WYRM_USE_PIPEWIRE)
+    if(WIVRN_USE_PIPEWIRE)
         file(GLOB CLIENT_PIPEWIRE_SOURCE CONFIGURE_DEPENDS
             "audio/linux/*.cpp")
         list(APPEND PLATFORM_SOURCE ${CLIENT_PIPEWIRE_SOURCE})
-        target_link_libraries(wyrm PkgConfig::libpipewire)
+        target_link_libraries(wivrn PkgConfig::libpipewire)
     endif()
 
-    target_sources(wyrm PRIVATE ${PLATFORM_SOURCE})
+    target_sources(wivrn PRIVATE ${PLATFORM_SOURCE})
 
     # Steam Frame eye expressions: Babble Frame Runtime's eye model on ExecuTorch (scripts/build-executorch.sh)
-    if(WYRM_FRAME_EYES)
-        find_package(executorch CONFIG REQUIRED PATHS "${WYRM_EXECUTORCH_PREFIX}/lib/cmake/ExecuTorch" NO_DEFAULT_PATH)
-        target_sources(wyrm PRIVATE
+    if(WIVRN_FRAME_EYES)
+        find_package(executorch CONFIG REQUIRED PATHS "${WIVRN_EXECUTORCH_PREFIX}/lib/cmake/ExecuTorch" NO_DEFAULT_PATH)
+        target_sources(wivrn PRIVATE
             frame_eyes/tracker.cpp
             frame_eyes/eye_gaze.cpp
             frame_eyes/babble/camera/eye/dsp_client.cpp
@@ -149,9 +149,9 @@ else()
             frame_eyes/babble/model/image_ops.cpp
             frame_eyes/babble/model/postprocess/eye_post.cpp
             frame_eyes/babble/model/postprocess/one_euro.cpp)
-        target_include_directories(wyrm PRIVATE frame_eyes/babble)
-        target_compile_definitions(wyrm PRIVATE WYRM_FRAME_EYES=1)
-        target_link_libraries(wyrm executorch extension_module_static extension_tensor extension_threadpool
+        target_include_directories(wivrn PRIVATE frame_eyes/babble)
+        target_compile_definitions(wivrn PRIVATE WIVRN_FRAME_EYES=1)
+        target_link_libraries(wivrn executorch extension_module_static extension_tensor extension_threadpool
             xnnpack_backend executorch_selected_kernels portable_kernels)
     endif()
 
@@ -163,7 +163,7 @@ endif()
 ##############################################################################
 # Main sources
 #
-target_compile_definitions(wyrm PRIVATE "XR_USE_TIMESPEC=1")
+target_compile_definitions(wivrn PRIVATE "XR_USE_TIMESPEC=1")
 
 file(GLOB LOCAL_SOURCE CONFIGURE_DEPENDS
     "*.cpp"
@@ -176,10 +176,10 @@ file(GLOB LOCAL_SOURCE CONFIGURE_DEPENDS
 )
 
 file(GLOB_RECURSE VULKAN_SHADERS CONFIGURE_DEPENDS "*.glsl")
-target_sources(wyrm PRIVATE ${LOCAL_SOURCE} ${VULKAN_SHADERS})
-wyrm_compile_glsl(wyrm SHADERS ${VULKAN_SHADERS})
+target_sources(wivrn PRIVATE ${LOCAL_SOURCE} ${VULKAN_SHADERS})
+wivrn_compile_glsl(wivrn SHADERS ${VULKAN_SHADERS})
 
-target_link_libraries(wyrm
+target_link_libraries(wivrn
     Boost::locale
     Boost::url
     EnTT::EnTT
@@ -194,32 +194,32 @@ target_link_libraries(wyrm
     stb
     uni-algo
     Vulkan::Vulkan
-    wyrm-common
-    wyrm-external
+    wivrn-common
+    wivrn-external
 )
 
-target_compile_definitions(wyrm PRIVATE -DXR_USE_GRAPHICS_API_VULKAN)
-target_compile_definitions(wyrm PRIVATE -DVMA_STATS_STRING_ENABLED=0)
-target_compile_definitions(wyrm PRIVATE -DGLM_ENABLE_EXPERIMENTAL)
-target_compile_definitions(wyrm PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
+target_compile_definitions(wivrn PRIVATE -DXR_USE_GRAPHICS_API_VULKAN)
+target_compile_definitions(wivrn PRIVATE -DVMA_STATS_STRING_ENABLED=0)
+target_compile_definitions(wivrn PRIVATE -DGLM_ENABLE_EXPERIMENTAL)
+target_compile_definitions(wivrn PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
 
-target_include_directories(wyrm PRIVATE .)
-# Needs the packets' OpenXR types, which wyrm-common is built without
-target_sources(wyrm PRIVATE ../common/fec.cpp ../common/shard_stream.cpp)
-target_link_libraries(wyrm leopard)
+target_include_directories(wivrn PRIVATE .)
+# Needs the packets' OpenXR types, which wivrn-common is built without
+target_sources(wivrn PRIVATE ../common/fec.cpp ../common/shard_stream.cpp)
+target_link_libraries(wivrn leopard)
 if(NOT ANDROID)
-    target_include_directories(wyrm PRIVATE ${FRAME_ABI_INCLUDE_DIR})
+    target_include_directories(wivrn PRIVATE ${FRAME_ABI_INCLUDE_DIR})
 endif()
 
 if(NOT ANDROID)
-    install(TARGETS wyrm)
+    install(TARGETS wivrn)
 endif()
 
 ##############################################################################
 # Dear ImGui
 #
-add_library(wyrm-imgui STATIC)
-target_sources(wyrm-imgui PRIVATE
+add_library(wivrn-imgui STATIC)
+target_sources(wivrn-imgui PRIVATE
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
@@ -231,17 +231,17 @@ target_sources(wyrm-imgui PRIVATE
     ${implot_SOURCE_DIR}/implot_items.cpp
 )
 
-target_include_directories(wyrm-imgui PUBLIC ${imgui_SOURCE_DIR})
-target_include_directories(wyrm-imgui PUBLIC ${implot_SOURCE_DIR})
-# target_compile_definitions(wyrm-imgui PUBLIC "IMGUI_USER_CONFIG=\"render/imgui_config.h\"")
-target_compile_definitions(wyrm-imgui PUBLIC IMGUI_USE_WCHAR32)
-target_compile_definitions(wyrm-imgui PUBLIC IMGUI_ENABLE_FREETYPE)
-# target_compile_definitions(wyrm-imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS) # incompatible with implot
-# target_compile_definitions(wyrm-imgui PUBLIC IMGUI_ENABLE_FREETYPE_LUNASVG)
-target_compile_features(wyrm-imgui PRIVATE cxx_std_23)
-target_link_libraries(wyrm-imgui FreetypeHarfbuzz Vulkan::Vulkan)
+target_include_directories(wivrn-imgui PUBLIC ${imgui_SOURCE_DIR})
+target_include_directories(wivrn-imgui PUBLIC ${implot_SOURCE_DIR})
+# target_compile_definitions(wivrn-imgui PUBLIC "IMGUI_USER_CONFIG=\"render/imgui_config.h\"")
+target_compile_definitions(wivrn-imgui PUBLIC IMGUI_USE_WCHAR32)
+target_compile_definitions(wivrn-imgui PUBLIC IMGUI_ENABLE_FREETYPE)
+# target_compile_definitions(wivrn-imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS) # incompatible with implot
+# target_compile_definitions(wivrn-imgui PUBLIC IMGUI_ENABLE_FREETYPE_LUNASVG)
+target_compile_features(wivrn-imgui PRIVATE cxx_std_23)
+target_link_libraries(wivrn-imgui FreetypeHarfbuzz Vulkan::Vulkan)
 
-target_link_libraries(wyrm wyrm-imgui)
+target_link_libraries(wivrn wivrn-imgui)
 
 
 
@@ -258,7 +258,7 @@ khronos_validation.enables = VK_VALIDATION_FEATURE_ENABLE_THREAD_SAFETY_EXT
 ")
 endif()
 
-if(WYRM_USE_ANDROID_VALIDATION_LAYER)
+if(WIVRN_USE_ANDROID_VALIDATION_LAYER)
     set(VVL_VERSION "1.4.321.0")
 
     if(NOT EXISTS ${FETCHCONTENT_BASE_DIR}/Vulkan-ValidationLayers-${VVL_VERSION}.zip)
@@ -287,17 +287,17 @@ endif()
 if(ANDROID)
     set(ASSETS_DIR ${CMAKE_ANDROID_ASSETS_DIRECTORIES})
 else()
-    set(ASSETS_DIR ${CMAKE_CURRENT_BINARY_DIR}/share/wyrm/assets)
+    set(ASSETS_DIR ${CMAKE_CURRENT_BINARY_DIR}/share/wivrn/assets)
     file(MAKE_DIRECTORY ${ASSETS_DIR})
-    install(DIRECTORY "${ASSETS_DIR}" DESTINATION "${CMAKE_INSTALL_DATADIR}/wyrm")
+    install(DIRECTORY "${ASSETS_DIR}" DESTINATION "${CMAKE_INSTALL_DATADIR}/wivrn")
 endif()
 
 
 ##############################################################################
 # Internationalization
 #
-create_mo_files(wyrm wyrm "${CMAKE_CURRENT_SOURCE_DIR}/../locale")
-create_glyphset(wyrm wyrm "${CMAKE_CURRENT_SOURCE_DIR}/../locale")
+create_mo_files(wivrn wivrn "${CMAKE_CURRENT_SOURCE_DIR}/../locale")
+create_glyphset(wivrn wivrn "${CMAKE_CURRENT_SOURCE_DIR}/../locale")
 
 
 ##############################################################################
@@ -306,7 +306,7 @@ create_glyphset(wyrm wyrm "${CMAKE_CURRENT_SOURCE_DIR}/../locale")
 set(LICENSES_DIR "${ASSETS_DIR}/licenses")
 
 file(MAKE_DIRECTORY "${LICENSES_DIR}")
-file(COPY_FILE "${CMAKE_SOURCE_DIR}/COPYING" "${LICENSES_DIR}/Wyrm")
+file(COPY_FILE "${CMAKE_SOURCE_DIR}/COPYING" "${LICENSES_DIR}/WiVRn")
 file(COPY_FILE "${simdjson_SOURCE_DIR}/LICENSE" "${LICENSES_DIR}/simdjson")
 file(COPY_FILE "${CMAKE_SOURCE_DIR}/LICENSE-OFL-1.1" "${LICENSES_DIR}/FontAwesome")
 if (OPENXR_SOURCE_DIR)
@@ -317,45 +317,45 @@ endif()
 ##############################################################################
 # Generate assets
 #
-file(REAL_PATH ${WYRM_CSS} WYRM_CSS_ABS BASE_DIRECTORY "${CMAKE_SOURCE_DIR}")
+file(REAL_PATH ${WIVRN_CSS} WIVRN_CSS_ABS BASE_DIRECTORY "${CMAKE_SOURCE_DIR}")
 
 set(IMAGES_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../images)
 set(ASSETS_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../assets-source)
 
-wyrm_rasterize_svg(SOURCE ${IMAGES_SRC_DIR}/wyrm.svg               DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/wyrm.png               WIDTH 540 HEIGHT 540 CSS ${WYRM_CSS_ABS})
-wyrm_rasterize_svg(SOURCE ${IMAGES_SRC_DIR}/wyrm-pride.svg         DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/wyrm-pride.png         WIDTH 540 HEIGHT 540 CSS ${WYRM_CSS_ABS})
-wyrm_rasterize_svg(SOURCE ${IMAGES_SRC_DIR}/wyrm-christmas.svg     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/wyrm-christmas.png     WIDTH 540 HEIGHT 540 CSS ${WYRM_CSS_ABS})
-wyrm_rasterize_svg(SOURCE ${ASSETS_SRC_DIR}/passthrough.svg         DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/passthrough.png         WIDTH 256 HEIGHT 256)
-wyrm_rasterize_svg(SOURCE ${ASSETS_SRC_DIR}/default-environment.svg DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/default-environment.png WIDTH 256 HEIGHT 256)
+wivrn_rasterize_svg(SOURCE ${IMAGES_SRC_DIR}/wivrn.svg               DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/wivrn.png               WIDTH 540 HEIGHT 540 CSS ${WIVRN_CSS_ABS})
+wivrn_rasterize_svg(SOURCE ${IMAGES_SRC_DIR}/wivrn-pride.svg         DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/wivrn-pride.png         WIDTH 540 HEIGHT 540 CSS ${WIVRN_CSS_ABS})
+wivrn_rasterize_svg(SOURCE ${IMAGES_SRC_DIR}/wivrn-christmas.svg     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/wivrn-christmas.png     WIDTH 540 HEIGHT 540 CSS ${WIVRN_CSS_ABS})
+wivrn_rasterize_svg(SOURCE ${ASSETS_SRC_DIR}/passthrough.svg         DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/passthrough.png         WIDTH 256 HEIGHT 256)
+wivrn_rasterize_svg(SOURCE ${ASSETS_SRC_DIR}/default-environment.svg DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/default-environment.png WIDTH 256 HEIGHT 256)
 
-wyrm_generate_ktx(        SOURCE ${CMAKE_CURRENT_BINARY_DIR}/wyrm.png                 DESTINATION ${ASSETS_DIR}/wyrm.ktx2                          TARGET wyrm)
-wyrm_generate_ktx(        SOURCE ${CMAKE_CURRENT_BINARY_DIR}/wyrm-pride.png           DESTINATION ${ASSETS_DIR}/wyrm-pride.ktx2                    TARGET wyrm)
-wyrm_generate_ktx(        SOURCE ${CMAKE_CURRENT_BINARY_DIR}/wyrm-christmas.png       DESTINATION ${ASSETS_DIR}/wyrm-christmas.ktx2                TARGET wyrm)
-wyrm_generate_ktx(        SOURCE ${ASSETS_SRC_DIR}/default_icon.png                    DESTINATION ${ASSETS_DIR}/default_icon.ktx2                   TARGET wyrm)
-wyrm_generate_ktx(        SOURCE ${CMAKE_CURRENT_BINARY_DIR}/passthrough.png           DESTINATION ${ASSETS_DIR}/passthrough.ktx2                    TARGET wyrm)
-wyrm_generate_ktx(        SOURCE ${CMAKE_CURRENT_BINARY_DIR}/default-environment.png   DESTINATION ${ASSETS_DIR}/default-environment.ktx2            TARGET wyrm)
-if(WYRM_COMPRESS_GLB)
-    wyrm_gltf_transform_uastc(SOURCE ${ASSETS_SRC_DIR}/ground.glb                      DESTINATION ${ASSETS_DIR}/ground.glb                          TARGET wyrm ZSTD 20)
+wivrn_generate_ktx(        SOURCE ${CMAKE_CURRENT_BINARY_DIR}/wivrn.png                 DESTINATION ${ASSETS_DIR}/wivrn.ktx2                          TARGET wivrn)
+wivrn_generate_ktx(        SOURCE ${CMAKE_CURRENT_BINARY_DIR}/wivrn-pride.png           DESTINATION ${ASSETS_DIR}/wivrn-pride.ktx2                    TARGET wivrn)
+wivrn_generate_ktx(        SOURCE ${CMAKE_CURRENT_BINARY_DIR}/wivrn-christmas.png       DESTINATION ${ASSETS_DIR}/wivrn-christmas.ktx2                TARGET wivrn)
+wivrn_generate_ktx(        SOURCE ${ASSETS_SRC_DIR}/default_icon.png                    DESTINATION ${ASSETS_DIR}/default_icon.ktx2                   TARGET wivrn)
+wivrn_generate_ktx(        SOURCE ${CMAKE_CURRENT_BINARY_DIR}/passthrough.png           DESTINATION ${ASSETS_DIR}/passthrough.ktx2                    TARGET wivrn)
+wivrn_generate_ktx(        SOURCE ${CMAKE_CURRENT_BINARY_DIR}/default-environment.png   DESTINATION ${ASSETS_DIR}/default-environment.ktx2            TARGET wivrn)
+if(WIVRN_COMPRESS_GLB)
+    wivrn_gltf_transform_uastc(SOURCE ${ASSETS_SRC_DIR}/ground.glb                      DESTINATION ${ASSETS_DIR}/ground.glb                          TARGET wivrn ZSTD 20)
 else()
-    wyrm_copy_file(       SOURCE ${ASSETS_SRC_DIR}/ground.glb                          DESTINATION ${ASSETS_DIR}/ground.glb                          TARGET wyrm)
+    wivrn_copy_file(       SOURCE ${ASSETS_SRC_DIR}/ground.glb                          DESTINATION ${ASSETS_DIR}/ground.glb                          TARGET wivrn)
 endif()
 
-wyrm_webxr_download()
-wyrm_webxr_controller(PROFILE generic-trigger-squeeze DESTINATION ${ASSETS_DIR}/controllers TARGET wyrm)
-wyrm_webxr_controller(PROFILE htc-vive-focus-3        DESTINATION ${ASSETS_DIR}/controllers TARGET wyrm)
-wyrm_webxr_controller(PROFILE meta-quest-touch-plus   DESTINATION ${ASSETS_DIR}/controllers TARGET wyrm)
-wyrm_webxr_controller(PROFILE meta-quest-touch-pro    DESTINATION ${ASSETS_DIR}/controllers TARGET wyrm)
-wyrm_webxr_controller(PROFILE oculus-touch-v2         DESTINATION ${ASSETS_DIR}/controllers TARGET wyrm)
-wyrm_webxr_controller(PROFILE oculus-touch-v3         DESTINATION ${ASSETS_DIR}/controllers TARGET wyrm)
-wyrm_webxr_controller(PROFILE pico-4                  DESTINATION ${ASSETS_DIR}/controllers TARGET wyrm)
-wyrm_webxr_controller(PROFILE pico-4u                 DESTINATION ${ASSETS_DIR}/controllers TARGET wyrm)
-wyrm_webxr_controller(PROFILE pico-neo3               DESTINATION ${ASSETS_DIR}/controllers TARGET wyrm)
-wyrm_webxr_controller(PROFILE samsung-galaxyxr        DESTINATION ${ASSETS_DIR}/controllers TARGET wyrm)
-wyrm_webxr_controller(PROFILE yvr-touch-v2            DESTINATION ${ASSETS_DIR}/controllers TARGET wyrm)
+wivrn_webxr_download()
+wivrn_webxr_controller(PROFILE generic-trigger-squeeze DESTINATION ${ASSETS_DIR}/controllers TARGET wivrn)
+wivrn_webxr_controller(PROFILE htc-vive-focus-3        DESTINATION ${ASSETS_DIR}/controllers TARGET wivrn)
+wivrn_webxr_controller(PROFILE meta-quest-touch-plus   DESTINATION ${ASSETS_DIR}/controllers TARGET wivrn)
+wivrn_webxr_controller(PROFILE meta-quest-touch-pro    DESTINATION ${ASSETS_DIR}/controllers TARGET wivrn)
+wivrn_webxr_controller(PROFILE oculus-touch-v2         DESTINATION ${ASSETS_DIR}/controllers TARGET wivrn)
+wivrn_webxr_controller(PROFILE oculus-touch-v3         DESTINATION ${ASSETS_DIR}/controllers TARGET wivrn)
+wivrn_webxr_controller(PROFILE pico-4                  DESTINATION ${ASSETS_DIR}/controllers TARGET wivrn)
+wivrn_webxr_controller(PROFILE pico-4u                 DESTINATION ${ASSETS_DIR}/controllers TARGET wivrn)
+wivrn_webxr_controller(PROFILE pico-neo3               DESTINATION ${ASSETS_DIR}/controllers TARGET wivrn)
+wivrn_webxr_controller(PROFILE samsung-galaxyxr        DESTINATION ${ASSETS_DIR}/controllers TARGET wivrn)
+wivrn_webxr_controller(PROFILE yvr-touch-v2            DESTINATION ${ASSETS_DIR}/controllers TARGET wivrn)
 
 # Add the VR splash screen (only used on Quest)
 if(ANDROID)
-    wyrm_copy_file(SOURCE ${CMAKE_CURRENT_BINARY_DIR}/wyrm.png DESTINATION ${ASSETS_DIR}/vr_splash.png TARGET wyrm)
+    wivrn_copy_file(SOURCE ${CMAKE_CURRENT_BINARY_DIR}/wivrn.png DESTINATION ${ASSETS_DIR}/vr_splash.png TARGET wivrn)
 endif()
 
 ##############################################################################
@@ -374,9 +374,9 @@ if(NOT ANDROID)
         set(COPIED_ASSETS ${COPIED_ASSETS} ${ASSETS_DIR}/${ASSET})
     endforeach()
     add_custom_target(assets-builddir ALL DEPENDS ${COPIED_ASSETS})
-    add_dependencies(wyrm assets-builddir)
+    add_dependencies(wivrn assets-builddir)
 
-    set_target_properties(wyrm PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+    set_target_properties(wivrn PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
-    install(DIRECTORY "${ASSETS_DIR}" DESTINATION ${CMAKE_INSTALL_DATADIR}/wyrm)
+    install(DIRECTORY "${ASSETS_DIR}" DESTINATION ${CMAKE_INSTALL_DATADIR}/wivrn)
 endif()

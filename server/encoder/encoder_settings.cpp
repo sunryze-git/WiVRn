@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -19,32 +19,32 @@
 #include "encoder_settings.h"
 
 #include "driver/configuration.h"
-#include "driver/wyrm_session.h"
+#include "driver/wivrn_session.h"
 #include "util/u_logging.h"
-#include "utils/wyrm_vk_bundle.h"
+#include "utils/wivrn_vk_bundle.h"
 #include "video_encoder.h"
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 
 #include <magic_enum.hpp>
 #include <string>
 #include <vulkan/vulkan.hpp>
 
-#include "wyrm_config.h"
+#include "wivrn_config.h"
 
-#if WYRM_USE_NVENC
+#if WIVRN_USE_NVENC
 #include "video_encoder_nvenc.h"
 #endif
-#if WYRM_USE_VAAPI
+#if WIVRN_USE_VAAPI
 #include "ffmpeg/video_encoder_va.h"
 #include <libavutil/ffversion.h>
 #endif
 
-namespace wyrm
+namespace wivrn
 {
 
 static const double passthrough_bitrate_factor = 0.05;
 
-static void split_bitrate(std::array<wyrm::encoder_settings, 3> & encoders, uint64_t bitrate)
+static void split_bitrate(std::array<wivrn::encoder_settings, 3> & encoders, uint64_t bitrate)
 {
 	assert(bitrate > 0);
 	double total_weight = 0;
@@ -55,12 +55,12 @@ static void split_bitrate(std::array<wyrm::encoder_settings, 3> & encoders, uint
 			w *= passthrough_bitrate_factor;
 		switch (encoder.codec)
 		{
-			case wyrm::h264:
+			case wivrn::h264:
 				w *= 2;
 				break;
-			case wyrm::h265:
-			case wyrm::av1:
-			case wyrm::raw:
+			case wivrn::h265:
+			case wivrn::av1:
+			case wivrn::raw:
 				break;
 		}
 		encoder.bitrate = w;
@@ -74,7 +74,7 @@ static void split_bitrate(std::array<wyrm::encoder_settings, 3> & encoders, uint
 	}
 }
 
-void print_encoders(const std::array<wyrm::encoder_settings, 3> & encoders)
+void print_encoders(const std::array<wivrn::encoder_settings, 3> & encoders)
 {
 	std::stringstream str;
 	str << "Encoder configuration:";
@@ -89,7 +89,7 @@ void print_encoders(const std::array<wyrm::encoder_settings, 3> & encoders)
 
 static void check_video_size(std::string_view encoder_name, video_codec codec, uint16_t & width, uint16_t & height)
 {
-#if WYRM_USE_NVENC
+#if WIVRN_USE_NVENC
 	if (encoder_name == encoder_nvenc)
 	{
 		auto max = video_encoder_nvenc::get_max_size(codec);
@@ -103,11 +103,11 @@ namespace
 {
 class prober
 {
-	wyrm::vk_bundle & vk;
+	wivrn::vk_bundle & vk;
 	const from_headset::headset_info_packet & info;
 	const bool nvidia;
 
-#if WYRM_USE_VAAPI
+#if WIVRN_USE_VAAPI
 	std::unordered_map<video_codec, bool> vaapi_support;
 
 	bool check_vaapi(video_codec codec)
@@ -139,7 +139,7 @@ class prober
 	}
 #endif
 
-#if WYRM_USE_NVENC
+#if WIVRN_USE_NVENC
 	std::unordered_map<video_codec, bool> nvenc_support;
 
 	bool check_nvenc(video_codec codec)
@@ -177,7 +177,7 @@ class prober
 		return props.vendorID == 0x10DE;
 	}
 
-#if WYRM_USE_VULKAN_ENCODE
+#if WIVRN_USE_VULKAN_ENCODE
 
 	bool has_vk(video_codec codec)
 	{
@@ -215,7 +215,7 @@ class prober
 #endif
 
 public:
-	prober(wyrm::vk_bundle & vk, const from_headset::headset_info_packet & info) :
+	prober(wivrn::vk_bundle & vk, const from_headset::headset_info_packet & info) :
 	        vk(vk), info(info), nvidia(is_nvidia(vk.physical_device)) {}
 
 	std::pair<std::string, video_codec> select_encoder(const configuration::encoder & config)
@@ -235,7 +235,7 @@ public:
 				codecs.push_back(capability.codec);
 		}
 
-#if WYRM_USE_VULKAN_ENCODE
+#if WIVRN_USE_VULKAN_ENCODE
 		if (config.name.empty() or config.name == encoder_vulkan)
 		{
 			for (auto codec: codecs)
@@ -246,7 +246,7 @@ public:
 		}
 #endif
 
-#if WYRM_USE_NVENC
+#if WIVRN_USE_NVENC
 		if ((nvidia and config.name.empty()) or config.name == encoder_nvenc)
 		{
 			for (auto codec: codecs)
@@ -257,7 +257,7 @@ public:
 		}
 #endif
 
-#if WYRM_USE_VAAPI
+#if WIVRN_USE_VAAPI
 		if (config.name.empty() or config.name == encoder_vaapi)
 		{
 			for (auto codec: codecs)
@@ -268,7 +268,7 @@ public:
 		}
 #endif
 		U_LOG_W("No suitable hardware accelerated codec found");
-#if WYRM_USE_X264
+#if WIVRN_USE_X264
 		if (config.name.empty() or config.name == encoder_x264)
 			return {encoder_x264, video_codec::h264};
 #endif
@@ -283,16 +283,16 @@ static uint16_t align(uint16_t value, uint16_t alignment)
 	return ((value + alignment - 1) / alignment) * alignment;
 }
 
-std::array<encoder_settings, 3> get_encoder_settings(wyrm::vk_bundle & bundle, wyrm_session & session)
+std::array<encoder_settings, 3> get_encoder_settings(wivrn::vk_bundle & bundle, wivrn_session & session)
 {
 	return get_encoder_settings(bundle, session, session.get_info());
 }
 
-std::array<encoder_settings, 3> get_encoder_settings(wyrm::vk_bundle & bundle, wyrm_session & session, const from_headset::headset_info_packet & info)
+std::array<encoder_settings, 3> get_encoder_settings(wivrn::vk_bundle & bundle, wivrn_session & session, const from_headset::headset_info_packet & info)
 {
 	configuration config;
 
-	std::array<wyrm::encoder_settings, 3> res;
+	std::array<wivrn::encoder_settings, 3> res;
 	const auto settings = *session.get_settings();
 
 	prober prober{bundle, info};
@@ -359,7 +359,7 @@ std::array<encoder_settings, 3> get_encoder_settings(wyrm::vk_bundle & bundle, w
 		}
 	};
 
-#if WYRM_USE_VAAPI
+#if WIVRN_USE_VAAPI
 	auto check_vaapi = [&](int bit_depth) {
 		for (const auto & encoder: res)
 		{
@@ -410,4 +410,4 @@ std::array<encoder_settings, 3> get_encoder_settings(wyrm::vk_bundle & bundle, w
 	split_bitrate(res, settings.bitrate_bps);
 	return res;
 }
-} // namespace wyrm
+} // namespace wivrn

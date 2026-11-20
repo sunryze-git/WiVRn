@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -455,7 +455,7 @@ void virtual_keyboard::press_single_key(const key & k)
 void virtual_keyboard::display(imgui_context & ctx)
 {
 	ImGuiStyle & style = ImGui::GetStyle();
-	const wyrm::ui::theme & th = wyrm::ui::current();
+	const wivrn::ui::theme & th = wivrn::ui::current();
 
 	ImGuiInputTextState * input_state = ImGui::GetInputTextState(ImGui::GetCurrentContext()->ActiveId);
 	bool want_digits = input_state and (input_state->Flags & ImGuiInputTextFlags_CharsDecimal) != 0;
@@ -473,7 +473,7 @@ void virtual_keyboard::display(imgui_context & ctx)
 		ImGui::SetNextWindowSize({1400, 400});
 
 	// window background follows the theme, with a user-controlled opacity
-	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4{th.background.x, th.background.y, th.background.z, wyrm::ui::background_alpha()});
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4{th.background.x, th.background.y, th.background.z, wivrn::ui::background_alpha()});
 	ImGui::PushStyleColor(ImGuiCol_Button, th.control);
 	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, th.control_hovered);
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, th.control_active);

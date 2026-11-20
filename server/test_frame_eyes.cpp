@@ -82,7 +82,7 @@ static void native_osc()
 	check(bind(fd, reinterpret_cast<sockaddr *>(&address), sizeof(address)) == 0);
 	socklen_t size = sizeof(address);
 	check(getsockname(fd, reinterpret_cast<sockaddr *>(&address), &size) == 0);
-	wyrm::eye_osc sender("127.0.0.1:" + std::to_string(ntohs(address.sin_port)));
+	wivrn::eye_osc sender("127.0.0.1:" + std::to_string(ntohs(address.sin_port)));
 	const auto encode = [&](float left, float right) {
 		sender.send({.dilation = {left, right}});
 		pollfd ready{.fd = fd, .events = POLLIN};

@@ -2,7 +2,7 @@
 #include "linux/frame_shell.h"
 #endif
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -290,7 +290,7 @@ void scenes::stream::accumulate_metrics(XrTime predicted_display_time, const std
 void scenes::stream::gui_performance_metrics()
 {
 	const ImGuiStyle & style = ImGui::GetStyle();
-	const wyrm::ui::theme & t = wyrm::ui::current();
+	const wivrn::ui::theme & t = wivrn::ui::current();
 
 	ImVec2 window_size = ImGui::GetWindowSize() - ImVec2(2, 2) * style.WindowPadding;
 
@@ -506,7 +506,7 @@ void scenes::stream::gui_compact_view()
 	}
 }
 
-static void send_settings_changed_packet(xr::session & session, wyrm_session * network, const configuration & config, const configuration::stream_config & pc)
+static void send_settings_changed_packet(xr::session & session, wivrn_session * network, const configuration & config, const configuration::stream_config & pc)
 {
 	network->send_control(
 	        from_headset::settings_changed{
@@ -522,7 +522,7 @@ static void send_settings_changed_packet(xr::session & session, wyrm_session * n
 void scenes::stream::gui_settings(float)
 {
 	// same pages as the lobby, with in_game enabling the in-stream controls
-	wyrm::gui::settings_context ctx{
+	wivrn::gui::settings_context ctx{
 	        .config = application::get_config(),
 	        .default_config = application::get_default_config(),
 	        .instance = instance,
@@ -551,29 +551,29 @@ void scenes::stream::gui_settings(float)
 	switch (current_settings_page)
 	{
 		case settings_page::video:
-			wyrm::gui::settings_video(ctx);
+			wivrn::gui::settings_video(ctx);
 			break;
 		case settings_page::audio:
-			wyrm::gui::settings_audio(ctx);
+			wivrn::gui::settings_audio(ctx);
 			break;
 		case settings_page::streaming:
-			wyrm::gui::settings_streaming(ctx);
+			wivrn::gui::settings_streaming(ctx);
 			break;
 		case settings_page::post_processing:
-			wyrm::gui::settings_post_processing(ctx);
+			wivrn::gui::settings_post_processing(ctx);
 			break;
 		case settings_page::devices:
-			wyrm::gui::settings_devices(ctx);
+			wivrn::gui::settings_devices(ctx);
 			break;
 		case settings_page::tracking:
-			if (wyrm::gui::settings_tracking(ctx))
+			if (wivrn::gui::settings_tracking(ctx))
 				send_settings_changed_packet(session, network_session.get(), ctx.config, pc_settings());
 			break;
 		case settings_page::system:
-			wyrm::gui::settings_system(ctx);
+			wivrn::gui::settings_system(ctx);
 			break;
 		case settings_page::theme:
-			wyrm::gui::settings_theme(ctx);
+			wivrn::gui::settings_theme(ctx);
 			break;
 	}
 }
@@ -663,7 +663,7 @@ void scenes::stream::gui_applications()
 		network_session->send_control(from_headset::get_running_applications{});
 	}
 
-	wyrm::ui::page_header(_cS("page header title", "Applications"), _cS("page header subtitle", "Running XR applications on the server."));
+	wivrn::ui::page_header(_cS("page header title", "Applications"), _cS("page header subtitle", "Running XR applications on the server."));
 
 	auto apps = running_applications.lock();
 	std::ranges::sort(apps->applications, [](auto & l, auto & r) {
@@ -673,18 +673,18 @@ void scenes::stream::gui_applications()
 	});
 
 	const float gap = ImGui::GetStyle().ItemSpacing.x;
-	const float ctrl_h = ImGui::GetFrameHeight() * wyrm::ui::metrics::control_height;
-	const std::string stop_label = wyrm::ui::icon_label(ICON_FA_XMARK, _C("button label to ask an application to quit", "Stop"));
-	const float stop_w = wyrm::ui::button_width(stop_label);
-	const std::string active_label = wyrm::ui::icon_label(ICON_FA_CIRCLE_CHECK, _C("chip displayed next to a running application while streaming", "Active"));
-	const float active_w = wyrm::ui::chip_width(active_label, false, stop_w);
+	const float ctrl_h = ImGui::GetFrameHeight() * wivrn::ui::metrics::control_height;
+	const std::string stop_label = wivrn::ui::icon_label(ICON_FA_XMARK, _C("button label to ask an application to quit", "Stop"));
+	const float stop_w = wivrn::ui::button_width(stop_label);
+	const std::string active_label = wivrn::ui::icon_label(ICON_FA_CIRCLE_CHECK, _C("chip displayed next to a running application while streaming", "Active"));
+	const float active_w = wivrn::ui::chip_width(active_label, false, stop_w);
 
-	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, wyrm::ui::metrics::card_item_spacing);
-	wyrm::ui::begin_list_card("##running");
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, wivrn::ui::metrics::card_item_spacing);
+	wivrn::ui::begin_list_card("##running");
 	{
 		if (apps->applications.empty())
 		{
-			ImGui::PushStyleColor(ImGuiCol_Text, wyrm::ui::current().text_muted);
+			ImGui::PushStyleColor(ImGuiCol_Text, wivrn::ui::current().text_muted);
 			ImGui::TextUnformatted(_S("No XR application is currently running."));
 			ImGui::PopStyleColor();
 		}
@@ -696,24 +696,24 @@ void scenes::stream::gui_applications()
 			if (app.overlay and not overlay)
 			{
 				overlay = true;
-				ImGui::PushStyleColor(ImGuiCol_Text, wyrm::ui::current().text_muted);
+				ImGui::PushStyleColor(ImGuiCol_Text, wivrn::ui::current().text_muted);
 				ImGui::TextUnformatted(_S("Overlays"));
 				ImGui::PopStyleColor();
 				first = true;
 			}
 			ImGui::PushID(static_cast<int>(app.id));
 			if (not first)
-				wyrm::ui::row_separator();
+				wivrn::ui::row_separator();
 			first = false;
 
 			// overlays and the active app aren't selectable, only their stop button acts
 			const bool interactive = not(app.active or app.overlay);
-			const float trailing = stop_w + (app.active ? gap + active_w : 0) + wyrm::ui::metrics::list_row_pad;
-			const auto row = wyrm::ui::begin_list_row("##row", ICON_FA_CUBE, 0, app.name, {}, app.active, trailing, 0, false, interactive);
+			const float trailing = stop_w + (app.active ? gap + active_w : 0) + wivrn::ui::metrics::list_row_pad;
+			const auto row = wivrn::ui::begin_list_row("##row", ICON_FA_CUBE, 0, app.name, {}, app.active, trailing, 0, false, interactive);
 			float x = row.max.x;
 
 			ImGui::SetCursorScreenPos(row.trailing(x, {stop_w, ctrl_h}));
-			if (wyrm::ui::button(stop_label, wyrm::ui::button_style::danger, {stop_w, 0}))
+			if (wivrn::ui::button(stop_label, wivrn::ui::button_style::danger, {stop_w, 0}))
 				network_session->send_control(from_headset::stop_application{.id = app.id});
 			if (ImGui::IsItemHovered())
 				imgui_ctx->tooltip(_S("Request to quit, may be ignored by the application"));
@@ -722,17 +722,17 @@ void scenes::stream::gui_applications()
 			if (app.active)
 			{
 				ImGui::SetCursorScreenPos(row.trailing(x, {active_w, ctrl_h}));
-				wyrm::ui::chip(active_label, wyrm::ui::chip_style::success, false, ctrl_h);
+				wivrn::ui::chip(active_label, wivrn::ui::chip_style::success, false, ctrl_h);
 			}
 
 			if (row.clicked and interactive)
 				network_session->send_control(from_headset::set_active_application{.id = app.id});
 
-			wyrm::ui::end_list_row();
+			wivrn::ui::end_list_row();
 			ImGui::PopID();
 		}
 	}
-	wyrm::ui::end_card();
+	wivrn::ui::end_card();
 	ImGui::PopStyleVar();
 }
 
@@ -884,27 +884,27 @@ void scenes::stream::draw_gui(XrTime predicted_display_time, XrDuration predicte
 	// popup layer floats in front of the main panel so combos and modals pop as their own quad
 	imgui_ctx->place_layer_relative(2, 0, constants::gui::popup_position);
 
-	const float tab_width = wyrm::ui::metrics::sidebar_width;
-	const float top_bar_h = wyrm::ui::metrics::top_bar_height;
-	const float content_margin = wyrm::ui::metrics::content_margin;
+	const float tab_width = wivrn::ui::metrics::sidebar_width;
+	const float top_bar_h = wivrn::ui::metrics::top_bar_height;
+	const float content_margin = wivrn::ui::metrics::content_margin;
 	const ImVec2 margin_around_window{50, 50};
 
 	ImGuiStyle & style = ImGui::GetStyle();
 	imgui_ctx->new_frame(predicted_display_time);
 
 	// theme the shared cards like the lobby, widget hooks are global so re-point at this scene
-	style.FontScaleMain = wyrm::ui::current().font_scale * wyrm::ui::metrics::font_base;
-	style.WindowRounding = wyrm::ui::current().card_rounding;
-	style.ChildRounding = wyrm::ui::current().card_rounding;
-	style.PopupRounding = wyrm::ui::current().card_rounding;
-	style.FrameRounding = wyrm::ui::current().rounding;
-	style.GrabRounding = wyrm::ui::current().rounding;
-	style.TabRounding = wyrm::ui::current().rounding;
-	style.Colors[ImGuiCol_Text] = wyrm::ui::current().text;
-	style.Colors[ImGuiCol_TextDisabled] = wyrm::ui::current().text_muted;
-	wyrm::ui::set_popup_center(imgui_ctx->layers()[2].vp_center(), float(imgui_ctx->layers()[2].vp_size.y));
-	wyrm::ui::set_hover_haptic([this] { imgui_ctx->vibrate_on_hover(); });
-	wyrm::ui::set_tooltip_hook([this](const char * text) { imgui_ctx->tooltip(text); });
+	style.FontScaleMain = wivrn::ui::current().font_scale * wivrn::ui::metrics::font_base;
+	style.WindowRounding = wivrn::ui::current().card_rounding;
+	style.ChildRounding = wivrn::ui::current().card_rounding;
+	style.PopupRounding = wivrn::ui::current().card_rounding;
+	style.FrameRounding = wivrn::ui::current().rounding;
+	style.GrabRounding = wivrn::ui::current().rounding;
+	style.TabRounding = wivrn::ui::current().rounding;
+	style.Colors[ImGuiCol_Text] = wivrn::ui::current().text;
+	style.Colors[ImGuiCol_TextDisabled] = wivrn::ui::current().text_muted;
+	wivrn::ui::set_popup_center(imgui_ctx->layers()[2].vp_center(), float(imgui_ctx->layers()[2].vp_size.y));
+	wivrn::ui::set_hover_haptic([this] { imgui_ctx->vibrate_on_hover(); });
+	wivrn::ui::set_tooltip_hook([this](const char * text) { imgui_ctx->tooltip(text); });
 
 	ImVec2 viewport_size(imgui_ctx->layers()[0].vp_size.x, imgui_ctx->layers()[0].vp_size.y);
 	ImVec2 content_size{viewport_size - ImVec2{tab_width, 0} - margin_around_window * 2};
@@ -950,8 +950,8 @@ void scenes::stream::draw_gui(XrTime predicted_display_time, XrDuration predicte
 	}
 
 	// themed translucent background, matching the lobby
-	const wyrm::ui::theme & th = wyrm::ui::current();
-	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4{th.background.x, th.background.y, th.background.z, wyrm::ui::background_alpha()});
+	const wivrn::ui::theme & th = wivrn::ui::current();
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4{th.background.x, th.background.y, th.background.z, wivrn::ui::background_alpha()});
 
 	ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 0);
 	if (always_auto_resize)
@@ -996,7 +996,7 @@ void scenes::stream::draw_gui(XrTime predicted_display_time, XrDuration predicte
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {20, 20});
 			ImGui::BeginChild("Main", ImVec2(ImGui::GetWindowSize().x - ImGui::GetCursorPosX() - content_margin, 0));
 			ImGui::SetCursorPosY(20);
-			wyrm::ui::page_header(_S("Statistics"), _S("Live streaming performance."));
+			wivrn::ui::page_header(_S("Statistics"), _S("Live streaming performance."));
 			ImGui::BeginChild("plots", {0, 0});
 			gui_performance_metrics();
 			ImGui::EndChild();
@@ -1042,29 +1042,29 @@ void scenes::stream::draw_gui(XrTime predicted_display_time, XrDuration predicte
 	if (display_tabs)
 	{
 		// top bar: logo left, battery/connection status/window controls right
-		const float side = ImGui::GetFrameHeight() * wyrm::ui::metrics::control_height;
-		std::vector<wyrm::ui::top_bar_item> top_items;
-		if (auto bat = wyrm::gui::battery_status_indicator(instance.now()))
-			top_items.push_back({wyrm::ui::chip_width(bat->label, false, side),
-			                     [bat = *bat, side] { wyrm::ui::chip(bat.label, bat.style, false, side); }});
+		const float side = ImGui::GetFrameHeight() * wivrn::ui::metrics::control_height;
+		std::vector<wivrn::ui::top_bar_item> top_items;
+		if (auto bat = wivrn::gui::battery_status_indicator(instance.now()))
+			top_items.push_back({wivrn::ui::chip_width(bat->label, false, side),
+			                     [bat = *bat, side] { wivrn::ui::chip(bat.label, bat.style, false, side); }});
 		const std::string conn = _C("status in the title bar", "Connected");
-		top_items.push_back({wyrm::ui::chip_width(conn, true, side),
-		                     [conn, side] { wyrm::ui::chip(conn, wyrm::ui::chip_style::success, true, side); }});
+		top_items.push_back({wivrn::ui::chip_width(conn, true, side),
+		                     [conn, side] { wivrn::ui::chip(conn, wivrn::ui::chip_style::success, true, side); }});
 		const std::string close_label = _S("Close");
-		top_items.push_back({wyrm::ui::button_width(ICON_FA_XMARK, close_label),
+		top_items.push_back({wivrn::ui::button_width(ICON_FA_XMARK, close_label),
 		                     [this, close_label, side] {
-			                     if (wyrm::ui::button(ICON_FA_XMARK, close_label, wyrm::ui::button_style::secondary, {0, side}))
+			                     if (wivrn::ui::button(ICON_FA_XMARK, close_label, wivrn::ui::button_style::secondary, {0, side}))
 				                     next_gui_status = stream_tab::hidden;
 		                     }});
 		// disconnect asks for confirmation, OpenPopup/confirm_modal share the window id stack
 		bool request_disconnect = false;
 		const std::string disconnect_label = _S("Disconnect");
-		top_items.push_back({wyrm::ui::button_width(ICON_FA_DOOR_OPEN, disconnect_label),
+		top_items.push_back({wivrn::ui::button_width(ICON_FA_DOOR_OPEN, disconnect_label),
 		                     [&request_disconnect, disconnect_label, side] {
-			                     if (wyrm::ui::button(ICON_FA_DOOR_OPEN, disconnect_label, wyrm::ui::button_style::danger, {0, side}))
+			                     if (wivrn::ui::button(ICON_FA_DOOR_OPEN, disconnect_label, wivrn::ui::button_style::danger, {0, side}))
 				                     request_disconnect = true;
 		                     }});
-		wyrm::ui::top_bar(top_bar_h, wyrm_logo, top_items);
+		wivrn::ui::top_bar(top_bar_h, wivrn_logo, top_items);
 
 		if (request_disconnect)
 		{
@@ -1072,7 +1072,7 @@ void scenes::stream::draw_gui(XrTime predicted_display_time, XrDuration predicte
 			ImGui::OpenPopup("confirm disconnect");
 		}
 
-		if (wyrm::ui::begin_modal("confirm disconnect", _("Disconnect")))
+		if (wivrn::ui::begin_modal("confirm disconnect", _("Disconnect")))
 		{
 			const std::string kill_apps = ICON_FA_XMARK " " + _("Stop all applications");
 			const std::string disconnect_only = ICON_FA_DOOR_OPEN " " + _("Disconnect");
@@ -1080,14 +1080,14 @@ void scenes::stream::draw_gui(XrTime predicted_display_time, XrDuration predicte
 
 			const float gap = ImGui::GetStyle().ItemSpacing.x;
 
-			const float kill_apps_w = ImGui::CalcTextSize(kill_apps.c_str()).x + wyrm::ui::metrics::button_padding.x * 2;
-			const float disconnect_only_w = ImGui::CalcTextSize(disconnect_only.c_str()).x + wyrm::ui::metrics::button_padding.x * 2;
-			const float cancel_w = ImGui::CalcTextSize(cancel.c_str()).x + wyrm::ui::metrics::button_padding.x * 2;
+			const float kill_apps_w = ImGui::CalcTextSize(kill_apps.c_str()).x + wivrn::ui::metrics::button_padding.x * 2;
+			const float disconnect_only_w = ImGui::CalcTextSize(disconnect_only.c_str()).x + wivrn::ui::metrics::button_padding.x * 2;
+			const float cancel_w = ImGui::CalcTextSize(cancel.c_str()).x + wivrn::ui::metrics::button_padding.x * 2;
 			const float buttons_width = disconnect_only_w + cancel_w + kill_apps_w + 2 * gap;
 
 			ImGui::Dummy({std::max<float>(500, buttons_width), 0});
 
-			const auto & t = wyrm::ui::current();
+			const auto & t = wivrn::ui::current();
 			ImGui::PushStyleColor(ImGuiCol_Text, t.text_muted);
 			ImGui::TextWrapped("%s", _S("Disconnect from the server and return to the lobby?"));
 			ImGui::TextWrapped("%s", _S("The following applications/overlays are open:"));
@@ -1100,7 +1100,7 @@ void scenes::stream::draw_gui(XrTime predicted_display_time, XrDuration predicte
 
 			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - buttons_width);
 
-			if (button(kill_apps, wyrm::ui::button_style::danger, {kill_apps_w, 0}))
+			if (button(kill_apps, wivrn::ui::button_style::danger, {kill_apps_w, 0}))
 			{
 				for (const auto & app: running_applications.lock()->applications)
 					network_session->send_control(from_headset::stop_application{.id = app.id});
@@ -1109,28 +1109,28 @@ void scenes::stream::draw_gui(XrTime predicted_display_time, XrDuration predicte
 			}
 			ImGui::SameLine();
 
-			if (button(disconnect_only, wyrm::ui::button_style::primary, {disconnect_only_w, 0}))
+			if (button(disconnect_only, wivrn::ui::button_style::primary, {disconnect_only_w, 0}))
 			{
 				exit();
 				ImGui::CloseCurrentPopup();
 			}
 			ImGui::SameLine();
 
-			if (button(cancel, wyrm::ui::button_style::secondary, {cancel_w, 0}))
+			if (button(cancel, wivrn::ui::button_style::secondary, {cancel_w, 0}))
 			{
 				ImGui::CloseCurrentPopup();
 			}
 
-			wyrm::ui::end_modal();
+			wivrn::ui::end_modal();
 		}
 
 		// navigation sidebar, the settings items swap the page but keep the coarse settings tab
-		wyrm::ui::begin_sidebar(top_bar_h, tab_width, 2);
+		wivrn::ui::begin_sidebar(top_bar_h, tab_width, 2);
 		{
-			wyrm::ui::nav_section(_cS("tab group", "STREAM"));
-			if (wyrm::ui::nav_item(ICON_FA_LIST, _cS("tab label", "Applications"), gui_status == stream_tab::applications))
+			wivrn::ui::nav_section(_cS("tab group", "STREAM"));
+			if (wivrn::ui::nav_item(ICON_FA_LIST, _cS("tab label", "Applications"), gui_status == stream_tab::applications))
 				next_gui_status = stream_tab::applications;
-			if (wyrm::ui::nav_item(ICON_FA_ROCKET, _cS("tab label", "Start"), false))
+			if (wivrn::ui::nav_item(ICON_FA_ROCKET, _cS("tab label", "Start"), false))
 			{
 				apps.reset();
 				network_session->send_control(from_headset::get_application_list{
@@ -1140,12 +1140,12 @@ void scenes::stream::draw_gui(XrTime predicted_display_time, XrDuration predicte
 				});
 				next_gui_status = stream_tab::application_launcher;
 			}
-			if (wyrm::ui::nav_item(ICON_FA_COMPUTER, _S("Statistics"), gui_status == stream_tab::stats))
+			if (wivrn::ui::nav_item(ICON_FA_COMPUTER, _S("Statistics"), gui_status == stream_tab::stats))
 				next_gui_status = stream_tab::stats;
 
-			wyrm::ui::nav_section(_cS("tab group", "SETTINGS"));
+			wivrn::ui::nav_section(_cS("tab group", "SETTINGS"));
 			auto settings_item = [&](const char * icon, const std::string & label, settings_page page) {
-				if (wyrm::ui::nav_item(icon, label, gui_status == stream_tab::settings and current_settings_page == page))
+				if (wivrn::ui::nav_item(icon, label, gui_status == stream_tab::settings and current_settings_page == page))
 				{
 					current_settings_page = page;
 					next_gui_status = stream_tab::settings;
@@ -1161,15 +1161,15 @@ void scenes::stream::draw_gui(XrTime predicted_display_time, XrDuration predicte
 			settings_item(ICON_FA_PALETTE, _cS("tab label", "Theme"), settings_page::theme);
 
 			// pinned to the bottom
-			wyrm::ui::sidebar_footer();
-			if (wyrm::ui::nav_item(ICON_FA_CHART_LINE, _cS("tab label", "Statistics overlay"), false))
+			wivrn::ui::sidebar_footer();
+			if (wivrn::ui::nav_item(ICON_FA_CHART_LINE, _cS("tab label", "Statistics overlay"), false))
 				next_gui_status = stream_tab::overlay_only;
-			if (wyrm::ui::nav_item(ICON_FA_MINIMIZE, _cS("tab label", "Compact view"), false))
+			if (wivrn::ui::nav_item(ICON_FA_MINIMIZE, _cS("tab label", "Compact view"), false))
 				next_gui_status = stream_tab::compact;
 		}
-		wyrm::ui::end_sidebar();
+		wivrn::ui::end_sidebar();
 
-		wyrm::ui::shell_dividers(top_bar_h, tab_width);
+		wivrn::ui::shell_dividers(top_bar_h, tab_width);
 	}
 	ImGui::End();
 	ImGui::PopStyleVar(2);  // ImGuiStyleVar_ChildBorderSize, ImGuiStyleVar_WindowPadding

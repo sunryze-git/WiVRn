@@ -23,7 +23,7 @@
 #include <android/multinetwork.h>
 #endif
 
-namespace wyrm
+namespace wivrn
 {
 namespace
 {
@@ -94,10 +94,10 @@ network_endpoint describe_endpoint(const sockaddr * address, std::string interfa
 	return result;
 }
 
-// WYRM_MULTILINK_INTERFACES: comma separated interface names; unset or empty allows every interface.
+// WIVRN_MULTILINK_INTERFACES: comma separated interface names; unset or empty allows every interface.
 static bool interface_allowed(std::string_view name)
 {
-	const char * allowed = std::getenv("WYRM_MULTILINK_INTERFACES");
+	const char * allowed = std::getenv("WIVRN_MULTILINK_INTERFACES");
 	if (not allowed or not *allowed)
 		return true;
 	for (const auto part: std::views::split(std::string_view(allowed), ','))
@@ -213,4 +213,4 @@ uint64_t network_generation()
 {
 	return generation.load();
 }
-} // namespace wyrm
+} // namespace wivrn

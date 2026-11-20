@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2026  galister <galister-dev@pm.me>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 #include "audio.h"
 
 #include "utils/named_thread.h"
-#include "wyrm_client.h"
+#include "wivrn_client.h"
 #include "xr/instance.h"
 
 #include "spdlog/spdlog.h"
@@ -39,7 +39,7 @@
 #include <string_view>
 #include <vector>
 
-namespace wyrm::linux_audio
+namespace wivrn::linux_audio
 {
 void pipewire_deleter::operator()(pw_main_loop * loop) const noexcept
 {
@@ -256,7 +256,7 @@ void audio::build_speaker(const to_headset::audio_stream_description::device & d
 	        make_properties(
 	                "Playback",
 	                "Game",
-	                "wyrm-client-speaker",
+	                "wivrn-client-speaker",
 	                "Wyrm headset audio",
 	                device.sample_rate),
 	        &speaker_events,
@@ -302,7 +302,7 @@ void audio::build_microphone(const to_headset::audio_stream_description::device 
 	        make_properties(
 	                "Capture",
 	                "Communication",
-	                "wyrm-client-microphone",
+	                "wivrn-client-microphone",
 	                "Wyrm headset microphone",
 	                device.sample_rate),
 	        &microphone_events,
@@ -341,8 +341,8 @@ void audio::build_microphone(const to_headset::audio_stream_description::device 
 }
 
 audio::audio(
-        const wyrm::to_headset::audio_stream_description & desc,
-        wyrm_session & session,
+        const wivrn::to_headset::audio_stream_description & desc,
+        wivrn_session & session,
         xr::instance & instance) :
         desc(desc), session(session), instance(instance)
 {
@@ -380,7 +380,7 @@ audio::audio(
 	pw_thread_loop_unlock(loop.get());
 
 	if (microphone)
-		microphone_thread = utils::named_thread("wyrm-mic-send", &audio::microphone_sender, this);
+		microphone_thread = utils::named_thread("wivrn-mic-send", &audio::microphone_sender, this);
 }
 
 audio::~audio()
@@ -408,12 +408,12 @@ void audio::shutdown_pipewire()
 	loop.reset();
 }
 
-void audio::operator()(wyrm::audio_data && data)
+void audio::operator()(wivrn::audio_data && data)
 {
 	if (not desc.speaker)
 		return;
 
-	speaker_link.receive(std::move(data), [&](wyrm::audio_data && chunk) {
+	speaker_link.receive(std::move(data), [&](wivrn::audio_data && chunk) {
 		const auto size = chunk.payload.size_bytes();
 		speaker_buffer_size_bytes.fetch_add(size, std::memory_order_relaxed);
 		if (not speaker_samples.write(std::move(chunk)))
@@ -563,7 +563,7 @@ void audio::microphone_process(void * userdata)
 
 		if (size != 0)
 		{
-			wyrm::audio_data packet;
+			wivrn::audio_data packet;
 			packet.timestamp = self->instance.now();
 			packet.data.c = std::make_shared_for_overwrite<uint8_t[]>(size);
 			packet.payload = std::span(packet.data.c.get(), size);
@@ -614,7 +614,7 @@ void audio::microphone_sender()
 			try
 			{
 				microphone_link.send(packet->timestamp, packet->payload, frame_size, 1e9 / desc.microphone->sample_rate,
-				                     [&](wyrm::audio_data && chunk) { session.send_stream(std::move(chunk)); });
+				                     [&](wivrn::audio_data && chunk) { session.send_stream(std::move(chunk)); });
 			}
 			catch (const std::exception & e)
 			{
@@ -632,7 +632,7 @@ void audio::microphone_sender()
 	}
 }
 
-void audio::get_audio_description(wyrm::from_headset::headset_info_packet & info)
+void audio::get_audio_description(wivrn::from_headset::headset_info_packet & info)
 {
 	const auto devices = detect_devices();
 	if (not devices.pipewire)
@@ -657,4 +657,4 @@ void audio::get_audio_description(wyrm::from_headset::headset_info_packet & info
 		};
 	}
 }
-} // namespace wyrm::linux_audio
+} // namespace wivrn::linux_audio

@@ -24,18 +24,18 @@
 override_dh_auto_configure:
 	dh_auto_configure --              \
 	-DCMAKE_BUILD_TYPE=RelWithDebInfo \
-	-DWYRM_BUILD_CLIENT=OFF          \
-	-DWYRM_BUILD_SERVER=ON           \
-	-DWYRM_BUILD_DASHBOARD=ON        \
-	-DWYRM_BUILD_DISSECTOR=OFF       \
-	-DWYRM_USE_VAAPI=ON              \
-	-DWYRM_USE_VULKAN_ENCODE=OFF     \
-	-DWYRM_USE_X264=ON               \
-	-DWYRM_USE_NVENC=ON              \
-	-DWYRM_USE_SYSTEMD=ON            \
-	-DWYRM_USE_SYSTEM_BOOST=ON       \
-	-DWYRM_USE_PIPEWIRE=ON           \
-	-DWYRM_WERROR=OFF                \
+	-DWIVRN_BUILD_CLIENT=OFF          \
+	-DWIVRN_BUILD_SERVER=ON           \
+	-DWIVRN_BUILD_DASHBOARD=ON        \
+	-DWIVRN_BUILD_DISSECTOR=OFF       \
+	-DWIVRN_USE_VAAPI=ON              \
+	-DWIVRN_USE_VULKAN_ENCODE=OFF     \
+	-DWIVRN_USE_X264=ON               \
+	-DWIVRN_USE_NVENC=ON              \
+	-DWIVRN_USE_SYSTEMD=ON            \
+	-DWIVRN_USE_SYSTEM_BOOST=ON       \
+	-DWIVRN_USE_PIPEWIRE=ON           \
+	-DWIVRN_WERROR=OFF                \
 	-DFETCHCONTENT_BASE_DIR=$(shell pwd)
 
 # Don't add the ldconfig trigger

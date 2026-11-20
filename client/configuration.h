@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include "wyrm_discover.h"
-#include "wyrm_packets.h"
+#include "wivrn_discover.h"
+#include "wivrn_packets.h"
 
 #include <filesystem>
 #include <map>
@@ -64,11 +64,11 @@ public:
 	struct stream_config
 	{
 		float resolution_scale = 1.2;
-		std::optional<wyrm::video_codec> codec;
+		std::optional<wivrn::video_codec> codec;
 		uint32_t bitrate_bps = 50'000'000;
 		// Frame shell PC desktop streams: kbit/s per 1920×1080 of pixels (scaled per monitor), H.264 or HEVC
 		uint32_t desktop_bitrate_kbps = 16'000;
-		wyrm::video_codec desktop_codec = wyrm::video_codec::h264;
+		wivrn::video_codec desktop_codec = wivrn::video_codec::h264;
 		// Parity the PC adds to each video frame, in percent of its shards (from_headset::link_settings)
 		uint32_t fec_percent = 10;
 		// How much earlier than the slowest 0.5% of frames need the PC aims to have frames decoded (from_headset::link_settings)
@@ -85,7 +85,7 @@ public:
 		bool visible;
 		bool compatible;
 
-		wyrm_discover::service service;
+		wivrn_discover::service service;
 		bool remembered = false;
 		stream_config stream;
 	};
@@ -114,7 +114,7 @@ public:
 	bool forward_mouse = false;
 	bool forward_gamepad = false;
 
-	std::underlying_type_t<wyrm::from_headset::body_part_mask> body_part_mask = ~0;
+	std::underlying_type_t<wivrn::from_headset::body_part_mask> body_part_mask = ~0;
 
 	bool enable_stream_gui = true;
 

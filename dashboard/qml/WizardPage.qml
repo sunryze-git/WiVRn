@@ -7,7 +7,7 @@ import QtQuick.Controls as Controls
 import QtQuick.Templates as Templates
 import org.kde.kirigami as Kirigami
 
-import org.wyrmvr.wyrm
+import io.github.wivrn.wivrn
 
 Kirigami.ScrollablePage {
     id: wizard
@@ -225,11 +225,11 @@ Kirigami.ScrollablePage {
                     required property string serial
                     required property string model
                     required property string manufacturer
-                    required property bool isWyrmInstalled
+                    required property bool isWivrnInstalled
 
                     name: device_card.manufacturer + " " + device_card.model
                     serial_number: device_card.serial
-                    is_wyrm_installed: device_card.isWyrmInstalled
+                    is_wivrn_installed: device_card.isWivrnInstalled
                 }
             }
 
@@ -237,7 +237,7 @@ Kirigami.ScrollablePage {
                 Layout.fillHeight: true
             }
 
-            // image: Qt.resolvedUrl("wyrm.svg")
+            // image: Qt.resolvedUrl("wivrn.svg")
 
             actions: [
                 Kirigami.Action {
@@ -248,7 +248,7 @@ Kirigami.ScrollablePage {
                 Kirigami.Action {
                     text: i18n("Next")
                     icon.name: "go-next"
-                    onTriggered: pageStack.push(page_startwyrm_component.createObject(pageStack))
+                    onTriggered: pageStack.push(page_startwivrn_component.createObject(pageStack))
                 },
                 Kirigami.Action {
                     text: i18n("Cancel")
@@ -259,23 +259,23 @@ Kirigami.ScrollablePage {
     }
 
     Component {
-        id: page_startwyrm_component
+        id: page_startwivrn_component
 
         WizardStep {
-            id: page_startwyrm
+            id: page_startwivrn
             Component.onCompleted: {
-                WyrmServer.headsetConnectedChanged.connect(onHeadsetConnectedChanged);
-                WyrmServer.pairingEnabledChanged.connect(onCurrentItemChanged_or_PairingEnabledChanged);
+                WivrnServer.headsetConnectedChanged.connect(onHeadsetConnectedChanged);
+                WivrnServer.pairingEnabledChanged.connect(onCurrentItemChanged_or_PairingEnabledChanged);
                 pageStack.currentItemChanged.connect(onCurrentItemChanged_or_PairingEnabledChanged);
             }
 
             function onCurrentItemChanged_or_PairingEnabledChanged() {
-                if (pageStack?.currentItem === page_startwyrm && !WyrmServer.pairingEnabled)
-                    WyrmServer.enable_pairing();
+                if (pageStack?.currentItem === page_startwivrn && !WivrnServer.pairingEnabled)
+                    WivrnServer.enable_pairing();
             }
 
             function onHeadsetConnectedChanged(value) {
-                if (value && pageStack?.currentItem === page_startwyrm)
+                if (value && pageStack?.currentItem === page_startwivrn)
                     pageStack.push(page_connected_component.createObject(pageStack));
             }
 
@@ -293,7 +293,7 @@ Kirigami.ScrollablePage {
             }
 
             SteamLaunchOptions {
-                visible: WyrmServer.steamCommand != ""
+                visible: WivrnServer.steamCommand != ""
                 Layout.topMargin: 2 * Kirigami.Units.largeSpacing
             }
 
@@ -307,7 +307,7 @@ Kirigami.ScrollablePage {
             Controls.Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: i18n("To connect over WiFi, start the Wyrm app on your headset, connect to \"%1\" and enter PIN \"%2\".", WyrmServer.hostname, WyrmServer.pin)
+                text: i18n("To connect over WiFi, start the Wyrm app on your headset, connect to \"%1\" and enter PIN \"%2\".", WivrnServer.hostname, WivrnServer.pin)
             }
 
             RowLayout {
@@ -321,7 +321,7 @@ Kirigami.ScrollablePage {
                     onClicked: select_usb_device.connect()
                     enabled: select_usb_device.connected_headset_count > 0
 
-                    Controls.ToolTip.visible: WyrmServer.serverStatus == WyrmServer.Started&& hovered
+                    Controls.ToolTip.visible: WivrnServer.serverStatus == WivrnServer.Started&& hovered
                     Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
                     Controls.ToolTip.text: {
                         if (!Adb.adbInstalled)

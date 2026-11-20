@@ -2,7 +2,7 @@
 #include "linux/frame_shell.h"
 #endif
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -23,8 +23,8 @@
 #include "network_interface.h"
 #include "stream.h"
 #include "utils/json_string.h"
-#include "wyrm_serialization.h"
-#if WYRM_USE_V4L2
+#include "wivrn_serialization.h"
+#if WIVRN_USE_V4L2
 #include "decoder/v4l2/v4l2_decoder.h"
 #endif
 
@@ -270,7 +270,7 @@ void scenes::stream::operator()(to_headset::feature_control && control)
 {
 	switch (control.f)
 	{
-		case wyrm::to_headset::feature_control::hid_input:
+		case wivrn::to_headset::feature_control::hid_input:
 			hid_forwarding = control.state;
 			if (not control.state and (application::get_config().forward_keyboard or application::get_config().forward_mouse or application::get_config().forward_gamepad))
 			{
@@ -279,7 +279,7 @@ void scenes::stream::operator()(to_headset::feature_control && control)
 				gui_status_last_change = instance.now();
 			}
 			return;
-		case wyrm::to_headset::feature_control::microphone:
+		case wivrn::to_headset::feature_control::microphone:
 			microphone_requested = control.state;
 			if (audio_handle)
 				audio_handle->set_mic_state(background_active && microphone_requested);
@@ -311,10 +311,10 @@ void scenes::stream::operator()(to_headset::video_stream_description && desc)
 	{
 		tracking_thread = utils::named_thread("tracking_thread", &stream::tracking, this);
 	}
-#if WYRM_FRAME_EYES
+#if WIVRN_FRAME_EYES
 	if (not eye_tracker and application::get_config().eye_expressions)
 		eye_tracker = std::make_unique<frame_eyes::tracker>(
-		        xdg_data_home() / "wyrm",
+		        xdg_data_home() / "wivrn",
 		        application::get_config().eye_expressions_divisor,
 		        [this](from_headset::frame_eyes && eyes) {
 			        if (state_ == state::shutdown or not video_active)
@@ -323,7 +323,7 @@ void scenes::stream::operator()(to_headset::video_stream_description && desc)
 			        {
 				        network_session->send_stream(std::move(eyes));
 			        }
-			        catch (const wyrm::socket_shutdown &)
+			        catch (const wivrn::socket_shutdown &)
 			        {
 				        exit();
 			        }
@@ -365,14 +365,14 @@ void scenes::stream::operator()(audio_data && data)
 		(*audio_handle)(std::move(data));
 }
 
-void scenes::stream::send_feedback(const wyrm::from_headset::feedback & feedback)
+void scenes::stream::send_feedback(const wivrn::from_headset::feedback & feedback)
 {
 	try
 	{
 		if (feedback.received_from_decoder and not feedback.blitted)
-			network_session->send_control(wyrm::from_headset::feedback{feedback});
+			network_session->send_control(wivrn::from_headset::feedback{feedback});
 		else
-			network_session->send_stream(wyrm::from_headset::feedback{feedback});
+			network_session->send_stream(wivrn::from_headset::feedback{feedback});
 	}
 	catch (std::exception & e)
 	{
@@ -381,7 +381,7 @@ void scenes::stream::send_feedback(const wyrm::from_headset::feedback & feedback
 }
 
 // Asks for lost video shards again, over the stream socket so that they come back within the frame
-void scenes::stream::send_nack(wyrm::from_headset::video_nack && nack)
+void scenes::stream::send_nack(wivrn::from_headset::video_nack && nack)
 {
 	try
 	{
@@ -443,7 +443,7 @@ void scenes::stream::apply_video_active()
 
 void scenes::stream::start_application(std::string appid)
 {
-	network_session->send_control(wyrm::from_headset::start_app{
+	network_session->send_control(wivrn::from_headset::start_app{
 	        .app_id = std::move(appid),
 	});
 }
@@ -493,7 +493,7 @@ void scenes::stream::capture_line(const std::string & line)
 		shell_capture << line << '\n';
 }
 
-void scenes::stream::capture_decode(const wyrm::from_headset::feedback & feedback, bool error, int64_t target_ns)
+void scenes::stream::capture_decode(const wivrn::from_headset::feedback & feedback, bool error, int64_t target_ns)
 {
 	if (not shell_capturing.load(std::memory_order_relaxed))
 		return;
@@ -540,7 +540,7 @@ void scenes::stream::poll_shell()
 			frame_shell::request_present(command->substr(8));
 		else if (command->starts_with("start_app "))
 			start_application(command->substr(10));
-#if WYRM_FRAME_EYES
+#if WIVRN_FRAME_EYES
 		else if (command->starts_with("eye_calibrate "))
 		{
 			if (eye_tracker)
@@ -592,7 +592,7 @@ void scenes::stream::poll_shell()
 	if (now < shell_next_state)
 		return;
 	shell_next_state = now + std::chrono::milliseconds(100);
-#if WYRM_FRAME_EYES
+#if WIVRN_FRAME_EYES
 	if (now >= shell_next_debug)
 	{
 		shell_next_debug = now + std::chrono::seconds(1);
@@ -620,7 +620,7 @@ void scenes::stream::poll_shell()
 		}
 		const auto paths = network_session->links();
 		const auto is_dongle = [](const link_statistics & link) {
-			return wyrm::interface_kind(link.local.interface) == wyrm::interface_type::dongle;
+			return wivrn::interface_kind(link.local.interface) == wivrn::interface_type::dongle;
 		};
 		// Dongle first: stream over the dongle while it works, and over every link while it does not
 		if (shell_link_mode == "dongle")
@@ -686,7 +686,7 @@ void scenes::stream::poll_shell()
 		{
 			links += fmt::format(R"({}{{"name":{},"rtt_ms":{:.1f},"jitter_ms":{:.1f},"loss_percent":{:.1f},"capacity_mbit":{:.0f},"rx_mbit":{:.1f},"tx_mbit":{:.1f},"active":{}}})",
 			                     links.size() > 1 ? "," : "",
-			                     json_string(wyrm::interface_display_name(link.name)),
+			                     json_string(wivrn::interface_display_name(link.name)),
 			                     link.rtt_ms,
 			                     link.jitter_ms,
 			                     link.loss * 100,
@@ -776,7 +776,7 @@ void scenes::stream::poll_shell()
 	}
 	json += fmt::format(R"(,"multilink":{{"mode":{},"pinned":{},"links":{}}})",
 	                    json_string(shell_link_mode),
-	                    shell_link_pinned.empty() ? "null" : json_string(wyrm::interface_display_name(shell_link_pinned)),
+	                    shell_link_pinned.empty() ? "null" : json_string(wivrn::interface_display_name(shell_link_pinned)),
 	                    shell_links);
 	{
 		std::scoped_lock lock(network_status_mutex);

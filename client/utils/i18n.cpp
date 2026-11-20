@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -32,7 +32,7 @@ std::vector<boost::locale::gnu_gettext::messages_info> get_locales()
 	messages_info.paths.push_back("locale");
 	messages_info.encoding = "UTF-8";
 
-	messages_info.domains.push_back(boost::locale::gnu_gettext::messages_info::domain("wyrm"));
+	messages_info.domains.push_back(boost::locale::gnu_gettext::messages_info::domain("wivrn"));
 	messages_info.callback = open_locale_file;
 	std::vector<boost::locale::gnu_gettext::messages_info> res;
 

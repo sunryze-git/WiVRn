@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -18,7 +18,7 @@
  */
 
 #include "shader.h"
-#include "wyrm_shaders.h"
+#include "wivrn_shaders.h"
 #include <magic_enum.hpp>
 #include <spdlog/spdlog.h>
 #include <spirv_reflect.h>

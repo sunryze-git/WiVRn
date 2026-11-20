@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2023  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2023  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -68,10 +68,10 @@ template <>
 std::optional<std::string> env(std::string_view name)
 {
 #ifdef __ANDROID__
-	auto android_sysprop_name = std::format("debug.wyrm.{}", name);
+	auto android_sysprop_name = std::format("debug.wivrn.{}", name);
 	return get_property(android_sysprop_name.c_str());
 #else
-	std::string env_name = "WYRM_";
+	std::string env_name = "WIVRN_";
 	env_name.reserve(env_name.size() + name.size());
 	for (const auto & c: name)
 		env_name += std::toupper(c);
@@ -335,7 +335,7 @@ void hmd_traits::init()
 		std::string mode;
 		while (std::getline(modes, mode))
 		{
-			if (const auto panel = wyrm::parse_panel_mode(mode))
+			if (const auto panel = wivrn::parse_panel_mode(mode))
 			{
 				panel_width_override = panel->width;
 				panel_refresh_rates.push_back(panel->refresh_rate);
@@ -464,13 +464,13 @@ std::pair<glm::vec3, glm::quat> hmd_traits::controller_offset(xr::spaces space) 
 		    switch (space)
 		    {
 			    case xr::spaces::grip_left:
-				    return std::getenv("WYRM_GRIP_LEFT_OFFSET");
+				    return std::getenv("WIVRN_GRIP_LEFT_OFFSET");
 			    case xr::spaces::grip_right:
-				    return std::getenv("WYRM_GRIP_RIGHT_OFFSET");
+				    return std::getenv("WIVRN_GRIP_RIGHT_OFFSET");
 			    case xr::spaces::aim_left:
-				    return std::getenv("WYRM_AIM_LEFT_OFFSET");
+				    return std::getenv("WIVRN_AIM_LEFT_OFFSET");
 			    case xr::spaces::aim_right:
-				    return std::getenv("WYRM_AIM_RIGHT_OFFSET");
+				    return std::getenv("WIVRN_AIM_RIGHT_OFFSET");
 			    default:
 				    return nullptr;
 		    }

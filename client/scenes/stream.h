@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -23,7 +23,7 @@
 #include "application.h"
 #include "audio/audio.h"
 #include "configuration.h"
-#include "wyrm_config.h"
+#include "wivrn_config.h"
 #include "decoder/frame_sink.h"
 #include "decoder/shard_accumulator.h"
 #include "render/imgui_impl.h"
@@ -32,15 +32,15 @@
 #include "stream_defoveator.h"
 #include "utils/thread_safe.h"
 #include "wifi_lock.h"
-#include "wyrm_client.h"
-#include "wyrm_packets.h"
+#include "wivrn_client.h"
+#include "wivrn_packets.h"
 #include "xr/frame_foveated_projection.h"
 #include "xr/space.h"
 #ifndef __ANDROID__
 #include "linux/desktop_receiver.h"
 #include "linux/frame_shell.h"
 #endif
-#if WYRM_FRAME_EYES
+#if WIVRN_FRAME_EYES
 #include "frame_eyes/tracker.h"
 #endif
 #include <atomic>
@@ -57,7 +57,7 @@
 
 namespace scenes
 {
-class stream : public scene_impl<stream>, public std::enable_shared_from_this<stream>, public wyrm::frame_sink
+class stream : public scene_impl<stream>, public std::enable_shared_from_this<stream>, public wivrn::frame_sink
 {
 public:
 	enum class state
@@ -67,7 +67,7 @@ public:
 		stalled,
 		shutdown,
 	};
-	static const size_t image_buffer_size = wyrm::decoded_frame_buffer;
+	static const size_t image_buffer_size = wivrn::decoded_frame_buffer;
 
 	app_launcher apps;
 
@@ -77,11 +77,11 @@ private:
 
 	struct accumulator_images
 	{
-		std::unique_ptr<wyrm::shard_accumulator> decoder;
+		std::unique_ptr<wivrn::shard_accumulator> decoder;
 		// latest frames, rolling buffer
-		std::array<std::shared_ptr<wyrm::shard_accumulator::blit_handle>, image_buffer_size> latest_frames;
+		std::array<std::shared_ptr<wivrn::shard_accumulator::blit_handle>, image_buffer_size> latest_frames;
 
-		std::shared_ptr<wyrm::shard_accumulator::blit_handle> frame(uint64_t id) const;
+		std::shared_ptr<wivrn::shard_accumulator::blit_handle> frame(uint64_t id) const;
 		bool empty() const;
 	};
 
@@ -89,10 +89,10 @@ private:
 
 	// for frames inside accumulator images
 	std::mutex frames_mutex;
-	std::array<std::shared_ptr<wyrm::shard_accumulator::blit_handle>, decoder_count> selected_frames;
-	std::array<std::shared_ptr<wyrm::shard_accumulator::blit_handle>, decoder_count> common_frame(XrTime display_time);
+	std::array<std::shared_ptr<wivrn::shard_accumulator::blit_handle>, decoder_count> selected_frames;
+	std::array<std::shared_ptr<wivrn::shard_accumulator::blit_handle>, decoder_count> common_frame(XrTime display_time);
 
-	std::unique_ptr<wyrm_session> network_session;
+	std::unique_ptr<wivrn_session> network_session;
 	thread_safe<to_headset::network_report> network_report{};
 	std::thread network_thread;
 	thread_safe<to_headset::tracking_control> tracking_control{};
@@ -167,11 +167,11 @@ private:
 
 	std::optional<audio> audio_handle;
 	// XR_FRAME_foveated_projection per view, regenerated when the frame's foveation changes
-	std::array<std::optional<wyrm::foveation_description>, 2> foveated_layer_cache;
+	std::array<std::optional<wivrn::foveation_description>, 2> foveated_layer_cache;
 	std::array<XrCompositionLayerProjectionFoveationFRAME, 2> foveated_layer_info{};
-	std::array<wyrm::sharpening_region, 2> foveated_layer_sharpening{};
+	std::array<wivrn::sharpening_region, 2> foveated_layer_sharpening{};
 	std::array<bool, 2> foveated_layer_valid{};
-#if WYRM_FRAME_EYES
+#if WIVRN_FRAME_EYES
 	std::unique_ptr<frame_eyes::tracker> eye_tracker;
 #endif
 
@@ -186,7 +186,7 @@ private:
 	uint32_t height;
 
 	std::optional<imgui_context> imgui_ctx;
-	ImTextureID wyrm_logo = 0; // wordmark logo shown in the top bar, like the lobby
+	ImTextureID wivrn_logo = 0; // wordmark logo shown in the top bar, like the lobby
 	struct gui_toast
 	{
 		std::string content;
@@ -251,7 +251,7 @@ private:
 	void update_gui_position(xr::spaces controller, float predicted_display_period);
 
 	// Keep a reference to the resources needed to blit the images until vkWaitForFences
-	std::array<std::shared_ptr<wyrm::shard_accumulator::blit_handle>, decoder_count> current_blit_handles;
+	std::array<std::shared_ptr<wivrn::shard_accumulator::blit_handle>, decoder_count> current_blit_handles;
 
 	XrTime running_application_req = 0;
 	thread_safe<to_headset::running_applications> running_applications;
@@ -264,7 +264,7 @@ public:
 	~stream();
 
 	static std::shared_ptr<stream> create(
-	        std::unique_ptr<wyrm_session> session,
+	        std::unique_ptr<wivrn_session> session,
 	        float guessed_fps,
 	        std::string server_name,
 	        std::string cookie,
@@ -343,10 +343,10 @@ public:
 	void operator()(to_headset::shell_message &&);
 	void operator()(audio_data &&);
 
-	void push_blit_handle(wyrm::shard_accumulator * decoder, std::shared_ptr<wyrm::shard_accumulator::blit_handle> handle) override;
+	void push_blit_handle(wivrn::shard_accumulator * decoder, std::shared_ptr<wivrn::shard_accumulator::blit_handle> handle) override;
 
-	void send_feedback(const wyrm::from_headset::feedback & feedback);
-	void send_nack(wyrm::from_headset::video_nack &&);
+	void send_feedback(const wivrn::from_headset::feedback & feedback);
+	void send_nack(wivrn::from_headset::video_nack &&);
 
 	state current_state() const
 	{
@@ -366,16 +366,16 @@ public:
 #ifndef __ANDROID__
 	// Frame shell: commands from and state for the shell's UI, on the network thread
 	void poll_shell();
-	void capture_decode(const wyrm::from_headset::feedback & feedback, bool error, int64_t target_ns = 0) override;
+	void capture_decode(const wivrn::from_headset::feedback & feedback, bool error, int64_t target_ns = 0) override;
 	// Render size, stream size and codecs from the current configuration
 	from_headset::stream_settings stream_settings();
 	std::string shell_state;
 	std::string shell_video_debug = "null";
 	std::string shell_eyes_debug = "null";
-	// The last five seconds of the VR stream (render thread), for the Wyrm tab
+	// The last five seconds of the VR stream (render thread), for the WiVRn tab
 	std::mutex shell_vr_debug_mutex;
 	std::string shell_vr_debug = "null";
-	// The last second of frame, bandwidth and latency timings (render thread), for the Wyrm tab
+	// The last second of frame, bandwidth and latency timings (render thread), for the WiVRn tab
 	struct shell_stats_window
 	{
 		XrTime start = 0;
@@ -406,7 +406,7 @@ public:
 	std::mutex shell_stats_mutex;
 	std::string shell_stats = "null";
 	std::chrono::steady_clock::time_point shell_stats_time{};
-	// The connection's links as JSON (refreshed once a second), for the Wyrm tab
+	// The connection's links as JSON (refreshed once a second), for the WiVRn tab
 	std::string shell_links = "[]";
 	std::mutex shell_link_mutex;
 	std::optional<std::string> shell_link_request;
@@ -507,7 +507,7 @@ private:
 	float compact_cpu_time = 0;
 	float compact_gpu_time = 0;
 
-	void accumulate_metrics(XrTime predicted_display_time, const std::array<std::shared_ptr<wyrm::shard_accumulator::blit_handle>, decoder_count> & blit_handles, const gpu_timestamps & timestamps);
+	void accumulate_metrics(XrTime predicted_display_time, const std::array<std::shared_ptr<wivrn::shard_accumulator::blit_handle>, decoder_count> & blit_handles, const gpu_timestamps & timestamps);
 	void gui_performance_metrics();
 	void gui_compact_view();
 	void gui_settings(float predicted_display_period);

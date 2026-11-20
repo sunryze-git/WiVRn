@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -22,7 +22,7 @@
 #include <optional>
 #include <string>
 
-namespace wyrm
+namespace wivrn
 {
 
 namespace flatpak::section
@@ -33,4 +33,4 @@ inline const char * session_bus_policy = "Session Bus Policy";
 
 bool is_flatpak();
 std::optional<std::string> flatpak_key(std::string section, std::string key);
-} // namespace wyrm
+} // namespace wivrn

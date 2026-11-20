@@ -6,11 +6,11 @@
 #include <atomic>
 #include <cstdio>
 #include <spdlog/spdlog.h>
-#if WYRM_USE_V4L2
+#if WIVRN_USE_V4L2
 #include "decoder/v4l2/v4l2_decoder.h"
 #endif
 
-using namespace wyrm;
+using namespace wivrn;
 
 namespace frame_shell
 {
@@ -37,7 +37,7 @@ desktop_receiver::~desktop_receiver()
 
 void desktop_receiver::operator()(to_headset::desktop_surface && surface)
 {
-#if WYRM_USE_V4L2
+#if WIVRN_USE_V4L2
 	if (!enabled())
 		return;
 	desktop_surface_info info{
@@ -90,13 +90,13 @@ std::unique_ptr<desktop_receiver::desktop_stream> desktop_receiver::make_stream(
 	stream->height = height;
 	stream->name = name;
 	stream->codec = codec;
-#if WYRM_USE_V4L2
+#if WIVRN_USE_V4L2
 	to_headset::video_stream_description description{
 	        .width = width,
 	        .height = height,
 	        .codec = {codec, codec, codec},
 	};
-	stream->decoder = std::make_shared<wyrm::v4l2::decoder>(
+	stream->decoder = std::make_shared<wivrn::v4l2::decoder>(
 	        device, physical_device, queue_family_index, description, 0, weak_from_this(), reinterpret_cast<shard_accumulator *>(stream.get()));
 #endif
 	return stream;
@@ -122,7 +122,7 @@ void desktop_receiver::frame_lost(desktop_stream & stream)
 
 void desktop_receiver::operator()(to_headset::video_shard && video)
 {
-#if WYRM_USE_V4L2
+#if WIVRN_USE_V4L2
 	auto it = streams.find(video.stream - to_headset::video_shard::desktop_streams);
 	if (it == streams.end() or not it->second->decoder)
 		return;
@@ -192,14 +192,14 @@ void desktop_receiver::deliver_frames(streams_t::iterator it)
 // False if the decoder failed and the stream was replaced
 bool desktop_receiver::decode_frame(streams_t::iterator it, shards::receiver::frame & frame)
 {
-#if WYRM_USE_V4L2
+#if WIVRN_USE_V4L2
 	auto & stream = *it->second;
 	metric(stream.name, "received", *stream.last_frame, frame.size);
 	if (stream.decoder_lost_frame.exchange(false))
 		frame_lost(stream);
 	if (stream.wait_keyframe)
 	{
-		if (not wyrm::decoder::has_sps(frame.payload(0), stream.codec))
+		if (not wivrn::decoder::has_sps(frame.payload(0), stream.codec))
 		{
 			metric(stream.name, "waiting_keyframe", *stream.last_frame, frame.size);
 			frame_lost(stream);
@@ -215,7 +215,7 @@ bool desktop_receiver::decode_frame(streams_t::iterator it, shards::receiver::fr
 			chunks.push_back(frame.payload(i));
 		stream.decoder->push_data(chunks, stream.frame_index, false);
 		// iris sometimes stops taking input of one session when several start together
-		if (auto v4l2 = std::dynamic_pointer_cast<wyrm::v4l2::decoder>(stream.decoder); v4l2 and v4l2->stalled(std::chrono::seconds(1)))
+		if (auto v4l2 = std::dynamic_pointer_cast<wivrn::v4l2::decoder>(stream.decoder); v4l2 and v4l2->stalled(std::chrono::seconds(1)))
 			throw std::runtime_error("iris decoder stopped taking input");
 		stream.decoder->frame_completed({.frame_index = stream.frame_index, .stream_index = 255}, {});
 		++stream.frame_index;

@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -151,7 +151,7 @@ QCoro::Task<> adb::on_poll_devices_timeout()
 // END
 
 // BEGIN Add device
-QCoro::QmlTask adb::checkIfWyrmIsInstalled(QString serial)
+QCoro::QmlTask adb::checkIfWivrnIsInstalled(QString serial)
 {
 	return add_device(std::move(serial));
 }
@@ -177,9 +177,9 @@ QCoro::Task<> adb::add_device(QString serial)
 
 	for (auto & line: QString{out_list_packages}.split('\n'))
 	{
-		if (line == "package:org.wyrmvr.wyrm" or line.startsWith("package:org.wyrmvr.wyrm."))
+		if (line == "package:org.meumeu.wivrn" or line.startsWith("package:org.meumeu.wivrn."))
 		{
-			new_dev.is_wyrm_installed = true;
+			new_dev.is_wivrn_installed = true;
 			new_dev.app = line.mid(8);
 			break;
 		}
@@ -234,7 +234,7 @@ QHash<int, QByteArray> adb::roleNames() const
 {
 	return QHash<int, QByteArray>{
 	        {RoleSerial, "serial"},
-	        {RoleIsWyrmInstalled, "isWyrmInstalled"},
+	        {RoleIsWivrnInstalled, "isWivrnInstalled"},
 	        {RoleManufacturer, "manufacturer"},
 	        {RoleModel, "model"},
 	        {RoleProduct, "product"},
@@ -281,8 +281,8 @@ QVariant adb::data(const QModelIndex & index, int role) const
 				return it->second;
 		}
 
-		case RoleIsWyrmInstalled:
-			return m_android_devices.at(index.row()).is_wyrm_installed;
+		case RoleIsWivrnInstalled:
+			return m_android_devices.at(index.row()).is_wivrn_installed;
 
 		default:
 			return {};
@@ -321,7 +321,7 @@ QCoro::Task<> adb::doStartUsbConnection(QString serial, QString pin)
 		co_return;
 	}
 
-	QString uri = pin == "" ? "wyrm+tcp://127.0.0.1:9757" : "wyrm+tcp://:" + pin + "@127.0.0.1:9757";
+	QString uri = pin == "" ? "wivrn+tcp://127.0.0.1:9757" : "wivrn+tcp://:" + pin + "@127.0.0.1:9757";
 
 	auto adb_start_activity = escape_sandbox(m_path, "-s", serial, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", uri, it->app);
 	adb_start_activity->setProcessChannelMode(QProcess::ForwardedChannels);

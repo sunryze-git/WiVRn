@@ -1,4 +1,4 @@
-Source: wyrm
+Source: wivrn
 Section: net
 Priority: optional
 Maintainer: Guillaume Meunier <guillaume.meunier@centraliens.net>
@@ -44,7 +44,7 @@ Build-Depends:
 Standards-Version: 4.6.2
 Homepage: https://github.com/sunryze-git/Wyrm
 
-Package: wyrm
+Package: wivrn
 Architecture: any
 Multi-Arch: foreign
 Depends:

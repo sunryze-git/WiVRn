@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2026  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -24,7 +24,7 @@
 #include "render/ui_theme.h"
 #include <string>
 
-namespace ui = wyrm::ui;
+namespace ui = wivrn::ui;
 
 void scenes::lobby::apply_theme_settings()
 {

@@ -4,7 +4,7 @@ import QtQuick
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
 
-import org.wyrmvr.wyrm
+import io.github.wivrn.wivrn
 
 Kirigami.ScrollablePage {
     title: i18n("Troubleshoot")
@@ -38,18 +38,18 @@ Kirigami.ScrollablePage {
         }
         TroubleshootCard {
             title: i18n("I have a \"Pairing is disabled\" error")
-            details: i18n("If you have reinstalled the server or the client or if you want to connect another headset, you must enable pairing before connecting.") + "\n\n" + (WyrmServer.pairingEnabled ? i18n("Pairing is currently enabled with PIN %1.", WyrmServer.pin) : i18n("Pairing is currently disabled."))
+            details: i18n("If you have reinstalled the server or the client or if you want to connect another headset, you must enable pairing before connecting.") + "\n\n" + (WivrnServer.pairingEnabled ? i18n("Pairing is currently enabled with PIN %1.", WivrnServer.pin) : i18n("Pairing is currently disabled."))
 
             actions: [
                 Kirigami.Action {
                     text: i18n("Enable pairing")
-                    visible: !WyrmServer.pairingEnabled
-                    onTriggered: WyrmServer.enable_pairing()
+                    visible: !WivrnServer.pairingEnabled
+                    onTriggered: WivrnServer.enable_pairing()
                 },
                 Kirigami.Action {
                     text: i18n("Disable pairing")
-                    visible: WyrmServer.pairingEnabled
-                    onTriggered: WyrmServer.disable_pairing()
+                    visible: WivrnServer.pairingEnabled
+                    onTriggered: WivrnServer.disable_pairing()
                 }
             ]
         }
@@ -89,7 +89,7 @@ Kirigami.ScrollablePage {
         Kirigami.Action {
             text: i18n("Open server logs")
             icon.name: "viewlog-symbolic"
-            onTriggered: WyrmServer.open_server_logs()
+            onTriggered: WivrnServer.open_server_logs()
         }
     ]
 

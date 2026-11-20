@@ -6,45 +6,45 @@
 
 From your checkout directory
 ```bash
-cmake -B build-server . -GNinja -DWYRM_BUILD_CLIENT=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake -B build-server . -GNinja -DWIVRN_BUILD_CLIENT=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build-server
 ```
 
 By default, all encoders are enabled. It is possible to disable them at build time with the following options:
 ```
--DWYRM_USE_NVENC=OFF
--DWYRM_USE_VAAPI=OFF
--DWYRM_USE_VULKAN_ENCODE=OFF
--DWYRM_USE_X264=OFF
+-DWIVRN_USE_NVENC=OFF
+-DWIVRN_USE_VAAPI=OFF
+-DWIVRN_USE_VULKAN_ENCODE=OFF
+-DWIVRN_USE_X264=OFF
 ```
 
-wyrmctl is an optional tool enabled by default and the only part that requires libsystemd/libelogind.
+wivrnctl is an optional tool enabled by default and the only part that requires libsystemd/libelogind.
 It can be disabled with
 ```
--DWYRM_USE_WYRMCTL=OFF
+-DWIVRN_USE_WIVRNCTL=OFF
 ```
 
 Lighthouse driver support for use with lighthouse-tracked devices
 ```
--DWYRM_FEATURE_STEAMVR_LIGHTHOUSE=ON
+-DWIVRN_FEATURE_STEAMVR_LIGHTHOUSE=ON
 ```
 
-For a few dependencies it is possible to select system or embedded versions, check `WYRM_USE_SYSTEM_xxx` in case you are missing dependencies.
+For a few dependencies it is possible to select system or embedded versions, check `WIVRN_USE_SYSTEM_xxx` in case you are missing dependencies.
 
 For more advanced options, check [CMakeLists.txt](../CMakeLists.txt).
 
 ## Profiling / tracing build
 
-To build the server with Perfetto tracing for local profiling, use the `server-tracing` preset (it is the `server` preset plus `WYRM_USE_PERFETTO=ON`):
+To build the server with Perfetto tracing for local profiling, use the `server-tracing` preset (it is the `server` preset plus `WIVRN_USE_PERFETTO=ON`):
 
 ```bash
 cmake --preset server-tracing
 cmake --build build-server-tracing
 ```
 
-This requires the Perfetto amalgamated SDK installed where CMake looks for it (`/usr/share/perfetto/sdk/perfetto.{h,cc}`, override with `-DPERFETTO_SDK_DIR=<dir>`). Tracing is gated at runtime by the `WYRM_TRACING` env var, so a tracing-enabled build has no cost until you set it.
+This requires the Perfetto amalgamated SDK installed where CMake looks for it (`/usr/share/perfetto/sdk/perfetto.{h,cc}`, override with `-DPERFETTO_SDK_DIR=<dir>`). Tracing is gated at runtime by the `WIVRN_TRACING` env var, so a tracing-enabled build has no cost until you set it.
 
-To also instrument Monado under the same switch, use the `server-tracing-monado` preset (adds `WYRM_TRACE_MONADO=ON`); this requires [percetto](https://github.com/olvaffe/percetto/) to be discoverable at configure time.
+To also instrument Monado under the same switch, use the `server-tracing-monado` preset (adds `WIVRN_TRACE_MONADO=ON`); this requires [percetto](https://github.com/olvaffe/percetto/) to be discoverable at configure time.
 
 See [profiling](profiling.md) for how to run the server with tracing and capture/analyse traces.
 
@@ -56,7 +56,7 @@ The Wyrm dashboard requires Qt6, Kirigami, and the Wyrm server.
 
 From your checkout directory, compile both the server and the dashboard:
 ```bash
-cmake -B build-dashboard . -GNinja -DWYRM_BUILD_CLIENT=OFF -DWYRM_BUILD_SERVER=ON -DWYRM_BUILD_DASHBOARD=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake -B build-dashboard . -GNinja -DWIVRN_BUILD_CLIENT=OFF -DWIVRN_BUILD_SERVER=ON -DWIVRN_BUILD_DASHBOARD=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build-dashboard
 ```
 
@@ -103,7 +103,7 @@ export JAVA_HOME=/usr/lib/jvm/java-17-openjdk/
 ./gradlew assembleRelease
 ```
 
-Outputs will be in `build/outputs/apk/release/Wyrm-release.apk`
+Outputs will be in `build/outputs/apk/release/WiVRn-release.apk`
 
 #### Install apk with adb
 Before using adb you must enable usb debugging on your device:
@@ -121,7 +121,7 @@ adb start-server
 adb devices
 
 # Install apk
-adb install build/outputs/apk/release/Wyrm-release.apk
+adb install build/outputs/apk/release/WiVRn-release.apk
 
 # When you're done, you can stop the adb server
 adb kill-server
@@ -129,12 +129,12 @@ adb kill-server
 
 ## Fork identity and releases
 
-Wyrm uses the `wyrm` executable names, `WYRM_*` CMake options and environment variables, and the `org.wyrmvr.wyrm` application ID. Android builds use `org.wyrmvr.wyrm.local` unless a different suffix is selected. Server and client builds must use the same fork and revision. Use a fresh build directory when switching from upstream so its cached options and Monado runtime settings are not reused.
+Wyrm uses WiVRn's executable names (`wivrn-server`, `wivrn-dashboard`, `wivrnctl`, the `wivrn` client binary), `WIVRN_*` CMake options and environment variables, and the `io.github.wivrn.wivrn` and `org.meumeu.wivrn` application IDs. Android builds use `org.meumeu.wivrn.local` unless a different suffix is selected. Server and client builds must use the same fork and revision. Use a fresh build directory when switching from upstream so its cached options and Monado runtime settings are not reused.
 
-`WYRM_GITHUB_REPOSITORY` selects the GitHub `owner/repository` used by the dashboard for project links and matching APK releases. It defaults to `sunryze-git/Wyrm`; set it to an empty string to disable online release discovery. Private repositories require access and do not expose release downloads anonymously.
+`WIVRN_GITHUB_REPOSITORY` selects the GitHub `owner/repository` used by the dashboard for project links and matching APK releases. It defaults to `sunryze-git/Wyrm`; set it to an empty string to disable online release discovery. Private repositories require access and do not expose release downloads anonymously.
 
 ```sh
-cmake -S . -B build-server -DWYRM_GITHUB_REPOSITORY=sunryze-git/Wyrm
+cmake -S . -B build-server -DWIVRN_GITHUB_REPOSITORY=sunryze-git/Wyrm
 ```
 
-Configuration, pairing data, logs, sockets, and service discovery use `wyrm` paths and names. Wyrm does not automatically import upstream settings or pairings.
+Configuration (`~/.config/wivrn`), pairing data, logs, sockets, OpenXR runtime files, and service discovery (`_wivrn._tcp`) use WiVRn's paths and names, so Wyrm shares them with WiVRn and cannot be installed side by side with it.

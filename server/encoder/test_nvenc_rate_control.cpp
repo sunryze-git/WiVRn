@@ -13,7 +13,7 @@ static void check(bool valid, std::source_location where = std::source_location:
 }
 int main()
 {
-	using namespace wyrm;
+	using namespace wivrn;
 	nvenc_options quality({{"preset", "P6"}, {"multipass", "full"}, {"aq-strength", "9"}, {"temporal-aq", "true"}, {"vbv-frames", "3"}, {"rc", "vbr"}, {"max-bitrate", "200000000"}, {"min-qp", "10"}, {"max-qp", "45"}});
 	for (uint32_t bitrate: {10'000'000u, 80'000'000u, 250'000'000u})
 		for (float rate: {45.0f, 72.0f, 90.0f, 119.88f})

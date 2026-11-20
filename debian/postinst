@@ -1,5 +1,5 @@
 #!/bin/sh
-# postinst script for wyrm.
+# postinst script for wivrn.
 #
 # See: dh_installdeb(1).
 
@@ -20,7 +20,7 @@ set -e
 
 case "$1" in
     configure)
-        setcap CAP_SYS_NICE=+ep /usr/bin/wyrm-server
+        setcap CAP_SYS_NICE=+ep /usr/bin/wivrn-server
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

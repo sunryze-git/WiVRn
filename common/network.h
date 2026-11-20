@@ -8,7 +8,7 @@
 #include <sys/socket.h>
 #include <vector>
 
-namespace wyrm
+namespace wivrn
 {
 struct network_endpoint
 {
@@ -34,4 +34,4 @@ ssize_t send_network_packet(int fd, const network_endpoint & local, const socket
 void set_network_handle(std::string interface, uint64_t handle);
 void remove_network_handle(uint64_t handle);
 uint64_t network_generation();
-} // namespace wyrm
+} // namespace wivrn

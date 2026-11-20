@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -826,7 +826,7 @@ void imgui_context::new_frame(XrTime display_time)
 
 	ImGui::NewFrame();
 
-#if WYRM_SHOW_IMGUI_DEMO_WINDOW
+#if WIVRN_SHOW_IMGUI_DEMO_WINDOW
 	if (show_demo_window)
 		ImGui::ShowDemoWindow(&show_demo_window);
 #endif
@@ -953,7 +953,7 @@ std::vector<std::pair<int, XrCompositionLayerQuad>> imgui_context::end_frame()
 			        window->Pos.x + window->Size.x,
 			        window->Pos.y + window->Size.y};
 
-			draw_list->AddRectFilled(window_rect.Min, window_rect.Max, ImGui::ColorConvertFloat4ToU32(wyrm::ui::current().dimming), window->WindowRounding);
+			draw_list->AddRectFilled(window_rect.Min, window_rect.Max, ImGui::ColorConvertFloat4ToU32(wivrn::ui::current().dimming), window->WindowRounding);
 		}
 	}
 
@@ -1270,8 +1270,8 @@ void imgui_context::tooltip(std::string_view text, std::optional<ImVec2> anchor)
 
 	// Draw the tooltip in the tooltip layer, themed
 	// Clamp position to avoid overflowing on the left or the right
-	const wyrm::ui::theme & t = wyrm::ui::current();
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, wyrm::ui::metrics::tooltip_padding);
+	const wivrn::ui::theme & t = wivrn::ui::current();
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, wivrn::ui::metrics::tooltip_padding);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, t.card_rounding);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, t.border_size);
 	ImGui::PushStyleColor(ImGuiCol_PopupBg, t.card);

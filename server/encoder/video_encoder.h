@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -22,7 +22,7 @@
 #include "driver/clock_offset.h"
 #include "idr_handler.h"
 #include "shard_stream.h"
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -34,12 +34,12 @@
 #include <thread>
 #include <vulkan/vulkan_raii.hpp>
 
-namespace wyrm
+namespace wivrn
 {
 
 struct encoder_settings;
 struct vk_bundle;
-class wyrm_session;
+class wivrn_session;
 
 inline const char * encoder_nvenc = "nvenc";
 inline const char * encoder_vaapi = "vaapi";
@@ -98,7 +98,7 @@ private:
 
 	std::mutex mutex;
 	shards::sender recovery;
-	wyrm_session * cnx = nullptr;
+	wivrn_session * cnx = nullptr;
 	uint64_t frame_index = 0;
 	to_headset::video_frame_info frame_info;
 	std::vector<uint8_t> frame_data;
@@ -119,7 +119,7 @@ protected:
 
 public:
 	static std::unique_ptr<video_encoder> create(
-	        wyrm::vk_bundle &,
+	        wivrn::vk_bundle &,
 	        const encoder_settings & settings,
 	        uint8_t stream_idx);
 
@@ -140,7 +140,7 @@ public:
 	void set_bitrate(uint32_t bitrate_bps);
 	void set_framerate(float framerate);
 
-	void encode(wyrm_session & cnx,
+	void encode(wivrn_session & cnx,
 	            const to_headset::video_frame_info::view_info_t & view_info,
 	            uint64_t frame_index);
 
@@ -157,4 +157,4 @@ protected:
 	void SendData(std::span<uint8_t> data, bool end_of_frame, bool control = false);
 };
 
-} // namespace wyrm
+} // namespace wivrn

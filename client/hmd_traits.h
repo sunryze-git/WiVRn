@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2026  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -39,11 +39,11 @@ public:
 	// The cpp file has per-headset values
 	// it is possible to override values:
 	// on Android:
-	//   adb setprop debug.wyrm.{property-name} {property-value}
-	//   i.e. adb setprop debug.wyrm.view_locate false
+	//   adb setprop debug.wivrn.{property-name} {property-value}
+	//   i.e. adb setprop debug.wivrn.view_locate false
 	// on Linux:
-	//   export WYRM_{PROPERTY-NAME}={property-value}
-	//   i.e. export WYRM_VIEW_LOCATE=false
+	//   export WIVRN_{PROPERTY-NAME}={property-value}
+	//   i.e. export WIVRN_VIEW_LOCATE=false
 	std::string controller_profile = "generic-trigger-squeeze";
 	std::string controller_ray_model = "assets://ray.glb";
 	hmd_permissions permissions{};

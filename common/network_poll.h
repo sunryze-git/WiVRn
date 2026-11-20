@@ -5,7 +5,7 @@
 #include <utility>
 #include <variant>
 
-namespace wyrm
+namespace wivrn
 {
 template <typename Receive, typename Visitor>
 std::chrono::milliseconds dispatch_pending_packets(Receive && receive, Visitor && visitor, std::chrono::milliseconds timeout)
@@ -18,4 +18,4 @@ std::chrono::milliseconds dispatch_pending_packets(Receive && receive, Visitor &
 	}
 	return timeout;
 }
-} // namespace wyrm
+} // namespace wivrn

@@ -9,7 +9,7 @@ import sys
 import typing
 import xml.etree.ElementTree as ET
 
-HEADER = """wyrm ({version}-1) {distribution}; urgency=medium
+HEADER = """wivrn ({version}-1) {distribution}; urgency=medium
 
 """
 
@@ -49,7 +49,7 @@ def main():
         tree = ET.parse(args.metainfo)
     else:
         default_metainfo = os.path.join(
-            os.path.dirname(__file__), "../dashboard/org.wyrmvr.wyrm.metainfo.xml"
+            os.path.dirname(__file__), "../dashboard/io.github.wivrn.wivrn.metainfo.xml"
         )
         with open(default_metainfo) as metainfo:
             tree = ET.parse(metainfo)

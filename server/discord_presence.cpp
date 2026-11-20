@@ -45,11 +45,11 @@ std::string encode(const nlohmann::json & value)
 }
 } // namespace
 
-namespace wyrm
+namespace wivrn
 {
 std::vector<std::filesystem::path> discord_ipc_paths()
 {
-	if (const char * path = std::getenv("WYRM_DISCORD_IPC_PATH"); path and *path)
+	if (const char * path = std::getenv("WIVRN_DISCORD_IPC_PATH"); path and *path)
 		return {path};
 
 	std::vector<std::filesystem::path> directories;
@@ -355,4 +355,4 @@ void discord_presence::poll(clock::time_point now)
 	if (not flush())
 		retry(now);
 }
-} // namespace wyrm
+} // namespace wivrn

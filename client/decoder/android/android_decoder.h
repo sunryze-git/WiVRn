@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -21,7 +21,7 @@
 
 #include "decoder/decoder.h"
 #include "utils/sync_queue.h"
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include <atomic>
 #include <functional>
 #include <memory>
@@ -49,7 +49,7 @@ DEUGLIFY(AImage)
 DEUGLIFY(AImageReader)
 DEUGLIFY(AMediaCodec)
 
-namespace wyrm
+namespace wivrn
 {
 class shard_accumulator;
 }
@@ -59,9 +59,9 @@ namespace scenes
 class stream;
 }
 
-namespace wyrm::android
+namespace wivrn::android
 {
-class decoder : public wyrm::decoder
+class decoder : public wivrn::decoder
 {
 public:
 	struct mapped_hardware_buffer;
@@ -103,8 +103,8 @@ private:
 
 	struct frame_info
 	{
-		wyrm::from_headset::feedback feedback;
-		wyrm::to_headset::video_frame_info::view_info_t view_info;
+		wivrn::from_headset::feedback feedback;
+		wivrn::to_headset::video_frame_info::view_info_t view_info;
 	};
 	utils::sync_queue<frame_info> frame_infos;
 
@@ -123,7 +123,7 @@ private:
 public:
 	decoder(vk::raii::Device & device,
 	        vk::raii::PhysicalDevice & physical_device,
-	        const wyrm::to_headset::video_stream_description & description,
+	        const wivrn::to_headset::video_stream_description & description,
 	        uint8_t stream_index,
 	        std::weak_ptr<scenes::stream> scene,
 	        shard_accumulator * accumulator);
@@ -132,15 +132,15 @@ public:
 	void push_data(std::span<std::span<const uint8_t>> data, uint64_t frame_index, bool partial) override;
 
 	void frame_completed(
-	        const wyrm::from_headset::feedback & feedback,
-	        const wyrm::to_headset::video_frame_info::view_info_t & view_info) override;
+	        const wivrn::from_headset::feedback & feedback,
+	        const wivrn::to_headset::video_frame_info::view_info_t & view_info) override;
 
 	vk::Sampler sampler() override
 	{
 		return *ycbcr_sampler;
 	}
 
-	static void supported_codecs(std::vector<wyrm::video_codec> &);
+	static void supported_codecs(std::vector<wivrn::video_codec> &);
 };
 
-} // namespace wyrm::android
+} // namespace wivrn::android

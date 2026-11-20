@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -23,13 +23,13 @@
 
 namespace
 {
-struct raw_blit_handle : public wyrm::decoder::blit_handle
+struct raw_blit_handle : public wivrn::decoder::blit_handle
 {
 	std::atomic_bool & free;
 
 	raw_blit_handle(
-	        const wyrm::from_headset::feedback & feedback,
-	        const wyrm::to_headset::video_frame_info::view_info_t & view_info,
+	        const wivrn::from_headset::feedback & feedback,
+	        const wivrn::to_headset::video_frame_info::view_info_t & view_info,
 	        vk::ImageView image_view,
 	        vk::Image image,
 	        vk::Extent2D extent,
@@ -37,7 +37,7 @@ struct raw_blit_handle : public wyrm::decoder::blit_handle
 	        vk::Semaphore semaphore,
 	        uint64_t & semaphore_val,
 	        std::atomic_bool & free) :
-	        wyrm::decoder::blit_handle{feedback, view_info, image_view, image, extent, current_layout, semaphore, &semaphore_val},
+	        wivrn::decoder::blit_handle{feedback, view_info, image_view, image, extent, current_layout, semaphore, &semaphore_val},
 	        free(free) {}
 	~raw_blit_handle()
 	{
@@ -69,13 +69,13 @@ vk::raii::Sampler make_sampler(
 }
 } // namespace
 
-namespace wyrm
+namespace wivrn
 {
 raw_decoder::raw_decoder(
         vk::raii::Device & device,
         vk::raii::PhysicalDevice & physical_device,
         uint32_t vk_queue_family_index,
-        const wyrm::to_headset::video_stream_description & description,
+        const wivrn::to_headset::video_stream_description & description,
         uint8_t stream_index,
         std::weak_ptr<scenes::stream> scene,
         shard_accumulator * accumulator) :
@@ -341,8 +341,8 @@ raw_decoder::image * raw_decoder::get_free()
 	return nullptr;
 }
 
-std::vector<wyrm::video_codec> raw_decoder::supported_codecs()
+std::vector<wivrn::video_codec> raw_decoder::supported_codecs()
 {
 	return {video_codec::raw};
 }
-} // namespace wyrm
+} // namespace wivrn

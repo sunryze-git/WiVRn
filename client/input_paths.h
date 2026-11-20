@@ -1,10 +1,10 @@
 #pragma once
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include <string>
 #include <unordered_map>
 #include <array>
 #include <numeric>
-namespace wyrm {
+namespace wivrn {
 // clang-format off
 inline const std::unordered_map<std::string, device_id> device_ids = {
 	{"/user/hand/left/input/dpad_up/click",       device_id::DPAD_UP_CLICK},

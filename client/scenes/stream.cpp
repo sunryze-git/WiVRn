@@ -2,7 +2,7 @@
 #include "linux/frame_shell.h"
 #endif
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -33,7 +33,7 @@
 
 #include "stream.h"
 #include "frame_selection.h"
-#include "wyrm_foveation.h"
+#include "wivrn_foveation.h"
 #include "xr/frame_foveated_projection.h"
 #include "application.h"
 #include "audio/audio.h"
@@ -44,7 +44,7 @@
 #include "utils/named_thread.h"
 #include "utils/ranges.h"
 #include "utils/xdg_base_directory.h"
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include <algorithm>
 #include <fstream>
 #include <mutex>
@@ -52,12 +52,12 @@
 #include <thread>
 #include <vulkan/vulkan_raii.hpp>
 
-#include "wyrm_config.h"
-#if WYRM_FEATURE_RENDERDOC
+#include "wivrn_config.h"
+#if WIVRN_FEATURE_RENDERDOC
 #include "vk/renderdoc.h"
 #endif
 
-using namespace wyrm;
+using namespace wivrn;
 using namespace beman::inplace_vector;
 
 #include "input_paths.h"
@@ -159,7 +159,7 @@ from_headset::stream_settings scenes::stream::stream_settings()
 	return res;
 }
 
-std::shared_ptr<scenes::stream> scenes::stream::create(std::unique_ptr<wyrm_session> network_session, float guessed_fps, std::string server_name, std::string cookie, scene & parent_scene, bool video_active)
+std::shared_ptr<scenes::stream> scenes::stream::create(std::unique_ptr<wivrn_session> network_session, float guessed_fps, std::string server_name, std::string cookie, scene & parent_scene, bool video_active)
 {
 	std::shared_ptr<stream> self{new stream{std::move(server_name), parent_scene}};
 	self->cookie = std::move(cookie);
@@ -479,13 +479,13 @@ void scenes::stream::on_focused()
 		switch (tm->tm_mon)
 		{
 			case 5:
-				wyrm_logo = imgui_ctx->load_texture("assets://wyrm-pride.ktx2");
+				wivrn_logo = imgui_ctx->load_texture("assets://wivrn-pride.ktx2");
 				break;
 			case 11:
-				wyrm_logo = imgui_ctx->load_texture("assets://wyrm-christmas.ktx2");
+				wivrn_logo = imgui_ctx->load_texture("assets://wivrn-christmas.ktx2");
 				break;
 			default:
-				wyrm_logo = imgui_ctx->load_texture("assets://wyrm.ktx2");
+				wivrn_logo = imgui_ctx->load_texture("assets://wivrn.ktx2");
 				break;
 		}
 	}
@@ -543,7 +543,7 @@ scenes::stream::~stream()
 	if (network_thread.joinable())
 		network_thread.join();
 
-#if WYRM_FRAME_EYES
+#if WIVRN_FRAME_EYES
 	eye_tracker.reset();
 #endif
 
@@ -651,8 +651,8 @@ std::array<std::shared_ptr<shard_accumulator::blit_handle>, 3> scenes::stream::c
 		selection_time = instance.now();
 	}
 #endif
-	auto result = wyrm::select_stereo_frame(frames, selected_frames, display_time);
-	if (not wyrm::stereo_frames_match(result))
+	auto result = wivrn::select_stereo_frame(frames, selected_frames, display_time);
+	if (not wivrn::stereo_frames_match(result))
 	{
 		spdlog::warn("Failed to find a common frame for all decoders, dumping available frames per decoder");
 		for (const auto & decoder: decoders)
@@ -870,7 +870,7 @@ void scenes::stream::render_into(const XrFrameState & frame_state, scene * compo
 	if (!composition)
 		session.begin_frame();
 
-#if WYRM_FEATURE_RENDERDOC
+#if WIVRN_FEATURE_RENDERDOC
 	renderdoc_begin(*vk_instance);
 #endif
 	command_buffer.reset();
@@ -885,7 +885,7 @@ void scenes::stream::render_into(const XrFrameState & frame_state, scene * compo
 
 	std::array<XrPosef, view_count> pose;
 	std::array<XrFovf, view_count> fov;
-	std::array<wyrm::foveation_description, view_count> foveation;
+	std::array<wivrn::foveation_description, view_count> foveation;
 	bool use_alpha = false;
 
 	std::array<stream_defoveator::input, view_count> images;
@@ -921,7 +921,7 @@ void scenes::stream::render_into(const XrFrameState & frame_state, scene * compo
 
 		use_alpha = blit_handle->view_info.alpha;
 
-#if WYRM_USE_V4L2
+#if WIVRN_USE_V4L2
 		if (blit_handle->foreign_queue_family != vk::QueueFamilyIgnored)
 		{
 			// decoder completed its write before handing us this image
@@ -1087,9 +1087,9 @@ void scenes::stream::render_into(const XrFrameState & frame_state, scene * compo
 		{
 			if (foveated_layer_cache[view] != foveation[view])
 			{
-				wyrm::foveation_parameter tables;
-				wyrm::generate_foveation(foveation[view], tables);
-				foveated_layer_sharpening[view] = wyrm::make_sharpening_region(
+				wivrn::foveation_parameter tables;
+				wivrn::generate_foveation(foveation[view], tables);
+				foveated_layer_sharpening[view] = wivrn::make_sharpening_region(
 				        tables.x, tables.y, foveation[view].x.encoded_size, foveation[view].y.encoded_size);
 				auto & info = foveated_layer_info[view];
 				info = {.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_FOVEATION_FRAME};
@@ -1119,7 +1119,7 @@ void scenes::stream::render_into(const XrFrameState & frame_state, scene * compo
 		                      {bias, bias, bias, 0.},
 		                      image_index);
 
-#if WYRM_USE_V4L2
+#if WIVRN_USE_V4L2
 		// the blit handles keep CAPTURE buffers alive until this cmd buffer's fence has completed
 		inplace_vector<vk::ImageMemoryBarrier, decoder_count> foreign_release_barriers;
 		for (const auto & handle: current_blit_handles)
@@ -1183,7 +1183,7 @@ void scenes::stream::render_into(const XrFrameState & frame_state, scene * compo
 
 		device.resetFences(*fence);
 		queue.lock()->submit(submit_info, *fence);
-#if WYRM_FEATURE_RENDERDOC
+#if WIVRN_FEATURE_RENDERDOC
 		renderdoc_end(*vk_instance);
 #endif
 		swapchain.release();
@@ -1283,7 +1283,7 @@ void scenes::stream::finish_frame(const XrFrameState & frame_state)
 			if (handle)
 			{
 				auto & packet = packets.emplace_back();
-				wyrm_session::stream_socket_t::serialize(packet, feedbacks.emplace_back(handle->feedback));
+				wivrn_session::stream_socket_t::serialize(packet, feedbacks.emplace_back(handle->feedback));
 			}
 		}
 		if (not packets.empty())
@@ -1588,7 +1588,7 @@ void scenes::stream::on_xr_event(const xr::event & event)
 			        .present = (bool)event.user_presence_changed.isUserPresent,
 			        .change_time = instance.now(),
 			});
-#if WYRM_FRAME_EYES
+#if WIVRN_FRAME_EYES
 			if (eye_tracker)
 				eye_tracker->set_present(event.user_presence_changed.isUserPresent);
 #endif

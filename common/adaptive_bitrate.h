@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cstdint>
 
-namespace wyrm
+namespace wivrn
 {
 // A capacity of 0 is no estimate, which limits nothing
 inline uint32_t adapted_video_bitrate(uint32_t desired, uint32_t current, uint64_t capacity)
@@ -15,4 +15,4 @@ inline uint32_t adapted_video_bitrate(uint32_t desired, uint32_t current, uint64
 		return std::min<uint32_t>(target, current * 1.1);
 	return current;
 }
-} // namespace wyrm
+} // namespace wivrn

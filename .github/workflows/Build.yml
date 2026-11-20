@@ -6,9 +6,9 @@ on:
 
 env:
   BUILD_TYPE: Release
-  WYRM_GITHUB_REPOSITORY: ${{ github.repository }}
+  WIVRN_GITHUB_REPOSITORY: ${{ github.repository }}
   SERVER_DEPS: libx264-dev libavcodec-dev libavutil-dev libbsd-dev libavahi-client-dev libavahi-glib-dev libeigen3-dev nlohmann-json3-dev librsvg2-dev libdrm-dev libglib2.0-dev-bin libpipewire-0.3-dev libcli11-dev libnotify-dev libarchive-dev libudev-dev
-  CSS: images/wyrm-${{(github.ref_type == 'tag' && 'release') || 'nightly'}}.css
+  CSS: images/wivrn-${{(github.ref_type == 'tag' && 'release') || 'nightly'}}.css
 
 jobs:
   build-linux:
@@ -29,7 +29,7 @@ jobs:
           - preset: 'server'
             packages: libboost-all-dev libsystemd-dev
         # tracing is opt-in and rarely built; build it here so the instrumentation and the
-        # Perfetto SDK glue don't bitrot (WYRM_TRACE_MONADO needs percetto, not packaged in CI)
+        # Perfetto SDK glue don't bitrot (WIVRN_TRACE_MONADO needs percetto, not packaged in CI)
           - preset: 'server-tracing'
             packages: libboost-all-dev libsystemd-dev
           - preset: 'server-no-systemd'
@@ -92,7 +92,7 @@ jobs:
         -DCMAKE_C_COMPILER_LAUNCHER=ccache
         -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
         --preset ${{ matrix.config.preset }}
-        -DWYRM_USE_SYSTEM_OPENXR=OFF
+        -DWIVRN_USE_SYSTEM_OPENXR=OFF
 
     - name: Package build dependencies
       if: ${{ matrix.config.preset == 'server' }}
@@ -165,7 +165,7 @@ jobs:
       run: >
         cmake -B "$GITHUB_WORKSPACE/build"
         -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
-        -DWYRM_CSS=${{env.CSS}}
+        -DWIVRN_CSS=${{env.CSS}}
         -DFETCHCONTENT_BASE_DIR="$GITHUB_WORKSPACE/cmake-fetch"
         -DCMAKE_C_COMPILER_LAUNCHER=ccache
         -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
@@ -181,7 +181,7 @@ jobs:
     - name: Archive
       uses: actions/upload-artifact@v7
       with:
-        name: wyrm-frame-client.zip
+        name: wivrn-frame-client.zip
         path: install/usr
         if-no-files-found: error
         retention-days: 30
@@ -205,17 +205,17 @@ jobs:
         git config --global --add safe.directory $(pwd)
         pip install toml aiohttp
         tools/gen_flatpak_manifest.py --gitlocal --out flatpak
-        cat flatpak/org.wyrmvr.wyrm.yml
+        cat flatpak/io.github.wivrn.wivrn.yml
 
     - uses: flatpak/flatpak-github-actions/flatpak-builder@v6.7
       with:
-        manifest-path: flatpak/org.wyrmvr.wyrm.yml
-        bundle: wyrm-server.flatpak
+        manifest-path: flatpak/io.github.wivrn.wivrn.yml
+        bundle: wivrn-server.flatpak
         # The manifest is regenerated on every commit with the git hash embedded,
         # so its default (manifest-hash) cache key never hits. Key on the files
         # that actually define the dependency set instead, so the toolchain
         # downloads and build cache persist across commits.
-        cache-key: flatpak-builder-${{ hashFiles('flatpak/org.wyrmvr.wyrm.yml.in', 'flatpak/ct-ng-x86_64.config', 'flatpak/ct-ng-aarch64.config', 'monado-rev') }}
+        cache-key: flatpak-builder-${{ hashFiles('flatpak/io.github.wivrn.wivrn.yml.in', 'flatpak/ct-ng-x86_64.config', 'flatpak/ct-ng-aarch64.config', 'monado-rev') }}
 
     - name: Debug bundle
       uses: actions/upload-artifact@v7
@@ -331,12 +331,12 @@ jobs:
 
         chmod +x gradlew
         ./gradlew \
-          -Pwyrm_version=$VERSION \
-          -Pwyrm_versionCode=$VERSION_CODE \
+          -Pwivrn_version=$VERSION \
+          -Pwivrn_versionCode=$VERSION_CODE \
           -Psuffix=$SUFFIX \
-          -Pwyrm_css=${{env.CSS}} \
-          -Pwyrm_app_name="$APPNAME" \
-          -Pwyrm_compress_glb=ON \
+          -Pwivrn_css=${{env.CSS}} \
+          -Pwivrn_app_name="$APPNAME" \
+          -Pwivrn_compress_glb=ON \
           -Pfetchcontent_base_dir=${{github.workspace}}/cmake-fetch \
           assemble${{ matrix.buildtype }}
 
@@ -395,18 +395,18 @@ jobs:
     - uses: actions/checkout@v6
       with:
         fetch-depth: 0
-        path: wyrm
+        path: wivrn
 
     - name: Download monado
       run: |
-        MONADO_COMMIT=$(cat wyrm/monado-rev)
+        MONADO_COMMIT=$(cat wivrn/monado-rev)
         wget https://gitlab.freedesktop.org/monado/monado/-/archive/$MONADO_COMMIT/monado-$MONADO_COMMIT.tar.gz
 
-        mkdir wyrm/monado-src
-        tar xzf monado-*.tar.gz --strip-components=1 -C wyrm/monado-src
+        mkdir wivrn/monado-src
+        tar xzf monado-*.tar.gz --strip-components=1 -C wivrn/monado-src
 
     - name: Patch monado
-      working-directory: wyrm/monado-src
+      working-directory: wivrn/monado-src
       run: >
         for p in ../patches/monado/*; do
           patch -p1 --fuzz=0 --forward < "$p"
@@ -416,11 +416,11 @@ jobs:
       run: |
         wget https://github.com/nothings/stb/archive/013ac3beddff3dbffafd5177e7972067cd2b5083.tar.gz -O stb.tar.gz
 
-        mkdir wyrm/stb-src
-        tar xzf stb.tar.gz --strip-components=1 -C wyrm/stb-src
+        mkdir wivrn/stb-src
+        tar xzf stb.tar.gz --strip-components=1 -C wivrn/stb-src
 
     - name: Edit changelog
-      working-directory: wyrm
+      working-directory: wivrn
       run: >
         tools/gen_debian_changelog.py
         --out debian/changelog
@@ -430,19 +430,19 @@ jobs:
         cat debian/changelog
 
     - name: Build package
-      working-directory: wyrm
+      working-directory: wivrn
       run: dpkg-buildpackage --build=binary --no-sign
 
     - name: Publish package
       uses: actions/upload-artifact@v7
       with:
-        name: wyrm-${{ matrix.distro }}
+        name: wivrn-${{ matrix.distro }}
         path: |
           *.deb
           *.ddeb
 
     - name: Check package
-      working-directory: wyrm
+      working-directory: wivrn
       run: lintian --fail-on error | sed -e s/^W:/::warning::/ -e s/^E:/::error::/
 
   release:
@@ -455,7 +455,7 @@ jobs:
     - uses: actions/checkout@v6
       with:
         fetch-depth: 0
-        path: wyrm
+        path: wivrn
 
     - name: Check for FLATHUB_TOKEN
       id: flathub-token-check
@@ -484,7 +484,7 @@ jobs:
     - name: Download artifacts (flatpak)
       uses: actions/download-artifact@v8
       with:
-        name: wyrm-server-x86_64.flatpak
+        name: wivrn-server-x86_64.flatpak
         path: flatpak
 
     - name: Release
@@ -500,7 +500,7 @@ jobs:
     - name: Update flatpak manifest for flathub
       if: ${{ steps.flathub-token-check.outputs.available == 'true' }}
       run: |
-        WYRM_TAG=$(echo $GITHUB_REF | sed -E -e "s,refs/[^/]*/v?,,")
+        WIVRN_TAG=$(echo $GITHUB_REF | sed -E -e "s,refs/[^/]*/v?,,")
 
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git config --global user.name "github-actions[bot]"
@@ -510,12 +510,12 @@ jobs:
         cd flathub
 
         git config --global --add safe.directory $(pwd)
-        ../wyrm/tools/gen_flatpak_manifest.py --git https://github.com/${{github.repository}}.git
-        cp ../wyrm/flatpak/*.config .
+        ../wivrn/tools/gen_flatpak_manifest.py --git https://github.com/${{github.repository}}.git
+        cp ../wivrn/flatpak/*.config .
 
-        git checkout -b $WYRM_TAG
-        git add org.wyrmvr.wyrm.yml xrizer-gen-src.json *.config
-        git commit -m "Version "$WYRM_TAG
-        git push --set-upstream origin $WYRM_TAG
+        git checkout -b $WIVRN_TAG
+        git add io.github.wivrn.wivrn.yml xrizer-gen-src.json *.config
+        git commit -m "Version "$WIVRN_TAG
+        git push --set-upstream origin $WIVRN_TAG
 
         git show

@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -19,7 +19,7 @@
 #include "video_encoder_vulkan_h265.h"
 
 #include "encoder/encoder_settings.h"
-#include "utils/wyrm_vk_bundle.h"
+#include "utils/wivrn_vk_bundle.h"
 #include <cstdint>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_enums.hpp>
@@ -59,8 +59,8 @@ static uint32_t find_msb(uint32_t v)
 	throw std::runtime_error(std::string("invalid value in encode capabilities reported by gpu driver"));
 }
 
-wyrm::video_encoder_vulkan_h265::video_encoder_vulkan_h265(
-        wyrm::vk_bundle & vk,
+wivrn::video_encoder_vulkan_h265::video_encoder_vulkan_h265(
+        wivrn::vk_bundle & vk,
         const vk::VideoCapabilitiesKHR & video_caps,
         const vk::VideoEncodeCapabilitiesKHR & encode_caps,
         uint8_t stream_idx,
@@ -209,7 +209,7 @@ wyrm::video_encoder_vulkan_h265::video_encoder_vulkan_h265(
 	}
 }
 
-std::vector<void *> wyrm::video_encoder_vulkan_h265::setup_slot_info(size_t dpb_size)
+std::vector<void *> wivrn::video_encoder_vulkan_h265::setup_slot_info(size_t dpb_size)
 {
 	dpb_std_info.resize(dpb_size, {});
 	dpb_std_slots.reserve(dpb_size);
@@ -268,8 +268,8 @@ static auto get_video_caps(vk::raii::PhysicalDevice & phys_dev, int bit_depth)
 	return std::make_tuple(video_caps, encode_caps, encode_h265_caps, video_profile_info);
 }
 
-std::unique_ptr<wyrm::video_encoder_vulkan_h265> wyrm::video_encoder_vulkan_h265::create(
-        wyrm::vk_bundle & vk,
+std::unique_ptr<wivrn::video_encoder_vulkan_h265> wivrn::video_encoder_vulkan_h265::create(
+        wivrn::vk_bundle & vk,
         const encoder_settings & settings,
         uint8_t stream_idx)
 {
@@ -352,7 +352,7 @@ std::unique_ptr<wyrm::video_encoder_vulkan_h265> wyrm::video_encoder_vulkan_h265
 	return self;
 }
 
-std::vector<uint8_t> wyrm::video_encoder_vulkan_h265::get_vps_sps_pps()
+std::vector<uint8_t> wivrn::video_encoder_vulkan_h265::get_vps_sps_pps()
 {
 	vk::VideoEncodeH265SessionParametersGetInfoKHR next{
 	        .writeStdVPS = true,
@@ -365,13 +365,13 @@ std::vector<uint8_t> wyrm::video_encoder_vulkan_h265::get_vps_sps_pps()
 	return get_encoded_parameters(&next);
 }
 
-void wyrm::video_encoder_vulkan_h265::send_idr_data()
+void wivrn::video_encoder_vulkan_h265::send_idr_data()
 {
 	auto data = get_vps_sps_pps();
 	SendData(data, false, true);
 }
 
-void * wyrm::video_encoder_vulkan_h265::encode_info_next(uint32_t frame_num, size_t slot, std::optional<int32_t> ref_slot)
+void * wivrn::video_encoder_vulkan_h265::encode_info_next(uint32_t frame_num, size_t slot, std::optional<int32_t> ref_slot)
 {
 	slice_header = {
 	        .flags = {
@@ -484,7 +484,7 @@ void * wyrm::video_encoder_vulkan_h265::encode_info_next(uint32_t frame_num, siz
 	return &picture_info;
 }
 
-vk::ExtensionProperties wyrm::video_encoder_vulkan_h265::std_header_version()
+vk::ExtensionProperties wivrn::video_encoder_vulkan_h265::std_header_version()
 {
 	vk::ExtensionProperties std_header_version{
 	        .specVersion = VK_MAKE_VIDEO_STD_VERSION(1, 0, 0),

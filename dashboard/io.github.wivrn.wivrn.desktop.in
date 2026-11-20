@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Wyrm server
+Comment=Play your PC VR games on a standalone headset
+GenericName=Wyrm dashboard
+Exec=@CMAKE_INSTALL_PREFIX@/bin/wivrn-dashboard
+Icon=io.github.wivrn.wivrn
+Type=Application
+Categories=Network;
+Keywords=VR;Virtual reality;OpenVR;OpenXR;

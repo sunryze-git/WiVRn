@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2026  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -26,7 +26,7 @@
 
 namespace
 {
-wyrm::gui::settings_context lobby_settings_context(xr::instance & instance, xr::session & session, xr::system & system, imgui_context & imgui_ctx, const XrViewConfigurationView & stream_view, std::optional<bool> server_hid_forwarding)
+wivrn::gui::settings_context lobby_settings_context(xr::instance & instance, xr::session & session, xr::system & system, imgui_context & imgui_ctx, const XrViewConfigurationView & stream_view, std::optional<bool> server_hid_forwarding)
 {
 	return {
 	        .config = application::get_config(),
@@ -45,40 +45,40 @@ wyrm::gui::settings_context lobby_settings_context(xr::instance & instance, xr::
 
 void scenes::lobby::gui_video()
 {
-	wyrm::gui::settings_video(lobby_settings_context(instance, session, system, *imgui_ctx, stream_view, server_hid_forwarding));
+	wivrn::gui::settings_video(lobby_settings_context(instance, session, system, *imgui_ctx, stream_view, server_hid_forwarding));
 }
 
 void scenes::lobby::gui_streaming()
 {
-	wyrm::gui::settings_streaming(lobby_settings_context(instance, session, system, *imgui_ctx, stream_view, server_hid_forwarding));
+	wivrn::gui::settings_streaming(lobby_settings_context(instance, session, system, *imgui_ctx, stream_view, server_hid_forwarding));
 }
 
 void scenes::lobby::gui_post_processing()
 {
-	wyrm::gui::settings_post_processing(lobby_settings_context(instance, session, system, *imgui_ctx, stream_view, server_hid_forwarding));
+	wivrn::gui::settings_post_processing(lobby_settings_context(instance, session, system, *imgui_ctx, stream_view, server_hid_forwarding));
 }
 
 void scenes::lobby::gui_audio()
 {
-	wyrm::gui::settings_audio(lobby_settings_context(instance, session, system, *imgui_ctx, stream_view, server_hid_forwarding));
+	wivrn::gui::settings_audio(lobby_settings_context(instance, session, system, *imgui_ctx, stream_view, server_hid_forwarding));
 }
 
 void scenes::lobby::gui_devices()
 {
-	wyrm::gui::settings_devices(lobby_settings_context(instance, session, system, *imgui_ctx, stream_view, server_hid_forwarding));
+	wivrn::gui::settings_devices(lobby_settings_context(instance, session, system, *imgui_ctx, stream_view, server_hid_forwarding));
 }
 
 void scenes::lobby::gui_tracking()
 {
-	wyrm::gui::settings_tracking(lobby_settings_context(instance, session, system, *imgui_ctx, stream_view, server_hid_forwarding));
+	wivrn::gui::settings_tracking(lobby_settings_context(instance, session, system, *imgui_ctx, stream_view, server_hid_forwarding));
 }
 
 void scenes::lobby::gui_system()
 {
-	wyrm::gui::settings_system(lobby_settings_context(instance, session, system, *imgui_ctx, stream_view, server_hid_forwarding));
+	wivrn::gui::settings_system(lobby_settings_context(instance, session, system, *imgui_ctx, stream_view, server_hid_forwarding));
 }
 
 void scenes::lobby::gui_theme()
 {
-	wyrm::gui::settings_theme(lobby_settings_context(instance, session, system, *imgui_ctx, stream_view, server_hid_forwarding));
+	wivrn::gui::settings_theme(lobby_settings_context(instance, session, system, *imgui_ctx, stream_view, server_hid_forwarding));
 }

@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -38,7 +38,7 @@
 #include <ranges>
 
 #include "openxr/openxr.h"
-#include "wyrm_config.h"
+#include "wivrn_config.h"
 
 template <int N, bool quaternion = false, int polynomial_order = 2, int stored_samples = 30>
 class polynomial_interpolator
@@ -165,7 +165,7 @@ public:
 		// Maximum is the minimum of now + max_extrapolation_ns (outside of this function)
 		// and production_ts + 1.1 * max_extrapolation_ns
 		// This allows a small buffer so that polynomial extrapolation fills the gap of networking hiccups
-		timestamp = std::min(timestamp, production_timestamp + (wyrm::max_extrapolation_ns * 11) / 10);
+		timestamp = std::min(timestamp, production_timestamp + (wivrn::max_extrapolation_ns * 11) / 10);
 
 		const sample * closest = nullptr;
 

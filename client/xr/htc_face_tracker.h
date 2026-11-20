@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  galister <galister@librevr.org>
  * Copyright (C) 2025  Sapphire <imsapphire0@gmail.com>
  *
@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include <openxr/openxr.h>
 
 namespace xr
@@ -34,7 +34,7 @@ class htc_face_tracker
 	XrFacialTrackerHTC lip;
 
 public:
-	using packet_type = wyrm::from_headset::tracking::htc_face;
+	using packet_type = wivrn::from_headset::tracking::htc_face;
 	htc_face_tracker(instance & inst, session & s, bool eye, bool lip);
 
 	void get_weights(XrTime time, packet_type & out_expressions);

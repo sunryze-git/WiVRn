@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2026 galister <galister-dev@pm.me>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -28,7 +28,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-namespace wyrm::v4l2
+namespace wivrn::v4l2
 {
 namespace
 {
@@ -67,13 +67,13 @@ v4l2_buffer make_v4l2_buffer(v4l2_buf_type type, uint32_t index, std::array<v4l2
 	};
 }
 
-uint32_t v4l2_codec(wyrm::video_codec codec)
+uint32_t v4l2_codec(wivrn::video_codec codec)
 {
 	switch (codec)
 	{
-		case wyrm::video_codec::h264:
+		case wivrn::video_codec::h264:
 			return V4L2_PIX_FMT_H264;
-		case wyrm::video_codec::h265:
+		case wivrn::video_codec::h265:
 			return V4L2_PIX_FMT_HEVC;
 		default:
 			throw std::runtime_error("No V4L2 codec mapping for requested codec");
@@ -104,7 +104,7 @@ bool supports_format(int fd, v4l2_buf_type type, uint32_t pixel_format)
 	}
 }
 
-wyrm::fd_base find_device(wyrm::video_codec codec)
+wivrn::fd_base find_device(wivrn::video_codec codec)
 {
 	const uint32_t pixel_format = v4l2_codec(codec);
 
@@ -136,7 +136,7 @@ wyrm::fd_base find_device(wyrm::video_codec codec)
 			        "Failed to reopen " + path + ": " +
 			        std::strerror(errno));
 
-		return wyrm::fd_base{decoder_fd};
+		return wivrn::fd_base{decoder_fd};
 	}
 
 	throw std::runtime_error(
@@ -210,21 +210,21 @@ void u64_to_timestamp(uint64_t value, timeval & ts)
 }
 } // namespace
 
-struct decoder::v4l2_blit_handle : public wyrm::decoder::blit_handle
+struct decoder::v4l2_blit_handle : public wivrn::decoder::blit_handle
 {
 	unsigned int capture_index;
 	std::shared_ptr<capture_set> set;
 	std::shared_ptr<recycler> recycle;
 
-	v4l2_blit_handle(const wyrm::from_headset::feedback & feedback,
-	                 const wyrm::to_headset::video_frame_info::view_info_t & view_info,
+	v4l2_blit_handle(const wivrn::from_headset::feedback & feedback,
+	                 const wivrn::to_headset::video_frame_info::view_info_t & view_info,
 	                 vk::ImageView image_view,
 	                 vk::Image image,
 	                 vk::Extent2D extent,
 	                 vk::ImageLayout & current_layout,
 	                 unsigned int capture_index,
 	                 decoder * self) :
-	        wyrm::decoder::blit_handle{feedback, view_info, image_view, image, extent, current_layout},
+	        wivrn::decoder::blit_handle{feedback, view_info, image_view, image, extent, current_layout},
 	        capture_index(capture_index),
 	        set(self->capture),
 	        recycle(self->recycle)
@@ -247,9 +247,9 @@ struct decoder::v4l2_blit_handle : public wyrm::decoder::blit_handle
 decoder::decoder(vk::raii::Device & device,
                  vk::raii::PhysicalDevice & physical_device,
                  uint32_t vk_queue_family_index,
-                 const wyrm::to_headset::video_stream_description & description,
+                 const wivrn::to_headset::video_stream_description & description,
                  uint8_t stream_index,
-                 std::weak_ptr<wyrm::frame_sink> scene,
+                 std::weak_ptr<wivrn::frame_sink> scene,
                  shard_accumulator * accumulator) :
         device(device),
         physical_device(physical_device),
@@ -266,7 +266,7 @@ decoder::decoder(vk::raii::Device & device,
 	int raw_wake_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
 	if (raw_wake_fd < 0)
 		throw std::runtime_error("eventfd failed for iris decoder: " + std::string(std::strerror(errno)));
-	recycle->wake_fd = wyrm::fd_base(raw_wake_fd);
+	recycle->wake_fd = wivrn::fd_base(raw_wake_fd);
 	worker = std::jthread([this](std::stop_token stop_token) { worker_loop(stop_token); });
 }
 
@@ -296,7 +296,7 @@ decoder::~decoder()
 	capture.reset();
 }
 
-void decoder::setup_device(wyrm::fd_base device_fd)
+void decoder::setup_device(wivrn::fd_base device_fd)
 {
 	fd = std::move(device_fd);
 
@@ -355,7 +355,7 @@ void decoder::setup_output_queue()
 		}
 		free_output_buffers.push_back(i);
 	}
-} // namespace wyrm::v4l2
+} // namespace wivrn::v4l2
 
 void decoder::import_capture_buffer(unsigned int index, const std::vector<size_t> & plane_lengths)
 {
@@ -371,7 +371,7 @@ void decoder::import_capture_buffer(unsigned int index, const std::vector<size_t
 	ioctl_or_throw(fd.get_fd(), VIDIOC_EXPBUF, &exp, "VIDIOC_EXPBUF(CAPTURE)");
 	int dma_fd = exp.fd;
 	// Vulkan takes ownership of dma_fd on import; keep a duplicate for consumers on other devices.
-	wyrm::fd_base kept_dmabuf(fcntl(dma_fd, F_DUPFD_CLOEXEC, 0));
+	wivrn::fd_base kept_dmabuf(fcntl(dma_fd, F_DUPFD_CLOEXEC, 0));
 
 	const vk::DeviceSize chroma_offset = vk::DeviceSize(capture_bytesperline) * capture_height;
 	if (chroma_offset >= plane_lengths[0])
@@ -1018,8 +1018,8 @@ void decoder::abandon_assembling_frame()
 	assembling.reset();
 }
 
-void decoder::frame_completed(const wyrm::from_headset::feedback & feedback,
-                              const wyrm::to_headset::video_frame_info::view_info_t & view_info)
+void decoder::frame_completed(const wivrn::from_headset::feedback & feedback,
+                              const wivrn::to_headset::video_frame_info::view_info_t & view_info)
 {
 	generation = feedback.generation;
 	rethrow_worker_exception();
@@ -1057,7 +1057,7 @@ void decoder::frame_completed(const wyrm::from_headset::feedback & feedback,
 	wake_worker();
 }
 
-bool decoder::available_for(wyrm::video_codec codec)
+bool decoder::available_for(wivrn::video_codec codec)
 {
 	try
 	{
@@ -1070,7 +1070,7 @@ bool decoder::available_for(wyrm::video_codec codec)
 	return true;
 }
 
-bool decoder::supports_10bit(wyrm::video_codec codec)
+bool decoder::supports_10bit(wivrn::video_codec codec)
 {
 	try
 	{
@@ -1083,11 +1083,11 @@ bool decoder::supports_10bit(wyrm::video_codec codec)
 	}
 }
 
-void decoder::supported_codecs(std::vector<wyrm::video_codec> & result)
+void decoder::supported_codecs(std::vector<wivrn::video_codec> & result)
 {
-	if (available_for(wyrm::video_codec::h265))
-		result.push_back(wyrm::video_codec::h265);
-	if (available_for(wyrm::video_codec::h264))
-		result.push_back(wyrm::video_codec::h264);
+	if (available_for(wivrn::video_codec::h265))
+		result.push_back(wivrn::video_codec::h265);
+	if (available_for(wivrn::video_codec::h264))
+		result.push_back(wivrn::video_codec::h264);
 }
-} // namespace wyrm::v4l2
+} // namespace wivrn::v4l2

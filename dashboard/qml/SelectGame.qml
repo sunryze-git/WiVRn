@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Dialogs as Dialogs
 import QtQuick.Controls as Controls
-import org.wyrmvr.wyrm
+import io.github.wivrn.wivrn
 
 ColumnLayout {
     id: select_game
@@ -37,7 +37,7 @@ ColumnLayout {
     Dialogs.FileDialog {
         id: app_browse
         onAccepted: {
-            app_text.text = WyrmServer.host_path(new URL(selectedFile).pathname);
+            app_text.text = WivrnServer.host_path(new URL(selectedFile).pathname);
             select_game.save();
         }
     }
@@ -53,7 +53,7 @@ ColumnLayout {
         Controls.TextField {
             id: app_text
             placeholderText: app_combobox.currentText
-            visible: !!app_combobox.model.get(app_combobox.currentIndex)?.is_custom && WyrmServer.serverStatus == WyrmServer.Started
+            visible: !!app_combobox.model.get(app_combobox.currentIndex)?.is_custom && WivrnServer.serverStatus == WivrnServer.Started
             Layout.fillWidth: true
             onTextEdited: select_game.save()
         }

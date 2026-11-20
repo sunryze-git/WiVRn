@@ -2,7 +2,7 @@
 #include "linux/frame_shell.h"
 #endif
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -44,10 +44,10 @@ void real_main(android_app * native_app)
 void real_main(int argc, char ** argv)
 #endif
 {
-	if (wyrm::is_tag)
-		spdlog::info("Starting Wyrm version {}", wyrm::display_version());
+	if (wivrn::is_tag)
+		spdlog::info("Starting Wyrm version {}", wivrn::display_version());
 	else
-		spdlog::info("Starting Wyrm version {} ({})", wyrm::display_version(), wyrm::git_commit);
+		spdlog::info("Starting Wyrm version {} ({})", wivrn::display_version(), wivrn::git_commit);
 	try
 	{
 		application_info info;
@@ -102,7 +102,7 @@ void real_main(int argc, char ** argv)
 #ifdef __ANDROID__
 void android_main(android_app * native_app)
 {
-	static auto logger = spdlog::android_logger_mt("Wyrm", "Wyrm");
+	static auto logger = spdlog::android_logger_mt("WiVRn", "WiVRn");
 
 	spdlog::set_default_logger(logger);
 
@@ -111,9 +111,9 @@ void android_main(android_app * native_app)
 #else
 int main(int argc, char * argv[])
 {
-	spdlog::set_default_logger(spdlog::stdout_color_mt("Wyrm"));
+	spdlog::set_default_logger(spdlog::stdout_color_mt("WiVRn"));
 
-	char * loglevel = getenv("WYRM_LOGLEVEL");
+	char * loglevel = getenv("WIVRN_LOGLEVEL");
 	if (loglevel)
 	{
 		if (!strcasecmp(loglevel, "trace"))
@@ -131,7 +131,7 @@ int main(int argc, char * argv[])
 		else if (!strcasecmp(loglevel, "off"))
 			spdlog::set_level(spdlog::level::off);
 		else
-			spdlog::warn("Invalid value for WYRM_LOGLEVEL environment variable");
+			spdlog::warn("Invalid value for WIVRN_LOGLEVEL environment variable");
 	}
 
 	real_main(argc, argv);

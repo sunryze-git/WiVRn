@@ -13,11 +13,11 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-add_executable(wyrm-dashboard
+add_executable(wivrn-dashboard
     avahi.cpp
     main.cpp
-    wyrm_server.cpp
-    wyrm_qdbus_types.cpp
+    wivrn_server.cpp
+    wivrn_qdbus_types.cpp
     apps.cpp
     dashboard_utils.cpp
     escape_string.cpp
@@ -29,19 +29,19 @@ add_executable(wyrm-dashboard
     vulkan_info.cpp
 )
 
-set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/../dbus/org.wyrmvr.Server.xml PROPERTIES INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/wyrm_qdbus_types.h")
-qt_add_dbus_interface(DBUS_INTERFACE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../dbus/org.wyrmvr.Server.xml wyrm_server_dbus)
-target_sources(wyrm-dashboard PRIVATE ${DBUS_INTERFACE_SRC})
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/../dbus/io.github.wivrn.Server.xml PROPERTIES INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/wivrn_qdbus_types.h")
+qt_add_dbus_interface(DBUS_INTERFACE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../dbus/io.github.wivrn.Server.xml wivrn_server_dbus)
+target_sources(wivrn-dashboard PRIVATE ${DBUS_INTERFACE_SRC})
 
-set_source_files_properties(../images/wyrm.svg PROPERTIES QT_RESOURCE_ALIAS qml/wyrm.svg)
-qt_add_resources(wyrm-dashboard PREFIX "/" BASE .. FILES ../images/wyrm.svg)
+set_source_files_properties(../images/wivrn.svg PROPERTIES QT_RESOURCE_ALIAS qml/wivrn.svg)
+qt_add_resources(wivrn-dashboard PREFIX "/" BASE .. FILES ../images/wivrn.svg)
 
 set_source_files_properties(qml/DashboardSettings.qml PROPERTIES
     QT_QML_SINGLETON_TYPE TRUE
 )
 
-qt_add_qml_module(wyrm-dashboard
-    URI org.wyrmvr.wyrm
+qt_add_qml_module(wivrn-dashboard
+    URI io.github.wivrn.wivrn
     QML_FILES
         qml/Main.qml
         qml/About.qml
@@ -60,15 +60,15 @@ qt_add_qml_module(wyrm-dashboard
         qml/TroubleshootPage.qml
         qml/TroubleshootCard.qml
     RESOURCES
-        ../images/wyrm.svg
+        ../images/wivrn.svg
         qml/Discord.svg
         qml/Github.svg
 )
 
 configure_file(gui_config.h.in gui_config.h)
-configure_file(org.wyrmvr.wyrm.desktop.in org.wyrmvr.wyrm.desktop)
+configure_file(io.github.wivrn.wivrn.desktop.in io.github.wivrn.wivrn.desktop)
 
-target_link_libraries(wyrm-dashboard
+target_link_libraries(wivrn-dashboard
     PRIVATE
     Qt6::DBus
     Qt6::Quick
@@ -84,23 +84,23 @@ target_link_libraries(wyrm-dashboard
     QCoro::Core
     QCoro::Network
     QCoro::Qml
-    wyrm-common-base
-    wyrm-common-server
-    wyrm-external
+    wivrn-common-base
+    wivrn-common-server
+    wivrn-external
 )
 
-install(TARGETS wyrm-dashboard ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
+install(TARGETS wivrn-dashboard ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
 
-install(FILES org.wyrmvr.wyrm.metainfo.xml
+install(FILES io.github.wivrn.wivrn.metainfo.xml
 	DESTINATION share/metainfo
 )
 
-install(FILES ../images/wyrm.svg
+install(FILES ../images/wivrn.svg
 	DESTINATION share/icons/hicolor/scalable/apps
-	RENAME org.wyrmvr.wyrm.svg
+	RENAME io.github.wivrn.wivrn.svg
 )
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/org.wyrmvr.wyrm.desktop
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/io.github.wivrn.wivrn.desktop
 	DESTINATION share/applications
 )
 
-create_mo_files(wyrm-dashboard wyrm-dashboard "${CMAKE_CURRENT_SOURCE_DIR}/../locale")
+create_mo_files(wivrn-dashboard wivrn-dashboard "${CMAKE_CURRENT_SOURCE_DIR}/../locale")

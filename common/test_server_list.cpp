@@ -5,7 +5,7 @@
 #include <iostream>
 #include <source_location>
 
-using namespace wyrm;
+using namespace wivrn;
 static void check(bool condition, std::source_location at = std::source_location::current())
 {
 	if (not condition)
@@ -14,7 +14,7 @@ static void check(bool condition, std::source_location at = std::source_location
 		std::abort();
 	}
 }
-static wyrm_discover::service::address link(std::string interface, std::string ip, std::optional<float> latency)
+static wivrn_discover::service::address link(std::string interface, std::string ip, std::optional<float> latency)
 {
 	const auto address = parse_endpoint({ip, interface, 9757});
 	if (address.address.ss_family == AF_INET)
@@ -24,7 +24,7 @@ static wyrm_discover::service::address link(std::string interface, std::string i
 int main()
 {
 	{
-		std::vector<wyrm_discover::service::address> addresses{
+		std::vector<wivrn_discover::service::address> addresses{
 		        link("wlan0", "10.26.0.56", 8),
 		        link("usb0", "10.86.200.1", {}),
 		        link("wlanap", "10.35.78.30", 2),
@@ -34,7 +34,7 @@ int main()
 		check(addresses[1].interface == "wlan0");
 		check(addresses[2].interface == "usb0");
 	}
-	wyrm_discover::service discovered{.name = "Polaris", .hostname = "polaris", .port = 9757, .addresses = {link("wlan0", "10.26.0.56", 9.2f), link("wlanap", "10.35.78.30", 94.2f), link("usb0", "10.86.200.1", {}), link("wlan0", "fd00::56", 8.0f)}, .txt = {{"cookie", "server-id"}}};
+	wivrn_discover::service discovered{.name = "Polaris", .hostname = "polaris", .port = 9757, .addresses = {link("wlan0", "10.26.0.56", 9.2f), link("wlanap", "10.35.78.30", 94.2f), link("usb0", "10.86.200.1", {}), link("wlan0", "fd00::56", 8.0f)}, .txt = {{"cookie", "server-id"}}};
 	const auto links = connected_server_links(discovered);
 	check(links.size() == 2);
 	check(links[0].interface == "wlan0" and links[0].endpoint.address == "10.26.0.56" and links[0].latency_ms == 8.0f);
@@ -42,7 +42,7 @@ int main()
 	struct saved_server
 	{
 		bool manual;
-		wyrm_discover::service service;
+		wivrn_discover::service service;
 	};
 	std::map<std::string, saved_server> servers{{"manual-polaris", {true, {.hostname = "10.35.78.30", .port = 9757}}}};
 	check(server_group_key(servers, discovered) == "manual-polaris");

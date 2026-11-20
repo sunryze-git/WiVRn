@@ -33,12 +33,12 @@ static RENDERDOC_API_1_0_0 * get_renderdoc()
 	return renderdoc_api;
 }
 
-void wyrm::renderdoc_begin(VkInstance inst)
+void wivrn::renderdoc_begin(VkInstance inst)
 {
 	if (auto renderdoc_api = get_renderdoc())
 		renderdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(inst), nullptr);
 }
-void wyrm::renderdoc_end(VkInstance inst)
+void wivrn::renderdoc_end(VkInstance inst)
 {
 	if (auto renderdoc_api = get_renderdoc())
 		renderdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(inst), nullptr);

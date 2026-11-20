@@ -1,10 +1,10 @@
-package org.wyrmvr.wyrm;
+package org.meumeu.wivrn;
 
 public class MainActivity extends android.app.NativeActivity
 {
 	static
 	{
-		System.loadLibrary("wyrm");
+		System.loadLibrary("wivrn");
 	}
 
 	@Override
@@ -26,8 +26,8 @@ public class MainActivity extends android.app.NativeActivity
 		super.onCreate(savedInstanceState);
 
 		this.BatteryInfoReceiver = new BroadcastReceiver();
-		this.netcb = new org.wyrmvr.wyrm.NetworkInfoCallback();
-		this.allNetworksCallback = new org.wyrmvr.wyrm.NetworkInfoCallback();
+		this.netcb = new org.meumeu.wivrn.NetworkInfoCallback();
+		this.allNetworksCallback = new org.meumeu.wivrn.NetworkInfoCallback();
 		android.net.ConnectivityManager connectivity = (android.net.ConnectivityManager)getSystemService(android.content.Context.CONNECTIVITY_SERVICE);
 		android.net.NetworkRequest request = new android.net.NetworkRequest.Builder()
 		        .clearCapabilities()

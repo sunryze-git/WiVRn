@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -22,11 +22,11 @@
 #include "encoder/video_encoder.h"
 #include "encoder_settings.h"
 #include "util/u_logging.h"
-#include "utils/wyrm_vk_bundle.h"
+#include "utils/wivrn_vk_bundle.h"
 
 #include <stdexcept>
 
-namespace wyrm
+namespace wivrn
 {
 
 void video_encoder_x264::ProcessCb(x264_t * h, x264_nal_t * nal, void * opaque)
@@ -88,7 +88,7 @@ void video_encoder_x264::InsertInPendingNal(pending_nal && nal)
 
 namespace
 {
-vk::raii::CommandPool make_cmd_pool(wyrm::vk_bundle & vk, uint8_t stream_idx)
+vk::raii::CommandPool make_cmd_pool(wivrn::vk_bundle & vk, uint8_t stream_idx)
 {
 	auto res = vk.device.createCommandPool(vk::CommandPoolCreateInfo{
 
@@ -101,7 +101,7 @@ vk::raii::CommandPool make_cmd_pool(wyrm::vk_bundle & vk, uint8_t stream_idx)
 } // namespace
 
 video_encoder_x264::video_encoder_x264(
-        wyrm::vk_bundle & vk,
+        wivrn::vk_bundle & vk,
         const encoder_settings & settings,
         uint8_t stream_idx) :
         video_encoder(vk,
@@ -352,4 +352,4 @@ video_encoder_x264::~video_encoder_x264()
 	x264_encoder_close(enc);
 }
 
-} // namespace wyrm
+} // namespace wivrn

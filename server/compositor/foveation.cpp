@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  galister <galister@librevr.org>
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -18,12 +18,12 @@
  */
 
 #include "foveation.h"
-#include "wyrm_foveation.h"
+#include "wivrn_foveation.h"
 
 #include "driver/xrt_cast.h"
-#include "utils/wyrm_vk_bundle.h"
+#include "utils/wivrn_vk_bundle.h"
 #include "vk/specialization_constants.h"
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 
 #include "math/m_api.h"
 #include "xrt/xrt_defines.h"
@@ -48,7 +48,7 @@ struct ubo_data
 	uint32_t y[XRT_MAX_VIEWS * RENDER_FOVEATION_BUFFER_DIMENSIONS];
 };
 
-vk::raii::Sampler make_sampler(wyrm::vk_bundle & vk)
+vk::raii::Sampler make_sampler(wivrn::vk_bundle & vk)
 {
 	vk::raii::Sampler res(
 	        vk.device,
@@ -65,7 +65,7 @@ vk::raii::Sampler make_sampler(wyrm::vk_bundle & vk)
 	return res;
 }
 
-vk::raii::DescriptorSetLayout make_ds_layout(wyrm::vk_bundle & vk)
+vk::raii::DescriptorSetLayout make_ds_layout(wivrn::vk_bundle & vk)
 {
 	std::array bindings{
 	        vk::DescriptorSetLayoutBinding{
@@ -104,7 +104,7 @@ vk::raii::DescriptorSetLayout make_ds_layout(wyrm::vk_bundle & vk)
 	return res;
 }
 
-vk::raii::PipelineLayout make_layout(wyrm::vk_bundle & vk, vk::DescriptorSetLayout ds_layout)
+vk::raii::PipelineLayout make_layout(wivrn::vk_bundle & vk, vk::DescriptorSetLayout ds_layout)
 {
 	vk::raii::PipelineLayout res(vk.device,
 	                             vk::PipelineLayoutCreateInfo{
@@ -115,7 +115,7 @@ vk::raii::PipelineLayout make_layout(wyrm::vk_bundle & vk, vk::DescriptorSetLayo
 	return res;
 }
 
-std::array<vk::raii::Pipeline, 2> make_pipelines(wyrm::vk_bundle & vk, vk::PipelineLayout layout, int32_t alpha_width)
+std::array<vk::raii::Pipeline, 2> make_pipelines(wivrn::vk_bundle & vk, vk::PipelineLayout layout, int32_t alpha_width)
 {
 	auto shader = vk.load_shader("foveation");
 	auto spc = make_specialization_constants(alpha_width);
@@ -151,7 +151,7 @@ std::array<vk::raii::Pipeline, 2> make_pipelines(wyrm::vk_bundle & vk, vk::Pipel
 	return res;
 }
 
-vk::raii::DescriptorPool make_ds_pool(wyrm::vk_bundle & vk)
+vk::raii::DescriptorPool make_ds_pool(wivrn::vk_bundle & vk)
 {
 	std::array pool_sizes{
 	        vk::DescriptorPoolSize{
@@ -223,7 +223,7 @@ static float angles_to_center(float e, float l, float r)
 	return res;
 }
 
-namespace wyrm
+namespace wivrn
 {
 
 void foveation::compute_params()
@@ -278,7 +278,7 @@ void foveation::compute_params()
 	}
 }
 
-foveation::foveation(wyrm::vk_bundle & bundle, vk::Extent3D foveated_size) :
+foveation::foveation(wivrn::vk_bundle & bundle, vk::Extent3D foveated_size) :
         foveated_size(foveated_size),
         // normal sight line is between 10° and 15° below horizontal
         // https://apps.dtic.mil/sti/tr/pdf/AD0758339.pdf pages 393-394
@@ -311,7 +311,7 @@ foveation::foveation(wyrm::vk_bundle & bundle, vk::Extent3D foveated_size) :
 	bundle.name(descriptor_set, "foveation descriptor set");
 }
 
-void foveation::resize(wyrm::vk_bundle & bundle, vk::Extent3D size)
+void foveation::resize(wivrn::vk_bundle & bundle, vk::Extent3D size)
 {
 	std::lock_guard lock(mutex);
 	foveated_size = size;
@@ -596,4 +596,4 @@ std::array<foveation_description, 2> foveation::foveate(
 
 	return description;
 }
-} // namespace wyrm
+} // namespace wivrn

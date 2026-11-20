@@ -3,7 +3,7 @@
 
 // Per-stream video sharding, FEC and retransmission; callers provide synchronization.
 
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -11,7 +11,7 @@
 #include <span>
 #include <vector>
 
-namespace wyrm::shards
+namespace wivrn::shards
 {
 class sender
 {
@@ -60,4 +60,4 @@ public:
 	// Missing data shards, counted as requested
 	std::vector<uint16_t> missing(frame &, uint8_t max_requests);
 };
-} // namespace wyrm::shards
+} // namespace wivrn::shards

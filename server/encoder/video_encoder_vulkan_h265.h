@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -25,7 +25,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-namespace wyrm
+namespace wivrn
 {
 
 class video_encoder_vulkan_h265 : public video_encoder_vulkan
@@ -59,7 +59,7 @@ class video_encoder_vulkan_h265 : public video_encoder_vulkan
 	vk::VideoEncodeH265RateControlInfoKHR rc_h265{};
 	vk::VideoEncodeH265RateControlLayerInfoKHR rc_layer_h265{};
 
-	video_encoder_vulkan_h265(wyrm::vk_bundle & vk,
+	video_encoder_vulkan_h265(wivrn::vk_bundle & vk,
 	                          const vk::VideoCapabilitiesKHR & video_caps,
 	                          const vk::VideoEncodeCapabilitiesKHR & encode_caps,
 	                          uint8_t stream_idx,
@@ -74,7 +74,7 @@ protected:
 	void send_idr_data() override;
 
 public:
-	static std::unique_ptr<video_encoder_vulkan_h265> create(wyrm::vk_bundle & vk,
+	static std::unique_ptr<video_encoder_vulkan_h265> create(wivrn::vk_bundle & vk,
 	                                                         const encoder_settings & settings,
 	                                                         uint8_t stream_idx);
 
@@ -82,4 +82,4 @@ public:
 
 	static const vk::StructureChain<vk::VideoProfileInfoKHR, vk::VideoEncodeH265ProfileInfoKHR, vk::VideoEncodeUsageInfoKHR> video_profile_info;
 };
-} // namespace wyrm
+} // namespace wivrn

@@ -1,9 +1,9 @@
 #pragma once
 
-namespace wyrm
+namespace wivrn
 {
 extern const char git_commit[];
 extern const bool is_tag;
 
 const char * display_version();
-} // namespace wyrm
+} // namespace wivrn

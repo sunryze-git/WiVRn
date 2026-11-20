@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -55,7 +55,7 @@
 class scene;
 
 #ifdef __ANDROID__
-extern "C" void Java_org_wyrmvr_wyrm_MainActivity_onNewIntent(JNIEnv * env, jobject instance, jobject intent_obj);
+extern "C" void Java_org_meumeu_wivrn_MainActivity_onNewIntent(JNIEnv * env, jobject instance, jobject intent_obj);
 #endif
 
 struct application_info
@@ -77,7 +77,7 @@ class application : public singleton<application>
 
 private:
 #ifdef __ANDROID__
-	friend void Java_org_wyrmvr_wyrm_MainActivity_onNewIntent(JNIEnv * env, jobject instance, jobject intent_obj);
+	friend void Java_org_meumeu_wivrn_MainActivity_onNewIntent(JNIEnv * env, jobject instance, jobject intent_obj);
 #endif
 
 	application_info app_info;
@@ -148,7 +148,7 @@ private:
 	std::shared_ptr<wifi_lock> wifi;
 
 	std::mutex server_intent_mutex;
-	std::optional<wyrm_discover::service> server_intent;
+	std::optional<wivrn_discover::service> server_intent;
 
 	std::mutex scene_stack_lock;
 	std::vector<std::shared_ptr<scene>> scene_stack;
@@ -352,7 +352,7 @@ public:
 		return instance().vk_queue;
 	}
 
-	static std::optional<wyrm_discover::service> get_intent()
+	static std::optional<wivrn_discover::service> get_intent()
 	{
 		std::unique_lock _{instance().server_intent_mutex};
 

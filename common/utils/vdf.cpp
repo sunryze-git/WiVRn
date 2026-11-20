@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -34,7 +34,7 @@ void consume_whitespace(const char *& pos, const char * end)
 	throw std::runtime_error("malformed VDF file");
 }
 
-wyrm::vdf::string read_string(const char *& pos, const char * end)
+wivrn::vdf::string read_string(const char *& pos, const char * end)
 {
 	consume_whitespace(pos, end);
 
@@ -68,24 +68,24 @@ wyrm::vdf::string read_string(const char *& pos, const char * end)
 	throw std::runtime_error("malformed string in VDF file");
 }
 
-std::variant<wyrm::vdf::string, std::vector<wyrm::vdf::keyvalue>> read_value(const char *& pos, const char * end);
+std::variant<wivrn::vdf::string, std::vector<wivrn::vdf::keyvalue>> read_value(const char *& pos, const char * end);
 
-wyrm::vdf::keyvalue read_key_value(const char *& pos, const char * end)
+wivrn::vdf::keyvalue read_key_value(const char *& pos, const char * end)
 {
-	return wyrm::vdf::keyvalue{
+	return wivrn::vdf::keyvalue{
 	        .key = read_string(pos, end),
 	        .value = read_value(pos, end),
 	};
 }
 
-std::vector<wyrm::vdf::keyvalue> read_dict(const char *& pos, const char * end)
+std::vector<wivrn::vdf::keyvalue> read_dict(const char *& pos, const char * end)
 {
 	consume_whitespace(pos, end);
 	if (*pos != '{')
 		throw std::runtime_error("malformed VDF file");
 	++pos;
 
-	std::vector<wyrm::vdf::keyvalue> res;
+	std::vector<wivrn::vdf::keyvalue> res;
 	while (true)
 	{
 		consume_whitespace(pos, end);
@@ -100,7 +100,7 @@ std::vector<wyrm::vdf::keyvalue> read_dict(const char *& pos, const char * end)
 	throw std::runtime_error("malformed dict in VDF file");
 }
 
-std::variant<wyrm::vdf::string, std::vector<wyrm::vdf::keyvalue>> read_value(const char *& pos, const char * end)
+std::variant<wivrn::vdf::string, std::vector<wivrn::vdf::keyvalue>> read_value(const char *& pos, const char * end)
 {
 	consume_whitespace(pos, end);
 
@@ -112,7 +112,7 @@ std::variant<wyrm::vdf::string, std::vector<wyrm::vdf::keyvalue>> read_value(con
 
 } // namespace
 
-bool wyrm::vdf::string::operator==(const char * b) const
+bool wivrn::vdf::string::operator==(const char * b) const
 {
 	const char * a = data.begin();
 	for (; a != data.end(); ++a, ++b)
@@ -132,7 +132,7 @@ bool wyrm::vdf::string::operator==(const char * b) const
 	return *b == '\0';
 }
 
-wyrm::vdf::root::root(const std::filesystem::path & file)
+wivrn::vdf::root::root(const std::filesystem::path & file)
 {
 	boost::iostreams::mapped_file in{file};
 	opaque = in;
@@ -142,7 +142,7 @@ wyrm::vdf::root::root(const std::filesystem::path & file)
 	value = read_value(pos, in.end());
 }
 
-void dump(const wyrm::vdf::keyvalue & kv, int depth)
+void dump(const wivrn::vdf::keyvalue & kv, int depth)
 {
 	for (int i = 0; i < depth; ++i)
 		std::cout << '\t';
@@ -150,11 +150,11 @@ void dump(const wyrm::vdf::keyvalue & kv, int depth)
 	struct V
 	{
 		int depth;
-		void operator()(const wyrm::vdf::string & s)
+		void operator()(const wivrn::vdf::string & s)
 		{
 			std::cout << '"' << s.data << '"';
 		}
-		void operator()(const std::vector<wyrm::vdf::keyvalue> & kv)
+		void operator()(const std::vector<wivrn::vdf::keyvalue> & kv)
 		{
 			std::cout << '{' << std::endl;
 			for (const auto & i: kv)
@@ -172,8 +172,8 @@ void dump(const wyrm::vdf::keyvalue & kv, int depth)
 	std::visit(V{depth}, kv.value);
 }
 
-#ifdef WYRM_BUILD_TEST
-void dump(const wyrm::vdf::root & kv)
+#ifdef WIVRN_BUILD_TEST
+void dump(const wivrn::vdf::root & kv)
 {
 	std::cout << '{';
 	dump(kv, 0);
@@ -184,7 +184,7 @@ int main(int argc, char ** argv)
 {
 	for (int i = 1; i < argc; ++i)
 	{
-		wyrm::vdf::root doc{argv[i]};
+		wivrn::vdf::root doc{argv[i]};
 		dump(doc);
 	}
 }

@@ -1,24 +1,24 @@
-add_library(wyrm-dissector SHARED
+add_library(wivrn-dissector SHARED
 	dissector.cpp
 	)
 
-set_target_properties(wyrm-dissector PROPERTIES
+set_target_properties(wivrn-dissector PROPERTIES
 	PREFIX ""
-	OUTPUT_NAME "wyrm"
+	OUTPUT_NAME "wivrn"
 	DEFINE_SYMBOL ""
 	)
 
-target_link_libraries(wyrm-dissector PRIVATE epan wyrm-common)
-set_target_properties(wyrm-dissector PROPERTIES CXX_VISIBILITY_PRESET hidden)
+target_link_libraries(wivrn-dissector PRIVATE epan wivrn-common)
+set_target_properties(wivrn-dissector PROPERTIES CXX_VISIBILITY_PRESET hidden)
 
-if (WYRM_USE_SYSTEM_OPENXR)
-	target_link_libraries(wyrm-dissector PRIVATE OpenXR::headers)
+if (WIVRN_USE_SYSTEM_OPENXR)
+	target_link_libraries(wivrn-dissector PRIVATE OpenXR::headers)
 else()
 	FetchContent_MakeAvailable(openxr_loader)
 	get_target_property(OPENXR_LOADER_INCLUDES openxr_loader INCLUDE_DIRECTORIES)
-	target_include_directories(wyrm-dissector PRIVATE ${OPENXR_LOADER_INCLUDES})
+	target_include_directories(wivrn-dissector PRIVATE ${OPENXR_LOADER_INCLUDES})
 endif()
 
-install(TARGETS wyrm-dissector
+install(TARGETS wivrn-dissector
 	LIBRARY DESTINATION "${Wireshark_PLUGIN_LIBDIR}/epan" NAMELINK_SKIP
 )

@@ -16,7 +16,7 @@ static void check(bool valid, std::source_location where = std::source_location:
 }
 int main()
 {
-	using namespace wyrm;
+	using namespace wivrn;
 	default_idr_handler idr;
 	check(not idr.should_skip(0, 0));
 	check(idr.get_type(0, 0) == default_idr_handler::frame_type::i);

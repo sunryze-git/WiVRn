@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -21,7 +21,7 @@
 
 #include "decoder.h"
 #include "shard_stream.h"
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include <openxr/openxr.h>
 
 #include <fstream>
@@ -39,7 +39,7 @@ namespace scenes
 class stream;
 }
 
-namespace wyrm
+namespace wivrn
 {
 class shard_accumulator
 {
@@ -62,7 +62,7 @@ public:
 	        vk::raii::PhysicalDevice & physical_device,
 	        xr::instance & instance,
 	        uint32_t vk_queue_family_index,
-	        const wyrm::to_headset::video_stream_description & description,
+	        const wivrn::to_headset::video_stream_description & description,
 	        std::weak_ptr<scenes::stream> scene,
 	        uint8_t stream_index) :
 	        decoder_(decoder::make(device, physical_device, vk_queue_family_index, description, stream_index, scene, this)),
@@ -74,7 +74,7 @@ public:
 	}
 	~shard_accumulator();
 
-	void push_shard(wyrm::to_headset::video_shard &&);
+	void push_shard(wivrn::to_headset::video_shard &&);
 	// Network thread, between packets: asks for what an incomplete frame lacks once its shards stopped arriving
 	void request_stalled();
 	std::chrono::milliseconds recovery_timeout(shards::receiver::clock::time_point now, std::chrono::milliseconds maximum) const;
@@ -88,9 +88,9 @@ public:
 
 private:
 	void request_missing(uint64_t frame, shards::receiver::frame &);
-	void send_feedback(wyrm::from_headset::feedback & feedback);
+	void send_feedback(wivrn::from_headset::feedback & feedback);
 	void open_dump(video_codec codec) noexcept;
 	void dump_received(std::span<const std::span<const uint8_t>> payload, const from_headset::feedback & feedback, XrTime target) noexcept;
 	void close_dump() noexcept;
 };
-} // namespace wyrm
+} // namespace wivrn

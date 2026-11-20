@@ -5,7 +5,7 @@
 #include <fstream>
 #include <map>
 
-namespace wyrm
+namespace wivrn
 {
 interface_type interface_kind(std::string_view name)
 {
@@ -52,4 +52,4 @@ std::string interface_display_name(std::string_view name)
 	}
 	return std::string(name) + " (" + label + ")";
 }
-} // namespace wyrm
+} // namespace wivrn

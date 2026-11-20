@@ -15,4 +15,4 @@ If using Lokalize, make sure to erase the "Default mailing list" in the settings
 
 Run the `tools/update_messages.sh [lang...]` script with the list of languages you wish to edit, this will add the lines for the missing translations, edit them, then `git add` the files for the language you just edited, commit and file a pull request.
 
-Note: when running wyrm-dashboard from the build folder, it will load translation files from system install so local modifications won't be loaded. You can override it by setting `XDG_DATA_DIRS=<build-dir>/dashboard/share/:$XDG_DATA_DIRS for `wyrm-dashboard`
+Note: when running wivrn-dashboard from the build folder, it will load translation files from system install so local modifications won't be loaded. You can override it by setting `XDG_DATA_DIRS=<build-dir>/dashboard/share/:$XDG_DATA_DIRS for `wivrn-dashboard`

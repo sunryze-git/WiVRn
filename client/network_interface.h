@@ -3,7 +3,7 @@
 #include <string>
 #include <string_view>
 
-namespace wyrm
+namespace wivrn
 {
 enum class interface_type
 {
@@ -26,4 +26,4 @@ inline interface_type classify_interface(std::string_view name, bool steam_vr, b
 
 interface_type interface_kind(std::string_view name);
 std::string interface_display_name(std::string_view name);
-} // namespace wyrm
+} // namespace wivrn

@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -21,7 +21,7 @@
 
 #include "foveated_sharpening.h"
 #include "vk/allocation.h"
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include <vulkan/vulkan_raii.hpp>
 #include <openxr/openxr.h>
 
@@ -58,8 +58,8 @@ class stream_defoveator
 	bool srgb_output;
 	float sharpening_strength = 0;
 	bool sharpening_reported = false;
-	std::array<std::optional<wyrm::foveation_description>, view_count> foveation_cache;
-	std::array<wyrm::foveation_parameter, view_count> foveation_tables;
+	std::array<std::optional<wivrn::foveation_description>, view_count> foveation_cache;
+	std::array<wivrn::foveation_parameter, view_count> foveation_tables;
 
 	void ensure_vertices(size_t num_vertices);
 	vertex * get_vertices(size_t view);
@@ -92,12 +92,12 @@ public:
 
 	void defoveate(
 	        vk::raii::CommandBuffer & command_buffer,
-	        const std::array<wyrm::foveation_description, 2> & foveation,
-	        const std::array<wyrm::sharpening_region, 2> * sharpening,
+	        const std::array<wivrn::foveation_description, 2> & foveation,
+	        const std::array<wivrn::sharpening_region, 2> * sharpening,
 	        const std::array<input, 2> & inputs,
 	        std::array<float, 4> scale,
 	        std::array<float, 4> bias,
 	        int destination);
 
-	static XrExtent2Di defoveated_size(const wyrm::foveation_description &);
+	static XrExtent2Di defoveated_size(const wivrn::foveation_description &);
 };

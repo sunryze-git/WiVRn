@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 #include "motion_predictor.h"
@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace wyrm
+namespace wivrn
 {
 namespace
 {
@@ -232,4 +232,4 @@ std::optional<motion_predictor::pose> motion_predictor::predict(XrTime at)
 	};
 }
 
-} // namespace wyrm
+} // namespace wivrn

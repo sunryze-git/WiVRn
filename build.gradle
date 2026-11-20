@@ -58,7 +58,7 @@ abstract class GeneratePngsTask extends DefaultTask {
             def dpiDir = new File(outDir, dpi)
             dpiDir.mkdirs()
 
-            def outputFile = new File(dpiDir, "ic_wyrm_launcher.png")
+            def outputFile = new File(dpiDir, "ic_wivrn_launcher.png")
 
             def argsList = [
                 getSvg().get().asFile.absolutePath,
@@ -82,20 +82,20 @@ tasks.register("generatePngs", GeneratePngsTask) {
     group = "Custom"
 
     // configure defaults
-    svg.set(layout.projectDirectory.file("images/wyrm.svg"))
+    svg.set(layout.projectDirectory.file("images/wivrn.svg"))
     outputDir.set(layout.buildDirectory.dir("generated_resources"))
 
-    if (project.hasProperty("wyrm_css")) {
-        css.set(layout.projectDirectory.file(project.wyrm_css))
+    if (project.hasProperty("wivrn_css")) {
+        css.set(layout.projectDirectory.file(project.wivrn_css))
     } else {
-        css.set(layout.projectDirectory.file("images/wyrm-local.css"))
+        css.set(layout.projectDirectory.file("images/wivrn-local.css"))
     }
 }
 
-def use_asan = project.hasProperty('wyrm_address_sanitizer') && wyrm_address_sanitizer == 'ON'
+def use_asan = project.hasProperty('wivrn_address_sanitizer') && wivrn_address_sanitizer == 'ON'
 
 android {
-    namespace = "org.wyrmvr.wyrm"
+    namespace = "org.meumeu.wivrn"
     ndkVersion = "29.0.14206865"
 
     lint {
@@ -103,25 +103,25 @@ android {
     }
 
     defaultConfig {
-        applicationId "org.wyrmvr.wyrm"
+        applicationId "org.meumeu.wivrn"
         // for Vulkan, need at least 24
         // for AImage_getHardwareBuffer, API 26
         minSdkVersion 29
         compileSdkVersion 34
         targetSdkVersion 32 // for Oculus Store
 
-        versionName = project.hasProperty('wyrm_version') ? wyrm_version : "1.0"
-        versionCode = project.hasProperty('wyrm_versionCode') ? wyrm_versionCode.toInteger() : 1
-        def showImguiDemo = project.hasProperty('wyrm_show_imgui_demo') ? wyrm_show_imgui_demo : 'OFF'
-        def showDebugMenu = project.hasProperty('wyrm_show_debug_menu') ? wyrm_show_debug_menu : 'OFF'
-        def compressGlb = project.hasProperty('wyrm_compress_glb') ? wyrm_compress_glb : 'OFF'
+        versionName = project.hasProperty('wivrn_version') ? wivrn_version : "1.0"
+        versionCode = project.hasProperty('wivrn_versionCode') ? wivrn_versionCode.toInteger() : 1
+        def showImguiDemo = project.hasProperty('wivrn_show_imgui_demo') ? wivrn_show_imgui_demo : 'OFF'
+        def showDebugMenu = project.hasProperty('wivrn_show_debug_menu') ? wivrn_show_debug_menu : 'OFF'
+        def compressGlb = project.hasProperty('wivrn_compress_glb') ? wivrn_compress_glb : 'OFF'
         def fetchcontentBaseDir = project.hasProperty('fetchcontent_base_dir') ? ['-DFETCHCONTENT_BASE_DIR=' + fetchcontent_base_dir] : []
 
         def asan = use_asan ? 'ON': 'OFF'
         def stl = use_asan ? 'c++_shared' : "c++_static"
 
         externalNativeBuild {
-            def css = project.hasProperty('wyrm_css') ? project.wyrm_css: "images/wyrm-local.css"
+            def css = project.hasProperty('wivrn_css') ? project.wivrn_css: "images/wivrn-local.css"
 
             cmake {
                 arguments  = ['-DANDROID_TOOLCHAIN=clang',
@@ -131,23 +131,23 @@ android {
                           '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON',
                           '-DCMAKE_ANDROID_ASSETS_DIRECTORIES=' + layout.buildDirectory.dir("assets").get().asFile,
                           '-DRESOURCES_DIRECTORIES=' + layout.buildDirectory.dir("resources").get().asFile,
-                          '-DWYRM_USE_SYSTEM_BOOST=OFF',
-                          '-DWYRM_USE_SYSTEM_FREETYPE=OFF',
-                          '-DWYRM_USE_ANDROID_BIN_LIBKTX=ON',
-                          '-DWYRM_BUILD_CLIENT=ON',
-                          '-DWYRM_BUILD_SERVER=OFF',
-                          '-DWYRM_BUILD_SERVER_LIBRARY=OFF',
-                          '-DWYRM_BUILD_WYRMCTL=OFF',
-                          '-DWYRM_BUILD_DASHBOARD=OFF',
-                          '-DWYRM_WERROR=ON',
-                          '-DWYRM_SHOW_IMGUI_DEMO_WINDOW=' + showImguiDemo,
-                          '-DWYRM_CLIENT_DEBUG_MENU=' + showDebugMenu,
-                          '-DWYRM_CSS=' + css,
-                          '-DWYRM_COMPRESS_GLB=' + compressGlb,
-                          '-DWYRM_ADDRESS_SANITIZER=' + asan,
+                          '-DWIVRN_USE_SYSTEM_BOOST=OFF',
+                          '-DWIVRN_USE_SYSTEM_FREETYPE=OFF',
+                          '-DWIVRN_USE_ANDROID_BIN_LIBKTX=ON',
+                          '-DWIVRN_BUILD_CLIENT=ON',
+                          '-DWIVRN_BUILD_SERVER=OFF',
+                          '-DWIVRN_BUILD_SERVER_LIBRARY=OFF',
+                          '-DWIVRN_BUILD_WIVRNCTL=OFF',
+                          '-DWIVRN_BUILD_DASHBOARD=OFF',
+                          '-DWIVRN_WERROR=ON',
+                          '-DWIVRN_SHOW_IMGUI_DEMO_WINDOW=' + showImguiDemo,
+                          '-DWIVRN_CLIENT_DEBUG_MENU=' + showDebugMenu,
+                          '-DWIVRN_CSS=' + css,
+                          '-DWIVRN_COMPRESS_GLB=' + compressGlb,
+                          '-DWIVRN_ADDRESS_SANITIZER=' + asan,
                           ] +
                           fetchcontentBaseDir
-                resValue "string", "app_name", project.hasProperty('wyrm_app_name') ? project.wyrm_app_name : "Wyrm Local"
+                resValue "string", "app_name", project.hasProperty('wivrn_app_name') ? project.wivrn_app_name : "Wyrm Local"
                 abiFilters 'arm64-v8a'//, 'x86_64'
             }
 
@@ -212,7 +212,7 @@ android {
             initWith debug
             externalNativeBuild {
                 cmake {
-                    arguments '-DWYRM_USE_ANDROID_VALIDATION_LAYER=ON'
+                    arguments '-DWIVRN_USE_ANDROID_VALIDATION_LAYER=ON'
                 }
             }
         }

@@ -3,7 +3,7 @@
 #include "decoder/decoder.h"
 #include "decoder/frame_sink.h"
 #include "shard_stream.h"
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -24,13 +24,13 @@ uint32_t next_source();
 
 // One PC's monitors (desktop_surface, video_shard), each decoded by its own V4L2 decoder sized for it, whose
 // frames go to the shell under the PC's source number. Packets arrive on one network thread.
-class desktop_receiver : public wyrm::frame_sink, public std::enable_shared_from_this<desktop_receiver>
+class desktop_receiver : public wivrn::frame_sink, public std::enable_shared_from_this<desktop_receiver>
 {
 public:
 	struct link
 	{
-		std::function<void(wyrm::from_headset::desktop_keyframe &&)> keyframe;
-		std::function<void(wyrm::from_headset::video_nack &&)> nack;
+		std::function<void(wivrn::from_headset::desktop_keyframe &&)> keyframe;
+		std::function<void(wivrn::from_headset::video_nack &&)> nack;
 	};
 
 	const uint32_t source;
@@ -40,10 +40,10 @@ public:
 	desktop_receiver & operator=(const desktop_receiver &) = delete;
 	~desktop_receiver() override;
 
-	void operator()(wyrm::to_headset::desktop_surface &&);
-	void operator()(wyrm::to_headset::video_shard &&);
-	void push_blit_handle(wyrm::shard_accumulator * decoder, std::shared_ptr<wyrm::shard_accumulator::blit_handle> handle) override;
-	void video_frame_lost(wyrm::shard_accumulator * decoder) override;
+	void operator()(wivrn::to_headset::desktop_surface &&);
+	void operator()(wivrn::to_headset::video_shard &&);
+	void push_blit_handle(wivrn::shard_accumulator * decoder, std::shared_ptr<wivrn::shard_accumulator::blit_handle> handle) override;
+	void video_frame_lost(wivrn::shard_accumulator * decoder) override;
 
 private:
 	vk::raii::Device & device;
@@ -56,15 +56,15 @@ private:
 	{
 		uint32_t surface;
 		uint16_t width, height;
-		wyrm::video_codec codec = wyrm::video_codec::h264;
-		std::shared_ptr<wyrm::decoder> decoder;
+		wivrn::video_codec codec = wivrn::video_codec::h264;
+		std::shared_ptr<wivrn::decoder> decoder;
 		uint64_t frame_index = 0;
 		std::string name;
 		// Until a frame with SPS (a keyframe) arrives, after a loss or a decoder failure
 		bool wait_keyframe = true;
 		std::atomic_bool decoder_lost_frame = false;
 		std::chrono::steady_clock::time_point keyframe_requested{};
-		wyrm::shards::receiver recovery;
+		wivrn::shards::receiver recovery;
 		int requests = 0;
 		std::chrono::steady_clock::time_point requested{};
 		std::optional<uint64_t> last_frame;
@@ -77,9 +77,9 @@ private:
 	std::shared_mutex mutex;
 	streams_t streams;
 
-	std::unique_ptr<desktop_stream> make_stream(uint32_t surface, uint16_t width, uint16_t height, const std::string & name, wyrm::video_codec codec);
+	std::unique_ptr<desktop_stream> make_stream(uint32_t surface, uint16_t width, uint16_t height, const std::string & name, wivrn::video_codec codec);
 	void frame_lost(desktop_stream &);
 	void deliver_frames(streams_t::iterator);
-	bool decode_frame(streams_t::iterator, wyrm::shards::receiver::frame &);
+	bool decode_frame(streams_t::iterator, wivrn::shards::receiver::frame &);
 };
 } // namespace frame_shell

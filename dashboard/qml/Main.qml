@@ -5,7 +5,7 @@ import QtQuick.Controls as Controls
 import Qt.labs.platform
 import org.kde.kirigami as Kirigami
 
-import org.wyrmvr.wyrm
+import io.github.wivrn.wivrn
 
 Kirigami.ApplicationWindow {
     id: root
@@ -18,7 +18,7 @@ Kirigami.ApplicationWindow {
     SystemTrayIcon {
         id: systray
         visible: true
-        icon.source: Qt.resolvedUrl("wyrm.svg")
+        icon.source: Qt.resolvedUrl("wivrn.svg")
         onActivated: root.visible = !root.visible
     }
 
@@ -37,7 +37,7 @@ Kirigami.ApplicationWindow {
     }
 
     onClosing: (close) => {
-        if (WyrmServer.ownServer && WyrmServer.sessionRunning)
+        if (WivrnServer.ownServer && WivrnServer.sessionRunning)
         {
             close.accepted = false;
             confirm_close.open();
@@ -59,21 +59,21 @@ Kirigami.ApplicationWindow {
     width: 900
     height: 800
 
-    property bool server_started: WyrmServer.serverStatus == WyrmServer.Started
+    property bool server_started: WivrnServer.serverStatus == WivrnServer.Started
     property bool json_loaded: false
     property bool prev_headset_connected: false
 
     Connections {
-        target: WyrmServer
+        target: WivrnServer
         function onServerStatusChanged(value) {
-            var started = value == WyrmServer.Started;
+            var started = value == WivrnServer.Started;
 
             // Only set the switch value if it has changed, to avoid loops
             if (switch_running.checked != started)
                 switch_running.checked = started;
 
             // Set the visible property here because dismissing the message removes the binding
-            if (value == WyrmServer.FailedToStart)
+            if (value == WivrnServer.FailedToStart)
                 message_failed_to_start.visible = true;
 
             if (DashboardSettings.first_run && started) {
@@ -84,8 +84,8 @@ Kirigami.ApplicationWindow {
         }
 
         function onPairingEnabledChanged(value) {
-            if (switch_pairing.checked != WyrmServer.pairingEnabled)
-                switch_pairing.checked = WyrmServer.pairingEnabled;
+            if (switch_pairing.checked != WivrnServer.pairingEnabled)
+                switch_pairing.checked = WivrnServer.pairingEnabled;
         }
 
         function onServerError(info) {
@@ -101,7 +101,7 @@ Kirigami.ApplicationWindow {
         }
 
         function onJsonConfigurationChanged(value) {
-            Settings.load(WyrmServer);
+            Settings.load(WivrnServer);
         }
     }
 
@@ -109,8 +109,8 @@ Kirigami.ApplicationWindow {
         target: Avahi
         function onRunningChanged(value) {
             if (value) {
-                if (WyrmServer.serverStatus != WyrmServer.Started) {
-                    WyrmServer.start_server();
+                if (WivrnServer.serverStatus != WivrnServer.Started) {
+                    WivrnServer.start_server();
                     message_failed_to_start.visible = false;
                 }
             }
@@ -118,8 +118,8 @@ Kirigami.ApplicationWindow {
     }
 
     Component.onCompleted: {
-        if (WyrmServer.serverStatus == WyrmServer.Stopped)
-            WyrmServer.start_server();
+        if (WivrnServer.serverStatus == WivrnServer.Stopped)
+            WivrnServer.start_server();
 
         if (DashboardSettings.last_run_version != ApkInstaller.currentVersion) {
             DashboardSettings.last_run_version = ApkInstaller.currentVersion;
@@ -209,7 +209,7 @@ Kirigami.ApplicationWindow {
                         text: i18n("No OpenVR compatibility detected, Steam games won't be able to load VR.\nInstall xrizer or OpenComposite.")
                         type: Kirigami.MessageType.Warning
                         showCloseButton: true
-                        visible: WyrmServer.openVRCompat.length == 0 && Settings.openvr == ""
+                        visible: WivrnServer.openVRCompat.length == 0 && Settings.openvr == ""
                     }
 
                     Kirigami.InlineMessage {
@@ -245,7 +245,7 @@ Kirigami.ApplicationWindow {
                             Kirigami.Action {
                                 text: i18nc("restart the server", "Restart now")
                                 onTriggered: {
-                                    WyrmServer.restart_server();
+                                    WivrnServer.restart_server();
                                     config_restart.visible = false;
                                 }
                             }
@@ -253,12 +253,12 @@ Kirigami.ApplicationWindow {
                         Connections {
                             target: Settings
                             function onSettingsChanged() {
-                                if (WyrmServer.sessionRunning)
+                                if (WivrnServer.sessionRunning)
                                     config_restart.visible = true;
                             }
                         }
                         Connections {
-                            target: WyrmServer
+                            target: WivrnServer
                             function onServerStatusChanged(value) {
                                 config_restart.visible = false;
                             }
@@ -271,11 +271,11 @@ Kirigami.ApplicationWindow {
                         text: i18n("Server failed to start")
                         type: Kirigami.MessageType.Error
                         showCloseButton: true
-                        // visible: WyrmServer.serverStatus == WyrmServer.FailedToStart
+                        // visible: WivrnServer.serverStatus == WivrnServer.FailedToStart
                         actions: [
                             Kirigami.Action {
                                 text: i18n("Open server logs")
-                                onTriggered: WyrmServer.open_server_logs()
+                                onTriggered: WivrnServer.open_server_logs()
                             }
                         ]
                     }
@@ -290,7 +290,7 @@ Kirigami.ApplicationWindow {
                 columnSpacing: 0
 
                 Image {
-                    source: Qt.resolvedUrl("wyrm.svg")
+                    source: Qt.resolvedUrl("wivrn.svg")
                     Layout.columnSpan: parent.width < implicitWidth + main_form.implicitWidth ? 3 : 1
                 }
 
@@ -312,9 +312,9 @@ Kirigami.ApplicationWindow {
                         checked: true
                         onCheckedChanged: {
                             if (checked && !root.server_started)
-                                WyrmServer.start_server();
+                                WivrnServer.start_server();
                             else if (!checked && root.server_started)
-                                WyrmServer.stop_server();
+                                WivrnServer.stop_server();
                         }
                     }
 
@@ -324,16 +324,16 @@ Kirigami.ApplicationWindow {
                         Controls.Switch {
                             id: switch_pairing
                             onCheckedChanged: {
-                                if (checked && !WyrmServer.pairingEnabled)
-                                    WyrmServer.enable_pairing();
-                                else if (!checked && WyrmServer.pairingEnabled)
-                                    WyrmServer.disable_pairing();
+                                if (checked && !WivrnServer.pairingEnabled)
+                                    WivrnServer.enable_pairing();
+                                else if (!checked && WivrnServer.pairingEnabled)
+                                    WivrnServer.disable_pairing();
                             }
                         }
 
                         Controls.Label {
-                            visible: WyrmServer.pairingEnabled
-                            text: WyrmServer.pin
+                            visible: WivrnServer.pairingEnabled
+                            text: WivrnServer.pin
                             font.pointSize: Kirigami.Theme.defaultFont.pointSize * 1.1
                         }
                     }
@@ -349,14 +349,14 @@ Kirigami.ApplicationWindow {
                         Kirigami.FormData.label: i18nc("label for headset name/status under server running switch", "Headset")
                         enabled: root.server_started
                         Controls.Label {
-                            text: WyrmServer.headsetConnected ? WyrmServer.systemName : i18n("Not connected")
+                            text: WivrnServer.headsetConnected ? WivrnServer.systemName : i18n("Not connected")
                         }
 
                         Controls.Button {
                             text: i18n("Disconnect")
                             icon.name: "network-disconnect-symbolic"
-                            onClicked: WyrmServer.disconnect_headset()
-                            visible: root.server_started && WyrmServer.headsetConnected
+                            onClicked: WivrnServer.disconnect_headset()
+                            visible: root.server_started && WivrnServer.headsetConnected
                         }
                     }
 
@@ -365,20 +365,20 @@ Kirigami.ApplicationWindow {
                         Kirigami.FormData.label: i18nc("label for USB status or connect button", "USB")
                         text: i18nc("usb connect button", "Connect (wired)")
                         onClicked: select_usb_device.connect()
-                        enabled: root.server_started && !WyrmServer.headsetConnected
+                        enabled: root.server_started && !WivrnServer.headsetConnected
                         visible: Adb.adbInstalled && select_usb_device.connected_headset_count > 0
                     }
 
                     Controls.Label {
                         Kirigami.FormData.label: i18nc("label for USB status or connect button", "USB")
-                        visible: !Adb.adbInstalled && !WyrmServer.headsetConnected
+                        visible: !Adb.adbInstalled && !WivrnServer.headsetConnected
                         enabled: root.server_started
                         text: i18n("ADB is not installed")
                     }
 
                     Controls.Label {
                         Kirigami.FormData.label: i18nc("label for USB status or connect button", "USB")
-                        visible: Adb.adbInstalled && select_usb_device.connected_headset_count == 0 && !WyrmServer.headsetConnected
+                        visible: Adb.adbInstalled && select_usb_device.connected_headset_count == 0 && !WivrnServer.headsetConnected
                         enabled: root.server_started
                         text: i18n("No headset is connected or your headset is not in developer mode");
                         Layout.fillWidth: true
@@ -406,7 +406,7 @@ Kirigami.ApplicationWindow {
             }
             SteamLaunchOptions {
                 id: steam_info
-                visible: root.server_started && WyrmServer.steamCommand != ""
+                visible: root.server_started && WivrnServer.steamCommand != ""
             }
 
             Item {

@@ -50,7 +50,7 @@ inline void set_input_capture(const char * const * paths, size_t count, uint32_t
 	input_capture_state next{.pose_mask = pose_mask};
 	for (size_t i = 0; i < count; ++i)
 	{
-		if (auto it = wyrm::device_ids.find(paths[i]); it != wyrm::device_ids.end())
+		if (auto it = wivrn::device_ids.find(paths[i]); it != wivrn::device_ids.end())
 		{
 			auto id = static_cast<uint8_t>(it->second);
 			next.inputs[id] = true;
@@ -261,16 +261,16 @@ inline std::string settings_json(const configuration & config, const configurati
 	{
 		switch (*stream.codec)
 		{
-			case wyrm::video_codec::h264:
+			case wivrn::video_codec::h264:
 				codec = "h264";
 				break;
-			case wyrm::video_codec::h265:
+			case wivrn::video_codec::h265:
 				codec = "h265";
 				break;
-			case wyrm::video_codec::av1:
+			case wivrn::video_codec::av1:
 				codec = "av1";
 				break;
-			case wyrm::video_codec::raw:
+			case wivrn::video_codec::raw:
 				codec = "raw";
 				break;
 		}
@@ -287,10 +287,10 @@ inline std::string settings_json(const configuration & config, const configurati
 	                   codec,
 	                   foveation_debug.load(),
 	                   stream.desktop_bitrate_kbps,
-	                   stream.desktop_codec == wyrm::video_codec::h265 ? "h265" : "h264",
-	                   wyrm::decoder::supports_codec(wyrm::video_codec::h264),
-	                   wyrm::decoder::supports_codec(wyrm::video_codec::h265),
-	                   wyrm::decoder::supports_codec(wyrm::video_codec::av1));
+	                   stream.desktop_codec == wivrn::video_codec::h265 ? "h265" : "h264",
+	                   wivrn::decoder::supports_codec(wivrn::video_codec::h264),
+	                   wivrn::decoder::supports_codec(wivrn::video_codec::h265),
+	                   wivrn::decoder::supports_codec(wivrn::video_codec::av1));
 }
 
 // "<key> <value>" for a PC's stream settings
@@ -364,31 +364,31 @@ inline bool apply_setting(configuration & config, configuration::stream_config &
 	}
 	else if (key == "desktop_codec")
 	{
-		wyrm::video_codec requested;
+		wivrn::video_codec requested;
 		if (value == "h264")
-			requested = wyrm::video_codec::h264;
+			requested = wivrn::video_codec::h264;
 		else if (value == "h265")
-			requested = wyrm::video_codec::h265;
+			requested = wivrn::video_codec::h265;
 		else
 			return false;
-		if (!wyrm::decoder::supports_codec(requested))
+		if (!wivrn::decoder::supports_codec(requested))
 			return false;
 		stream.desktop_codec = requested;
 	}
 	else if (key == "codec")
 	{
-		std::optional<wyrm::video_codec> requested;
+		std::optional<wivrn::video_codec> requested;
 		if (value == "auto")
 			requested.reset();
 		else if (value == "h264")
-			requested = wyrm::video_codec::h264;
+			requested = wivrn::video_codec::h264;
 		else if (value == "h265")
-			requested = wyrm::video_codec::h265;
+			requested = wivrn::video_codec::h265;
 		else if (value == "av1")
-			requested = wyrm::video_codec::av1;
+			requested = wivrn::video_codec::av1;
 		else
 			return false;
-		if (requested && !wyrm::decoder::supports_codec(*requested))
+		if (requested && !wivrn::decoder::supports_codec(*requested))
 			return false;
 		stream.codec = requested;
 	}

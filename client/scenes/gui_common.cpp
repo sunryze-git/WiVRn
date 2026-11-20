@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022-2026  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -28,7 +28,7 @@
 #include <cmath>
 #include <spdlog/fmt/fmt.h>
 
-namespace wyrm::gui
+namespace wivrn::gui
 {
 float toggle_width()
 {
@@ -82,4 +82,4 @@ std::optional<battery_indicator> battery_status_indicator(XrTime now)
 	        .style = style,
 	};
 }
-} // namespace wyrm::gui
+} // namespace wivrn::gui

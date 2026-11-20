@@ -31,7 +31,7 @@ struct fixture
 static void fixture_init(struct fixture * fixture)
 {
 	memset(fixture, 0, sizeof(*fixture));
-	strcpy(fixture->directory, "/tmp/wyrm-solarxr-test-XXXXXX");
+	strcpy(fixture->directory, "/tmp/wivrn-solarxr-test-XXXXXX");
 	check(mkdtemp(fixture->directory) != NULL);
 	fixture->address.sun_family = AF_UNIX;
 	check(snprintf(fixture->address.sun_path, sizeof(fixture->address.sun_path), "%s/socket", fixture->directory) > 0);

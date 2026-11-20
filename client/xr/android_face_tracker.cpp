@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  galister <galister@librevr.org>
  * Copyright (C) 2025  Sapphire <imsapphire0@gmail.com>
  *
@@ -18,7 +18,7 @@
  */
 
 #include "android_face_tracker.h"
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include "xr/instance.h"
 #include "xr/session.h"
 #include <openxr/openxr.h>
@@ -39,7 +39,7 @@ xr::android_face_tracker::android_face_tracker(instance & inst, session & s) :
 	CHECK_XR(xrCreateFaceTrackerANDROID(s, &create_info, &id));
 }
 
-void xr::android_face_tracker::get_weights(XrTime time, wyrm::from_headset::tracking::android_face & out_expressions)
+void xr::android_face_tracker::get_weights(XrTime time, wivrn::from_headset::tracking::android_face & out_expressions)
 {
 	if (!id || !xrGetFaceStateANDROID)
 		return;

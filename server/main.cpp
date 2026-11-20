@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022-2026 Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -22,7 +22,7 @@
 // SPDX-License-Identifier: BSL-1.0
 /*!
  * @file
- * @brief  Main file for Wyrm Monado service.
+ * @brief  Main file for WiVRn Monado service.
  */
 
 #include "application.h"
@@ -33,7 +33,7 @@
 #include "avahi_publisher.h"
 #include "discord_presence.h"
 #include "driver/configuration.h"
-#include "driver/wyrm_connection.h"
+#include "driver/wivrn_connection.h"
 #include "exit_codes.h"
 #include "frame_abi.h"
 #include "hostname.h"
@@ -44,12 +44,12 @@
 #include "start_systemd_unit.h"
 #include "utils/overloaded.h"
 #include "version.h"
-#include "wyrm_config.h"
-#include "wyrm_ipc.h"
-#include "wyrm_packets.h"
-#include "wyrm_sockets.h"
+#include "wivrn_config.h"
+#include "wivrn_ipc.h"
+#include "wivrn_packets.h"
+#include "wivrn_sockets.h"
 
-#include "wyrm_server_dbus.h"
+#include "wivrn_server_dbus.h"
 
 #include <CLI/CLI.hpp>
 #include <avahi-glib/glib-watch.h>
@@ -90,12 +90,12 @@ extern "C"
 	int listen_socket = -1;
 }
 
-using namespace wyrm;
+using namespace wivrn;
 using namespace std::chrono_literals;
 
 static std::unique_ptr<TCPListener> listener;
-std::optional<wyrm::typed_socket<wyrm::UnixDatagram, from_monado::packets, to_monado::packets>> wyrm_ipc_socket_main_loop;
-std::optional<wyrm::typed_socket<wyrm::UnixDatagram, to_monado::packets, from_monado::packets>> wyrm_ipc_socket_monado;
+std::optional<wivrn::typed_socket<wivrn::UnixDatagram, from_monado::packets, to_monado::packets>> wivrn_ipc_socket_main_loop;
+std::optional<wivrn::typed_socket<wivrn::UnixDatagram, to_monado::packets, from_monado::packets>> wivrn_ipc_socket_monado;
 
 std::filesystem::path socket_path()
 {
@@ -182,8 +182,7 @@ static std::string steam_command()
 			result += c == '\'' ? "'\\''" : std::string(1, c);
 		return result + "'";
 	};
-	// Steam's automatic OpenXR import knows the upstream socket name. Share
-	// Wyrm's socket explicitly, including with Steam versions that import XR.
+	// Share the socket directory explicitly, including with Steam versions that import XR
 	std::string filesystems = socket_path().parent_path().string();
 
 	if (not pressure_vessel_openxr_support())
@@ -199,7 +198,7 @@ static std::string steam_command()
 		if (p.starts_with("/usr"))
 			command += "VR_OVERRIDE=" + quote("/run/host" + p) + ' ';
 		else if (p.starts_with("/var") and not p.starts_with(home))
-			filesystems += ':' + find_dir(p, "org.wyrmvr.wyrm").string();
+			filesystems += ':' + find_dir(p, "io.github.wivrn.wivrn").string();
 	}
 	command += "PRESSURE_VESSEL_FILESYSTEMS_RW=" + quote(filesystems) + "\"${PRESSURE_VESSEL_FILESYSTEMS_RW:+:$PRESSURE_VESSEL_FILESYSTEMS_RW}\" ";
 
@@ -227,15 +226,15 @@ bool quitting_main_loop;
 bool session_initialized;
 bool do_fork;
 bool do_active_runtime;
-#if WYRM_FEATURE_DEBUG_GUI
+#if WIVRN_FEATURE_DEBUG_GUI
 bool show_debug_gui;
 #endif
-wyrm::service_publication publication;
+wivrn::service_publication publication;
 
 guint listener_watch;
-std::unique_ptr<wyrm::link_probe_responder> probe_responder;
+std::unique_ptr<wivrn::link_probe_responder> probe_responder;
 
-wyrm_connection::encryption_state enc_state = wyrm_connection::encryption_state::enabled;
+wivrn_connection::encryption_state enc_state = wivrn_connection::encryption_state::enabled;
 guint pairing_timeout;
 std::string pin;
 NotifyNotification * pin_notification;
@@ -244,7 +243,7 @@ NotifyNotification * pin_notification;
 const std::chrono::milliseconds default_delay_next_try = 10ms;
 std::chrono::milliseconds delay_next_try = default_delay_next_try;
 
-WyrmServer * dbus_server;
+WivrnServer * dbus_server;
 
 /* TODO: Document FSM
  */
@@ -259,17 +258,17 @@ void configure_discord()
 {
 	if (not discord)
 		return;
-	auto config = wyrm::configuration();
-	if (const char * id = std::getenv("WYRM_DISCORD_APPLICATION_ID"))
+	auto config = wivrn::configuration();
+	if (const char * id = std::getenv("WIVRN_DISCORD_APPLICATION_ID"))
 		config.discord_application_id = id;
 	discord->configure(config.discord_rich_presence, std::move(config.discord_application_id));
 }
 
 gboolean headset_connected(gint fd, GIOCondition condition, gpointer user_data);
 void stop_listening();
-void on_headset_info_packet(const wyrm::from_headset::headset_info_packet & info);
+void on_headset_info_packet(const wivrn::from_headset::headset_info_packet & info);
 void expose_known_keys_on_dbus();
-void set_encryption_state(wyrm_connection::encryption_state new_enc_state);
+void set_encryption_state(wivrn_connection::encryption_state new_enc_state);
 
 void start_publishing();
 void stop_publishing();
@@ -281,11 +280,11 @@ void run_server(configuration config)
 	setenv("AMD_DEBUG", "lowlatencyenc", false);
 	setenv("INTEL_DEBUG", "noccs", false);
 	setenv("XRT_LOG", "info", false);
-	wyrm::ipc_server_cb server_cb;
+	wivrn::ipc_server_cb server_cb;
 	ipc_server_main_info server_info{
 	        .udgci = {
 	                .window_title = "Wyrm",
-#if WYRM_FEATURE_DEBUG_GUI
+#if WIVRN_FEATURE_DEBUG_GUI
 	                .open = (config.debug_gui or show_debug_gui) ? U_DEBUG_GUI_OPEN_ALWAYS : U_DEBUG_GUI_OPEN_AUTO,
 #else
 	                .open = U_DEBUG_GUI_OPEN_NEVER,
@@ -318,7 +317,7 @@ void spawn_server(TCP tcp)
 	posix_spawnattr_t attributes;
 	posix_spawnattr_init(&attributes);
 	posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSID);
-	std::vector<std::string> args{"wyrm-server", "--session", "100", "101", "102", "103"};
+	std::vector<std::string> args{"wivrn-server", "--session", "100", "101", "102", "103"};
 	auto config = configuration::get_config_file();
 	if (!config.empty())
 	{
@@ -339,9 +338,9 @@ void spawn_server(TCP tcp)
 	std::cerr << "Server started, PID " << server_pid << std::endl;
 	assert(server_watch == 0);
 	assert(server_kill_watch == 0);
-	wyrm_server_set_session_running(dbus_server, true);
+	wivrn_server_set_session_running(dbus_server, true);
 	server_watch = g_child_watch_add(server_pid, [](pid_t, int status, void *) {
-        wyrm_server_set_session_running(dbus_server, false);
+        wivrn_server_set_session_running(dbus_server, false);
         display_child_status(status, "Server");
         g_source_remove(server_watch);
         if (server_kill_watch) g_source_remove(server_kill_watch);
@@ -359,7 +358,7 @@ void spawn_server(TCP tcp)
 
 void kill_server()
 {
-	wyrm_ipc_socket_main_loop->send(to_monado::stop{});
+	wivrn_ipc_socket_main_loop->send(to_monado::stop{});
 
 	// Send SIGTERM after 1s if it is still running
 	server_kill_watch = g_timeout_add(3500, [](void *) {
@@ -377,7 +376,7 @@ void start_listening()
 	assert(listener_watch == 0);
 
 	listener = std::make_unique<TCPListener>(configuration().port);
-	probe_responder = std::make_unique<wyrm::link_probe_responder>(configuration().port);
+	probe_responder = std::make_unique<wivrn::link_probe_responder>(configuration().port);
 	auto source_listener = g_unix_fd_source_new(listener->get_fd(), GIOCondition::G_IO_IN);
 	g_source_set_callback(source_listener, G_SOURCE_FUNC(&headset_connected), nullptr, nullptr);
 	listener_watch = g_source_attach(source_listener, nullptr);
@@ -401,23 +400,23 @@ void start_publishing()
 {
 	switch (publication)
 	{
-		case wyrm::service_publication::none:
+		case wivrn::service_publication::none:
 			return;
 
-		case wyrm::service_publication::avahi: {
+		case wivrn::service_publication::avahi: {
 			if (publisher)
 				return;
 
 			char protocol_string[17];
-			sprintf(protocol_string, "%016" PRIx64, wyrm::protocol_version);
+			sprintf(protocol_string, "%016" PRIx64, wivrn::protocol_version);
 			std::map<std::string, std::string> TXT = {
 			        {"protocol", protocol_string},
-			        {"version", wyrm::display_version()},
+			        {"version", wivrn::display_version()},
 			        {"cookie", server_cookie()},
-			        {"pc_name", wyrm::hostname()},
+			        {"pc_name", wivrn::hostname()},
 			};
-			auto configuration = wyrm::configuration();
-			publisher.emplace(poll_api, configuration.hostname, "_wyrm._tcp", configuration.port, TXT);
+			auto configuration = wivrn::configuration();
+			publisher.emplace(poll_api, configuration.hostname, "_wivrn._tcp", configuration.port, TXT);
 		}
 	}
 }
@@ -462,7 +461,7 @@ void update_fsm()
 			g_timeout_add(delay_next_try.count(), [](void *) {
 				start_listening();
 				start_publishing();
-				wyrm_server_set_headset_connected(dbus_server, false);
+				wivrn_server_set_headset_connected(dbus_server, false);
 				return G_SOURCE_REMOVE; }, 0);
 		}
 	}
@@ -484,8 +483,8 @@ gboolean headset_connected_success(void *)
 	assert(connection_thread);
 	connection_thread.reset();
 
-	if (enc_state == wyrm_connection::encryption_state::pairing)
-		set_encryption_state(wyrm_connection::encryption_state::enabled);
+	if (enc_state == wivrn_connection::encryption_state::pairing)
+		set_encryption_state(wivrn_connection::encryption_state::enabled);
 
 	std::cerr << "Client connected" << std::endl;
 
@@ -554,13 +553,13 @@ gboolean headset_connected(gint fd, GIOCondition condition, gpointer user_data)
 		return G_SOURCE_CONTINUE;
 	}
 
-	connection_thread.emplace([](std::stop_token stop_token, TCP && tcp, std::string pin, wyrm_connection::encryption_state enc_state) {
+	connection_thread.emplace([](std::stop_token stop_token, TCP && tcp, std::string pin, wivrn_connection::encryption_state enc_state) {
 		try
 		{
-			connection = std::make_unique<wyrm_connection>(stop_token, enc_state, pin, std::move(tcp));
+			connection = std::make_unique<wivrn_connection>(stop_token, enc_state, pin, std::move(tcp));
 			g_main_context_invoke(nullptr, &headset_connected_success, nullptr);
 		}
-		catch (wyrm::incorrect_pin &)
+		catch (wivrn::incorrect_pin &)
 		{
 			std::cerr << "Incorrect PIN" << std::endl;
 			g_main_context_invoke(nullptr, &headset_connected_incorrect_pin, nullptr);
@@ -580,18 +579,18 @@ gboolean headset_connected(gint fd, GIOCondition condition, gpointer user_data)
 
 gboolean control_received(gint fd, GIOCondition condition, gpointer user_data)
 {
-	auto packet = wyrm_ipc_socket_main_loop->receive();
+	auto packet = wivrn_ipc_socket_main_loop->receive();
 	if (packet)
 	{
 		std::visit(utils::overloaded{
-		                   [&](const wyrm::from_headset::headset_info_packet & info) {
+		                   [&](const wivrn::from_headset::headset_info_packet & info) {
 			                   if (!session_initialized)
 			                   {
 				                   session_initialized = true;
 				                   delay_next_try = default_delay_next_try;
 				                   expose_known_keys_on_dbus();
-				                   if (enc_state == wyrm_connection::encryption_state::pairing)
-					                   set_encryption_state(wyrm_connection::encryption_state::enabled);
+				                   if (enc_state == wivrn_connection::encryption_state::pairing)
+					                   set_encryption_state(wivrn_connection::encryption_state::enabled);
 				                   try
 				                   {
 					                   children->start_application(configuration().application);
@@ -608,13 +607,13 @@ gboolean control_received(gint fd, GIOCondition condition, gpointer user_data)
 			                   }
 			                   on_headset_info_packet(info);
 			                   inhibitor.emplace();
-			                   wyrm_server_set_headset_connected(dbus_server, true);
+			                   wivrn_server_set_headset_connected(dbus_server, true);
 		                   },
-		                   [&](const wyrm::from_headset::settings_changed & settings) {
-			                   wyrm_server_set_preferred_refresh_rate(dbus_server, settings.preferred_refresh_rate);
-			                   wyrm_server_set_bitrate(dbus_server, settings.bitrate_bps);
+		                   [&](const wivrn::from_headset::settings_changed & settings) {
+			                   wivrn_server_set_preferred_refresh_rate(dbus_server, settings.preferred_refresh_rate);
+			                   wivrn_server_set_bitrate(dbus_server, settings.bitrate_bps);
 		                   },
-		                   [&](const wyrm::from_headset::start_app & request) {
+		                   [&](const wivrn::from_headset::start_app & request) {
 			                   const auto & apps = list_applications();
 			                   if (auto it = apps.find(request.app_id); it != apps.end())
 			                   {
@@ -631,7 +630,7 @@ gboolean control_received(gint fd, GIOCondition condition, gpointer user_data)
 		                   [&](const from_monado::headset_connected &) {
 			                   stop_publishing();
 			                   inhibitor.emplace();
-			                   wyrm_server_set_headset_connected(dbus_server, true);
+			                   wivrn_server_set_headset_connected(dbus_server, true);
 			                   if (discord)
 				                   discord->set_connected(true);
 		                   },
@@ -640,14 +639,14 @@ gboolean control_received(gint fd, GIOCondition condition, gpointer user_data)
 				                   discord->set_connected(false);
 			                   start_publishing();
 			                   inhibitor.reset();
-			                   wyrm_server_set_headset_connected(dbus_server, false);
-			                   wyrm_server_set_client_tab(dbus_server, "");
+			                   wivrn_server_set_headset_connected(dbus_server, false);
+			                   wivrn_server_set_client_tab(dbus_server, "");
 		                   },
-		                   [&](const wyrm::from_headset::stream_tab_changed & event) {
-			                   wyrm_server_set_client_tab(dbus_server, magic_enum::enum_name(event.tab).data());
+		                   [&](const wivrn::from_headset::stream_tab_changed & event) {
+			                   wivrn_server_set_client_tab(dbus_server, magic_enum::enum_name(event.tab).data());
 		                   },
 		                   [&](const from_monado::server_error & e) {
-			                   wyrm_server_emit_server_error(dbus_server, e.where.c_str(), e.message.c_str());
+			                   wivrn_server_emit_server_error(dbus_server, e.where.c_str(), e.message.c_str());
 		                   },
 		                   [&](const from_monado::active_application & app) {
 			                   if (discord)
@@ -660,7 +659,7 @@ gboolean control_received(gint fd, GIOCondition condition, gpointer user_data)
 	return G_SOURCE_CONTINUE;
 }
 
-void set_encryption_state(wyrm_connection::encryption_state new_enc_state)
+void set_encryption_state(wivrn_connection::encryption_state new_enc_state)
 {
 	// TODO translate the notifications
 	if (pin_notification)
@@ -672,23 +671,23 @@ void set_encryption_state(wyrm_connection::encryption_state new_enc_state)
 
 	switch (new_enc_state)
 	{
-		case wyrm_connection::encryption_state::disabled:
+		case wivrn_connection::encryption_state::disabled:
 			pin = "";
 			std::cerr << "Encryption is disabled" << std::endl;
-			wyrm_server_set_pairing_enabled(dbus_server, false);
-			wyrm_server_set_encryption_enabled(dbus_server, false);
+			wivrn_server_set_pairing_enabled(dbus_server, false);
+			wivrn_server_set_encryption_enabled(dbus_server, false);
 			break;
 
-		case wyrm_connection::encryption_state::enabled:
+		case wivrn_connection::encryption_state::enabled:
 			pin = "";
-			if (enc_state != wyrm_connection::encryption_state::enabled)
+			if (enc_state != wivrn_connection::encryption_state::enabled)
 				std::cerr << "Headset pairing is disabled" << std::endl;
 
-			wyrm_server_set_pairing_enabled(dbus_server, false);
-			wyrm_server_set_encryption_enabled(dbus_server, true);
+			wivrn_server_set_pairing_enabled(dbus_server, false);
+			wivrn_server_set_encryption_enabled(dbus_server, true);
 			break;
 
-		case wyrm_connection::encryption_state::pairing:
+		case wivrn_connection::encryption_state::pairing:
 			std::random_device rd;
 			std::mt19937 gen(rd());
 			std::uniform_int_distribution<> distrib(0, 999999);
@@ -697,8 +696,8 @@ void set_encryption_state(wyrm_connection::encryption_state new_enc_state)
 			snprintf(buffer, 7, "%06d", distrib(gen));
 			pin = buffer;
 			std::cerr << "To pair a new headset use PIN code: " << pin << std::endl;
-			wyrm_server_set_pairing_enabled(dbus_server, true);
-			wyrm_server_set_encryption_enabled(dbus_server, true);
+			wivrn_server_set_pairing_enabled(dbus_server, true);
+			wivrn_server_set_encryption_enabled(dbus_server, true);
 
 			// Desktop notification
 			pin_notification = notify_notification_new("PIN", pin.c_str(), "dialog-password");
@@ -710,20 +709,20 @@ void set_encryption_state(wyrm_connection::encryption_state new_enc_state)
 	}
 
 	enc_state = new_enc_state;
-	wyrm_server_set_pin(dbus_server, pin.c_str());
+	wivrn_server_set_pin(dbus_server, pin.c_str());
 }
 
-gboolean on_handle_disconnect(WyrmServer * skeleton,
+gboolean on_handle_disconnect(WivrnServer * skeleton,
                               GDBusMethodInvocation * invocation,
                               gpointer user_data)
 {
-	wyrm_ipc_socket_main_loop->send(to_monado::disconnect{});
+	wivrn_ipc_socket_main_loop->send(to_monado::disconnect{});
 
 	g_dbus_method_invocation_return_value(invocation, nullptr);
 	return G_SOURCE_CONTINUE;
 }
 
-gboolean on_handle_quit(WyrmServer * skeleton, GDBusMethodInvocation * invocation, gpointer user_data)
+gboolean on_handle_quit(WivrnServer * skeleton, GDBusMethodInvocation * invocation, gpointer user_data)
 {
 	quitting_main_loop = true;
 	update_fsm();
@@ -732,14 +731,14 @@ gboolean on_handle_quit(WyrmServer * skeleton, GDBusMethodInvocation * invocatio
 	return G_SOURCE_CONTINUE;
 }
 
-gboolean on_handle_revoke_key(WyrmServer * skeleton, GDBusMethodInvocation * invocation, gpointer user_data)
+gboolean on_handle_revoke_key(WivrnServer * skeleton, GDBusMethodInvocation * invocation, gpointer user_data)
 {
 	GVariant * args = g_dbus_method_invocation_get_parameters(invocation);
 
 	char * publickey;
 	g_variant_get_child(args, 0, "s", &publickey);
 
-	wyrm::remove_known_key(publickey);
+	wivrn::remove_known_key(publickey);
 
 	g_free(publickey);
 
@@ -748,7 +747,7 @@ gboolean on_handle_revoke_key(WyrmServer * skeleton, GDBusMethodInvocation * inv
 	return G_SOURCE_CONTINUE;
 }
 
-gboolean on_handle_rename_key(WyrmServer * skeleton, GDBusMethodInvocation * invocation, gpointer user_data)
+gboolean on_handle_rename_key(WivrnServer * skeleton, GDBusMethodInvocation * invocation, gpointer user_data)
 {
 	GVariant * args = g_dbus_method_invocation_get_parameters(invocation);
 
@@ -757,7 +756,7 @@ gboolean on_handle_rename_key(WyrmServer * skeleton, GDBusMethodInvocation * inv
 	g_variant_get_child(args, 0, "s", &publickey);
 	g_variant_get_child(args, 1, "s", &name);
 
-	wyrm::rename_known_key({.public_key = publickey, .name = name});
+	wivrn::rename_known_key({.public_key = publickey, .name = name});
 
 	g_free(publickey);
 	g_free(name);
@@ -767,7 +766,7 @@ gboolean on_handle_rename_key(WyrmServer * skeleton, GDBusMethodInvocation * inv
 	return G_SOURCE_CONTINUE;
 }
 
-gboolean on_handle_enable_pairing(WyrmServer * skeleton, GDBusMethodInvocation * invocation, gpointer user_data)
+gboolean on_handle_enable_pairing(WivrnServer * skeleton, GDBusMethodInvocation * invocation, gpointer user_data)
 {
 	bool server_running = server_watch != 0 or connection_thread;
 	if (server_running)
@@ -778,7 +777,7 @@ gboolean on_handle_enable_pairing(WyrmServer * skeleton, GDBusMethodInvocation *
 		return G_SOURCE_CONTINUE;
 	}
 
-	set_encryption_state(wyrm_connection::encryption_state::pairing);
+	set_encryption_state(wivrn_connection::encryption_state::pairing);
 
 	if (pairing_timeout)
 		g_source_remove(pairing_timeout);
@@ -791,7 +790,7 @@ gboolean on_handle_enable_pairing(WyrmServer * skeleton, GDBusMethodInvocation *
 	{
 		pairing_timeout = g_timeout_add(timeout_secs * 1000, [](void *) {
 			pairing_timeout = 0;
-			set_encryption_state(wyrm_connection::encryption_state::enabled);
+			set_encryption_state(wivrn_connection::encryption_state::enabled);
 			return G_SOURCE_REMOVE; }, nullptr);
 	}
 
@@ -799,14 +798,14 @@ gboolean on_handle_enable_pairing(WyrmServer * skeleton, GDBusMethodInvocation *
 	return G_SOURCE_CONTINUE;
 }
 
-gboolean on_handle_disable_pairing(WyrmServer * skeleton, GDBusMethodInvocation * invocation, gpointer user_data)
+gboolean on_handle_disable_pairing(WivrnServer * skeleton, GDBusMethodInvocation * invocation, gpointer user_data)
 {
-	set_encryption_state(wyrm_connection::encryption_state::enabled);
+	set_encryption_state(wivrn_connection::encryption_state::enabled);
 	g_dbus_method_invocation_return_value(invocation, nullptr);
 	return G_SOURCE_CONTINUE;
 }
 
-gboolean on_handle_set_client_tab(WyrmServer * skeleton, GDBusMethodInvocation * invocation, gpointer user_data)
+gboolean on_handle_set_client_tab(WivrnServer * skeleton, GDBusMethodInvocation * invocation, gpointer user_data)
 {
 	GVariant * args = g_dbus_method_invocation_get_parameters(invocation);
 	char * c_tab;
@@ -818,27 +817,27 @@ gboolean on_handle_set_client_tab(WyrmServer * skeleton, GDBusMethodInvocation *
 	{
 		if (tab == name)
 		{
-			wyrm_ipc_socket_main_loop->send(to_headset::stream_tab_change{.tab = val});
+			wivrn_ipc_socket_main_loop->send(to_headset::stream_tab_change{.tab = val});
 			g_dbus_method_invocation_return_value(invocation, nullptr);
 			return G_SOURCE_CONTINUE;
 		}
 	}
 
 	std::cerr << "Invalid tab name " << tab << std::endl;
-	g_dbus_method_invocation_return_dbus_error(invocation, "org.wyrmvr.Server.InvalidTab", "invalid tab");
+	g_dbus_method_invocation_return_dbus_error(invocation, "io.github.wivrn.Server.InvalidTab", "invalid tab");
 	return G_SOURCE_CONTINUE;
 }
 
-void on_bitrate(WyrmServer * server, const GParamSpec * pspec, gpointer data)
+void on_bitrate(WivrnServer * server, const GParamSpec * pspec, gpointer data)
 {
-	auto bitrate = wyrm_server_get_bitrate(server);
+	auto bitrate = wivrn_server_get_bitrate(server);
 	if (bitrate > 0)
-		wyrm_ipc_socket_main_loop->send(to_monado::set_bitrate{bitrate});
+		wivrn_ipc_socket_main_loop->send(to_monado::set_bitrate{bitrate});
 }
 
-void on_json_configuration(WyrmServer * server, const GParamSpec * pspec, gpointer data)
+void on_json_configuration(WivrnServer * server, const GParamSpec * pspec, gpointer data)
 {
-	const char * json = wyrm_server_get_json_configuration(server);
+	const char * json = wivrn_server_get_json_configuration(server);
 
 	std::filesystem::path config = configuration::get_config_file();
 	std::filesystem::path config_new = config;
@@ -857,7 +856,7 @@ void on_json_configuration(WyrmServer * server, const GParamSpec * pspec, gpoint
 	else
 		configure_discord();
 
-	wyrm_server_set_steam_command(dbus_server, steam_command().c_str());
+	wivrn_server_set_steam_command(dbus_server, steam_command().c_str());
 }
 
 void expose_known_keys_on_dbus()
@@ -873,10 +872,10 @@ void expose_known_keys_on_dbus()
 	}
 	GVariant * value = g_variant_new("a(ssx)", builder);
 	g_variant_builder_unref(builder);
-	wyrm_server_set_known_keys(dbus_server, value);
+	wivrn_server_set_known_keys(dbus_server, value);
 }
 
-void on_headset_info_packet(const wyrm::from_headset::headset_info_packet & info)
+void on_headset_info_packet(const wivrn::from_headset::headset_info_packet & info)
 {
 	GVariantBuilder * builder;
 
@@ -887,23 +886,23 @@ void on_headset_info_packet(const wyrm::from_headset::headset_info_packet & info
 	}
 	GVariant * value_refresh_rates = g_variant_new("ad", builder);
 	g_variant_builder_unref(builder);
-	wyrm_server_set_available_refresh_rates(dbus_server, value_refresh_rates);
+	wivrn_server_set_available_refresh_rates(dbus_server, value_refresh_rates);
 
-	wyrm_server_set_preferred_refresh_rate(dbus_server, info.settings.preferred_refresh_rate);
+	wivrn_server_set_preferred_refresh_rate(dbus_server, info.settings.preferred_refresh_rate);
 
-	wyrm_server_set_bitrate(dbus_server, info.settings.bitrate_bps);
+	wivrn_server_set_bitrate(dbus_server, info.settings.bitrate_bps);
 
-	auto speaker = info.speaker.value_or(wyrm::from_headset::headset_info_packet::audio_description{});
-	wyrm_server_set_speaker_channels(dbus_server, speaker.num_channels);
-	wyrm_server_set_speaker_sample_rate(dbus_server, speaker.sample_rate);
+	auto speaker = info.speaker.value_or(wivrn::from_headset::headset_info_packet::audio_description{});
+	wivrn_server_set_speaker_channels(dbus_server, speaker.num_channels);
+	wivrn_server_set_speaker_sample_rate(dbus_server, speaker.sample_rate);
 
-	auto mic = info.microphone.value_or(wyrm::from_headset::headset_info_packet::audio_description{});
-	wyrm_server_set_mic_channels(dbus_server, mic.num_channels);
-	wyrm_server_set_mic_sample_rate(dbus_server, mic.sample_rate);
+	auto mic = info.microphone.value_or(wivrn::from_headset::headset_info_packet::audio_description{});
+	wivrn_server_set_mic_channels(dbus_server, mic.num_channels);
+	wivrn_server_set_mic_sample_rate(dbus_server, mic.sample_rate);
 
-	wyrm_server_set_hand_tracking(dbus_server, info.hand_tracking);
-	wyrm_server_set_eye_gaze(dbus_server, info.eye_gaze);
-	wyrm_server_set_face_tracking(dbus_server, info.face_tracking != wyrm::from_headset::face_type::none);
+	wivrn_server_set_hand_tracking(dbus_server, info.hand_tracking);
+	wivrn_server_set_eye_gaze(dbus_server, info.eye_gaze);
+	wivrn_server_set_face_tracking(dbus_server, info.face_tracking != wivrn::from_headset::face_type::none);
 
 	std::vector<const char *> codecs;
 	static const std::map<video_codec, const char *> codec_names = {
@@ -917,8 +916,8 @@ void on_headset_info_packet(const wyrm::from_headset::headset_info_packet & info
 			codecs.push_back(it->second);
 	}
 	codecs.push_back(nullptr);
-	wyrm_server_set_supported_codecs(dbus_server, codecs.data());
-	wyrm_server_set_system_name(dbus_server, info.system_name.c_str());
+	wivrn_server_set_supported_codecs(dbus_server, codecs.data());
+	wivrn_server_set_system_name(dbus_server, info.system_name.c_str());
 }
 
 void on_name_acquired(GDBusConnection * connection, const gchar * name, gpointer user_data)
@@ -932,7 +931,7 @@ void on_name_acquired(GDBusConnection * connection, const gchar * name, gpointer
 		children = std::make_unique<forked_children>(update_fsm);
 	}
 
-	dbus_server = wyrm_server_skeleton_new();
+	dbus_server = wivrn_server_skeleton_new();
 
 	g_signal_connect(dbus_server,
 	                 "handle-disconnect",
@@ -954,7 +953,7 @@ void on_name_acquired(GDBusConnection * connection, const gchar * name, gpointer
 	                 G_CALLBACK(on_handle_rename_key),
 	                 NULL);
 
-	if (enc_state != wyrm_connection::encryption_state::disabled)
+	if (enc_state != wivrn_connection::encryption_state::disabled)
 	{
 		g_signal_connect(dbus_server,
 		                 "handle-enable-pairing",
@@ -969,7 +968,7 @@ void on_name_acquired(GDBusConnection * connection, const gchar * name, gpointer
 
 	g_signal_connect(dbus_server, "handle-set-client-tab", G_CALLBACK(on_handle_set_client_tab), NULL);
 
-	wyrm_server_set_steam_command(dbus_server, steam_command().c_str());
+	wivrn_server_set_steam_command(dbus_server, steam_command().c_str());
 
 	on_headset_info_packet({});
 
@@ -982,7 +981,7 @@ void on_name_acquired(GDBusConnection * connection, const gchar * name, gpointer
 	{
 		std::cerr << "Invalid configuration: " << e.what() << std::endl;
 	}
-	wyrm_server_set_json_configuration(dbus_server, config.c_str());
+	wivrn_server_set_json_configuration(dbus_server, config.c_str());
 
 	expose_known_keys_on_dbus();
 
@@ -991,15 +990,15 @@ void on_name_acquired(GDBusConnection * connection, const gchar * name, gpointer
 
 	g_dbus_interface_skeleton_export(G_DBUS_INTERFACE_SKELETON(dbus_server),
 	                                 connection,
-	                                 "/org/wyrmvr/Server",
+	                                 "/io/github/wivrn/Server",
 	                                 NULL);
 
-	if (enc_state != wyrm_connection::encryption_state::disabled and known_keys().empty())
-		set_encryption_state(wyrm_connection::encryption_state::pairing);
+	if (enc_state != wivrn_connection::encryption_state::disabled and known_keys().empty())
+		set_encryption_state(wivrn_connection::encryption_state::pairing);
 	else
 		set_encryption_state(enc_state);
 
-	wyrm_server_set_client_tab(dbus_server, "");
+	wivrn_server_set_client_tab(dbus_server, "");
 }
 
 auto create_dbus_connection()
@@ -1036,7 +1035,7 @@ auto create_dbus_connection()
 
 int inner_main(int argc, char * argv[], bool show_instructions)
 {
-	std::cerr << "Wyrm " << wyrm::display_version() << " starting" << std::endl;
+	std::cerr << "Wyrm " << wivrn::display_version() << " starting" << std::endl;
 	if (show_instructions)
 	{
 		if (auto command = steam_command(); not command.empty())
@@ -1061,12 +1060,12 @@ int inner_main(int argc, char * argv[], bool show_instructions)
 	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, control_pipe_fds) < 0)
 	{
 		perror("socketpair");
-		return wyrm_exit_code::cannot_create_socketpair;
+		return wivrn_exit_code::cannot_create_socketpair;
 	}
 	fcntl(control_pipe_fds[0], F_SETFD, FD_CLOEXEC);
 	fcntl(control_pipe_fds[1], F_SETFD, FD_CLOEXEC);
-	wyrm_ipc_socket_main_loop.emplace(control_pipe_fds[0]);
-	wyrm_ipc_socket_monado.emplace(control_pipe_fds[1]);
+	wivrn_ipc_socket_main_loop.emplace(control_pipe_fds[0]);
+	wivrn_ipc_socket_monado.emplace(control_pipe_fds[1]);
 
 	auto control_listener = g_unix_fd_source_new(control_pipe_fds[0], GIOCondition::G_IO_IN);
 	g_source_set_callback(control_listener, G_SOURCE_FUNC(&control_received), nullptr, nullptr);
@@ -1086,7 +1085,7 @@ int inner_main(int argc, char * argv[], bool show_instructions)
 	// Add dbus server
 	auto connection = create_dbus_connection();
 	g_bus_own_name_on_connection(connection,
-	                             "org.wyrmvr.Server",
+	                             "io.github.wivrn.Server",
 	                             G_BUS_NAME_OWNER_FLAGS_NONE,
 	                             on_name_acquired,
 	                             nullptr,
@@ -1118,7 +1117,7 @@ int inner_main(int argc, char * argv[], bool show_instructions)
 	std::error_code ec;
 	std::filesystem::remove(socket_path(), ec);
 
-	return wyrm_exit_code::success;
+	return wivrn_exit_code::success;
 }
 
 int main(int argc, char * argv[])
@@ -1136,7 +1135,7 @@ int main(int argc, char * argv[])
 	auto no_fork = app.add_flag("--no-fork")->description("disable the separate session process")->group("Debug");
 	auto no_publish = app.add_flag("--no-publish-service")->description("disable publishing the service through avahi");
 	auto no_encrypt = app.add_flag("--no-encrypt")->description("disable encryption")->group("Debug");
-#if WYRM_FEATURE_DEBUG_GUI
+#if WIVRN_FEATURE_DEBUG_GUI
 	auto debug_gui = app.add_flag("--debug-gui")->description("show the debug GUI")->group("Debug");
 #endif
 
@@ -1144,7 +1143,7 @@ int main(int argc, char * argv[])
 
 	if (*version_flag)
 	{
-		std::cout << "Wyrm version " << wyrm::display_version() << std::endl;
+		std::cout << "Wyrm version " << wivrn::display_version() << std::endl;
 		return 0;
 	}
 
@@ -1156,7 +1155,7 @@ int main(int argc, char * argv[])
 		try
 		{
 			listen_socket = session_fds[2];
-			wyrm_ipc_socket_monado.emplace(session_fds[1]);
+			wivrn_ipc_socket_monado.emplace(session_fds[1]);
 			fd_base bootstrap{session_fds[3]};
 			std::string settings;
 			char buffer[128];
@@ -1166,11 +1165,11 @@ int main(int argc, char * argv[])
 			if (count < 0)
 				throw std::system_error(errno, std::generic_category());
 			auto value = nlohmann::json::parse(settings);
-			auto state = wyrm_connection::encryption_state(value.at("state").get<int>());
-			connection = std::make_unique<wyrm_connection>(std::stop_token{}, state, value.at("pin").get<std::string>(), TCP(session_fds[0]));
+			auto state = wivrn_connection::encryption_state(value.at("state").get<int>());
+			connection = std::make_unique<wivrn_connection>(std::stop_token{}, state, value.at("pin").get<std::string>(), TCP(session_fds[0]));
 			run_server(configuration());
 		}
-		catch (const wyrm::incorrect_pin &)
+		catch (const wivrn::incorrect_pin &)
 		{
 			return 73;
 		}
@@ -1191,14 +1190,14 @@ int main(int argc, char * argv[])
 
 	do_fork = not *no_fork;
 	if (*no_encrypt)
-		enc_state = wyrm_connection::encryption_state::disabled;
+		enc_state = wivrn_connection::encryption_state::disabled;
 
 	if (*no_publish)
-		publication = wyrm::service_publication::none;
+		publication = wivrn::service_publication::none;
 	else
 		publication = configuration().publication;
 
-#if WYRM_FEATURE_DEBUG_GUI
+#if WIVRN_FEATURE_DEBUG_GUI
 	show_debug_gui = bool(*debug_gui);
 #endif
 
@@ -1210,11 +1209,11 @@ int main(int argc, char * argv[])
 	{
 		std::cerr << e.what() << std::endl;
 		if (e.code().category() == avahi_error_category())
-			return wyrm_exit_code::cannot_connect_to_avahi;
+			return wivrn_exit_code::cannot_connect_to_avahi;
 	}
 	catch (std::exception & e)
 	{
 		std::cerr << e.what() << std::endl;
-		return wyrm_exit_code::unknown_error;
+		return wivrn_exit_code::unknown_error;
 	}
 }

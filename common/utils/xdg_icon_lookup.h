@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -22,7 +22,7 @@
 #include <optional>
 #include <string>
 
-namespace wyrm
+namespace wivrn
 {
 std::optional<std::filesystem::path> xdg_icon_lookup(const std::string & icon_name, int size, int scale = 1);
 }

@@ -1,10 +1,10 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 #pragma once
 
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 
 #include <cstring>
 #include <deque>
@@ -13,7 +13,7 @@
 // Audio over the stream socket instead of TCP, whose resends after a lost packet stall everything behind it (up to
 // its 200 ms timeout) while the speaker buffer holds 20 ms. Chunks stay below the MTU, each is sent again
 // `repeat_after` chunks later, and the receiver puts them back in order and drops duplicates.
-namespace wyrm::audio_link
+namespace wivrn::audio_link
 {
 constexpr size_t max_chunk_bytes = 1152;
 constexpr size_t repeat_after = 2;
@@ -102,4 +102,4 @@ public:
 		}
 	}
 };
-} // namespace wyrm::audio_link
+} // namespace wivrn::audio_link

@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -221,8 +221,8 @@ stream_defoveator::stream_defoveator(
         output_extent(output_extent),
         srgb_output(format == vk::Format::eR8G8B8A8Srgb or format == vk::Format::eB8G8R8A8Srgb)
 {
-	if (const char * value = std::getenv("WYRM_FOVEATED_SHARPENING"))
-		sharpening_strength = wyrm::parse_sharpening_strength(value);
+	if (const char * value = std::getenv("WIVRN_FOVEATED_SHARPENING"))
+		sharpening_strength = wivrn::parse_sharpening_strength(value);
 	spdlog::info("Foveated sharpening strength: {}", sharpening_strength);
 	// Create renderpass
 	vk::AttachmentDescription attachment{
@@ -323,7 +323,7 @@ void stream_defoveator::reset_pipelines()
 	}
 }
 
-static size_t required_vertices(const wyrm::foveation_parameter & p)
+static size_t required_vertices(const wivrn::foveation_parameter & p)
 {
 	// strips are constructed like this:
 	// 0 2 4
@@ -334,8 +334,8 @@ static size_t required_vertices(const wyrm::foveation_parameter & p)
 }
 
 void stream_defoveator::defoveate(vk::raii::CommandBuffer & command_buffer,
-                                  const std::array<wyrm::foveation_description, 2> & foveation,
-                                  const std::array<wyrm::sharpening_region, 2> * sharpening,
+                                  const std::array<wivrn::foveation_description, 2> & foveation,
+                                  const std::array<wivrn::sharpening_region, 2> * sharpening,
                                   const std::array<input, 2> & inputs,
                                   std::array<float, 4> scale,
                                   std::array<float, 4> bias,
@@ -348,7 +348,7 @@ void stream_defoveator::defoveate(vk::raii::CommandBuffer & command_buffer,
 	{
 		if (foveation_cache[view] != foveation[view])
 		{
-			wyrm::generate_foveation(foveation[view], foveation_tables[view]);
+			wivrn::generate_foveation(foveation[view], foveation_tables[view]);
 			foveation_cache[view] = foveation[view];
 		}
 	}
@@ -503,7 +503,7 @@ void stream_defoveator::defoveate(vk::raii::CommandBuffer & command_buffer,
 	}
 }
 
-XrExtent2Di stream_defoveator::defoveated_size(const wyrm::foveation_description & view)
+XrExtent2Di stream_defoveator::defoveated_size(const wivrn::foveation_description & view)
 {
 	return {view.x.source_size, view.y.source_size};
 }

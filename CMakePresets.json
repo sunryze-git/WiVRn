@@ -14,20 +14,20 @@
 				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
 				"CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON",
 				"CMAKE_BUILD_TYPE": "Debug",
-				"WYRM_BUILD_CLIENT": "OFF",
-				"WYRM_BUILD_SERVER": "OFF",
-				"WYRM_BUILD_SERVER_LIBRARY": "OFF",
-				"WYRM_BUILD_DASHBOARD": "OFF",
-				"WYRM_BUILD_DISSECTOR": "OFF",
-				"WYRM_BUILD_WYRMCTL": "OFF",
-				"WYRM_USE_VAAPI": "ON",
-				"WYRM_USE_VULKAN_ENCODE": "ON",
-				"WYRM_USE_X264": "ON",
-				"WYRM_USE_NVENC": "ON",
-				"WYRM_USE_SYSTEMD": "ON",
-				"WYRM_USE_SYSTEM_BOOST": "ON",
-				"WYRM_USE_PIPEWIRE": "ON",
-				"WYRM_WERROR": "ON"
+				"WIVRN_BUILD_CLIENT": "OFF",
+				"WIVRN_BUILD_SERVER": "OFF",
+				"WIVRN_BUILD_SERVER_LIBRARY": "OFF",
+				"WIVRN_BUILD_DASHBOARD": "OFF",
+				"WIVRN_BUILD_DISSECTOR": "OFF",
+				"WIVRN_BUILD_WIVRNCTL": "OFF",
+				"WIVRN_USE_VAAPI": "ON",
+				"WIVRN_USE_VULKAN_ENCODE": "ON",
+				"WIVRN_USE_X264": "ON",
+				"WIVRN_USE_NVENC": "ON",
+				"WIVRN_USE_SYSTEMD": "ON",
+				"WIVRN_USE_SYSTEM_BOOST": "ON",
+				"WIVRN_USE_PIPEWIRE": "ON",
+				"WIVRN_WERROR": "ON"
 			}
 		},
 		{
@@ -36,12 +36,12 @@
 			"inherits": "base",
 			"binaryDir": "${sourceDir}/build-everything",
 			"cacheVariables": {
-				"WYRM_BUILD_CLIENT": "ON",
-				"WYRM_BUILD_SERVER": "ON",
-				"WYRM_BUILD_SERVER_LIBRARY": "ON",
-				"WYRM_BUILD_WYRMCTL": "ON",
-				"WYRM_BUILD_DASHBOARD": "ON",
-				"WYRM_BUILD_DISSECTOR": "ON",
+				"WIVRN_BUILD_CLIENT": "ON",
+				"WIVRN_BUILD_SERVER": "ON",
+				"WIVRN_BUILD_SERVER_LIBRARY": "ON",
+				"WIVRN_BUILD_WIVRNCTL": "ON",
+				"WIVRN_BUILD_DASHBOARD": "ON",
+				"WIVRN_BUILD_DISSECTOR": "ON",
 				"QT_QML_GENERATE_QMLLS_INI": "ON"
 			}
 		},
@@ -51,7 +51,7 @@
 			"inherits": "base",
 			"binaryDir": "${sourceDir}/build-client",
 			"cacheVariables": {
-				"WYRM_BUILD_CLIENT": "ON"
+				"WIVRN_BUILD_CLIENT": "ON"
 			}
 		},
 		{
@@ -60,9 +60,9 @@
 			"inherits": "base",
 			"binaryDir": "${sourceDir}/build-server",
 			"cacheVariables": {
-				"WYRM_BUILD_SERVER": "ON",
-				"WYRM_BUILD_SERVER_LIBRARY": "ON",
-				"WYRM_BUILD_WYRMCTL": "ON"
+				"WIVRN_BUILD_SERVER": "ON",
+				"WIVRN_BUILD_SERVER_LIBRARY": "ON",
+				"WIVRN_BUILD_WIVRNCTL": "ON"
 			}
 		},
 		{
@@ -71,7 +71,7 @@
 			"inherits": "server",
 			"binaryDir": "${sourceDir}/build-server-tracing",
 			"cacheVariables": {
-				"WYRM_USE_PERFETTO": "ON"
+				"WIVRN_USE_PERFETTO": "ON"
 			}
 		},
 		{
@@ -80,7 +80,7 @@
 			"inherits": "server-tracing",
 			"binaryDir": "${sourceDir}/build-server-tracing-monado",
 			"cacheVariables": {
-				"WYRM_TRACE_MONADO": "ON"
+				"WIVRN_TRACE_MONADO": "ON"
 			}
 		},
 		{
@@ -89,7 +89,7 @@
 			"inherits": "base",
 			"binaryDir": "${sourceDir}/build-dashboard",
 			"cacheVariables": {
-				"WYRM_BUILD_DASHBOARD": "ON",
+				"WIVRN_BUILD_DASHBOARD": "ON",
 				"QT_QML_GENERATE_QMLLS_INI": "ON"
 			}
 		},
@@ -99,7 +99,7 @@
 			"inherits": "base",
 			"binaryDir": "${sourceDir}/build-dissector",
 			"cacheVariables": {
-				"WYRM_BUILD_DISSECTOR": "ON"
+				"WIVRN_BUILD_DISSECTOR": "ON"
 			}
 		},
 		{
@@ -108,8 +108,8 @@
 			"inherits": "everything",
 			"binaryDir": "${sourceDir}/build-no-systemd",
 			"cacheVariables": {
-				"WYRM_BUILD_WYRMCTL": "OFF",
-				"WYRM_USE_SYSTEMD": "OFF"
+				"WIVRN_BUILD_WIVRNCTL": "OFF",
+				"WIVRN_USE_SYSTEMD": "OFF"
 			}
 		},
 		{
@@ -118,7 +118,7 @@
 			"inherits": "everything",
 			"binaryDir": "${sourceDir}/build-no-system-boost",
 			"cacheVariables": {
-				"WYRM_USE_SYSTEM_BOOST": "OFF"
+				"WIVRN_USE_SYSTEM_BOOST": "OFF"
 			}
 		},
 		{
@@ -127,8 +127,8 @@
 			"inherits": "server",
 			"binaryDir": "${sourceDir}/build-server-no-systemd",
 			"cacheVariables": {
-				"WYRM_BUILD_WYRMCTL": "OFF",
-				"WYRM_USE_SYSTEMD": "OFF"
+				"WIVRN_BUILD_WIVRNCTL": "OFF",
+				"WIVRN_USE_SYSTEMD": "OFF"
 			}
 		},
 		{
@@ -137,7 +137,7 @@
 			"inherits": "client",
 			"binaryDir": "${sourceDir}/build-client-no-system-boost",
 			"cacheVariables": {
-				"WYRM_USE_SYSTEM_BOOST": "OFF"
+				"WIVRN_USE_SYSTEM_BOOST": "OFF"
 			}
 		},
 		{
@@ -146,7 +146,7 @@
 			"inherits": "server",
 			"binaryDir": "${sourceDir}/build-server-no-system-boost",
 			"cacheVariables": {
-				"WYRM_USE_SYSTEM_BOOST": "OFF"
+				"WIVRN_USE_SYSTEM_BOOST": "OFF"
 			}
 		},
 		{
@@ -155,7 +155,7 @@
 			"inherits": "dissector",
 			"binaryDir": "${sourceDir}/build-dissector-no-system-boost",
 			"cacheVariables": {
-				"WYRM_USE_SYSTEM_BOOST": "OFF"
+				"WIVRN_USE_SYSTEM_BOOST": "OFF"
 			}
 		},
 		{
@@ -165,19 +165,19 @@
 				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
 				"CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON",
 				"CMAKE_BUILD_TYPE": "Release",
-				"WYRM_BUILD_CLIENT": "ON",
-				"WYRM_BUILD_SERVER": "OFF",
-				"WYRM_BUILD_SERVER_LIBRARY": "OFF",
-				"WYRM_BUILD_DASHBOARD": "OFF",
-				"WYRM_BUILD_DISSECTOR": "OFF",
-				"WYRM_BUILD_WYRMCTL": "OFF",
-				"WYRM_USE_PIPEWIRE": "ON",
-				"WYRM_USE_V4L2": "ON",
-				"WYRM_USE_SYSTEM_BOOST": "OFF",
-				"WYRM_USE_SYSTEM_LIBKTX": "OFF",
-				"WYRM_USE_SYSTEM_OPENXR": "OFF",
-				"WYRM_COMPRESS_GLB": "ON",
-				"WYRM_WERROR": "ON"
+				"WIVRN_BUILD_CLIENT": "ON",
+				"WIVRN_BUILD_SERVER": "OFF",
+				"WIVRN_BUILD_SERVER_LIBRARY": "OFF",
+				"WIVRN_BUILD_DASHBOARD": "OFF",
+				"WIVRN_BUILD_DISSECTOR": "OFF",
+				"WIVRN_BUILD_WIVRNCTL": "OFF",
+				"WIVRN_USE_PIPEWIRE": "ON",
+				"WIVRN_USE_V4L2": "ON",
+				"WIVRN_USE_SYSTEM_BOOST": "OFF",
+				"WIVRN_USE_SYSTEM_LIBKTX": "OFF",
+				"WIVRN_USE_SYSTEM_OPENXR": "OFF",
+				"WIVRN_COMPRESS_GLB": "ON",
+				"WIVRN_WERROR": "ON"
 			}
 		}
 	],

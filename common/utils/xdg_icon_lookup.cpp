@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -113,7 +113,7 @@ void find_icon_theme_dirs_helper(const std::vector<std::filesystem::path> & base
 			try
 			{
 				std::ifstream file{index_theme};
-				wyrm::ini index{file};
+				wivrn::ini index{file};
 
 				for (const auto & inherited_theme: utils::split(index.get<std::string>("Icon Theme", "Inherits", ""), ","))
 				{
@@ -186,7 +186,7 @@ std::vector<icon_theme_dir> find_icon_theme_dirs(std::vector<std::string> themes
 	std::vector<icon_theme_dir> dirs;
 	std::vector<std::filesystem::path> base_dirs = xdg_data_dirs();
 
-	if (wyrm::is_flatpak())
+	if (wivrn::is_flatpak())
 	{
 		// Try to guess host data dirs
 		base_dirs.push_back("/run/host/usr/share");
@@ -202,7 +202,7 @@ std::vector<icon_theme_dir> find_icon_theme_dirs(std::vector<std::string> themes
 }
 } // namespace
 
-std::optional<std::filesystem::path> wyrm::xdg_icon_lookup(const std::string & icon_name, int size, int scale)
+std::optional<std::filesystem::path> wivrn::xdg_icon_lookup(const std::string & icon_name, int size, int scale)
 {
 	if (std::filesystem::exists(icon_name))
 		return icon_name;

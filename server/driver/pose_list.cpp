@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -33,7 +33,7 @@
 
 using namespace xrt::auxiliary::math;
 
-namespace wyrm
+namespace wivrn
 {
 
 xrt_space_relation pose_list::interpolate(const xrt_space_relation & a, const xrt_space_relation & b, float t)
@@ -91,11 +91,11 @@ xrt_space_relation pose_list::extrapolate(const xrt_space_relation & a, const xr
 	return res;
 }
 
-pose_list::pose_list(wyrm::device_id id) : device(id)
+pose_list::pose_list(wivrn::device_id id) : device(id)
 {
-	if (auto dump = std::getenv("WYRM_DUMP"); dump and dump == std::string_view("list"))
-		std::cerr << "WYRM_DUMP_" << magic_enum::enum_name(id) << std::endl;
-	if (auto dump = std::getenv(std::format("WYRM_DUMP_{}", magic_enum::enum_name(id)).c_str()))
+	if (auto dump = std::getenv("WIVRN_DUMP"); dump and dump == std::string_view("list"))
+		std::cerr << "WIVRN_DUMP_" << magic_enum::enum_name(id) << std::endl;
+	if (auto dump = std::getenv(std::format("WIVRN_DUMP_{}", magic_enum::enum_name(id)).c_str()))
 		dumper.emplace(dump);
 }
 
@@ -382,4 +382,4 @@ std::pair<XrTime, xrt_space_relation> pose_list::get_at(XrTime at_timestamp_ns)
 	return {position.production_timestamp == std::numeric_limits<XrTime>::lowest() ? 0 : position.production_timestamp, ret};
 }
 
-} // namespace wyrm
+} // namespace wivrn

@@ -13,7 +13,7 @@
 #include <unistd.h>
 
 using namespace std::chrono_literals;
-using wyrm::discord_presence;
+using wivrn::discord_presence;
 using json = nlohmann::json;
 static constexpr auto application_id = "123456789012345678";
 
@@ -34,7 +34,7 @@ struct fake_discord
 
 	fake_discord()
 	{
-		char temp[] = "/tmp/wyrm-rpc-test-XXXXXX";
+		char temp[] = "/tmp/wivrn-rpc-test-XXXXXX";
 		check(mkdtemp(temp) != nullptr);
 		directory = temp;
 		path = directory / "discord-ipc-0";

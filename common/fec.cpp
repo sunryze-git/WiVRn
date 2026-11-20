@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 #include "fec.h"
@@ -11,7 +11,7 @@
 #include <mutex>
 #include <stdexcept>
 
-namespace wyrm::fec
+namespace wivrn::fec
 {
 namespace
 {
@@ -88,4 +88,4 @@ bool decode(std::vector<std::vector<uint8_t>> & data, std::span<const std::vecto
 			data[i].assign((uint8_t *)work.pointers[i], (uint8_t *)work.pointers[i] + block_size);
 	return true;
 }
-} // namespace wyrm::fec
+} // namespace wivrn::fec

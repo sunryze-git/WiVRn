@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -37,7 +37,7 @@ static constexpr std::string_view strip(std::string_view sv)
 	return sv;
 }
 
-static constexpr std::optional<wyrm::ini::key_value> parse_key_value(std::string_view section, std::string_view line)
+static constexpr std::optional<wivrn::ini::key_value> parse_key_value(std::string_view section, std::string_view line)
 {
 	size_t equal_sign = line.find('=');
 	if (equal_sign == std::string_view::npos)
@@ -46,7 +46,7 @@ static constexpr std::optional<wyrm::ini::key_value> parse_key_value(std::string
 	auto key = strip(line.substr(0, equal_sign)); // TODO locale
 	auto value = strip(line.substr(equal_sign + 1));
 
-	return wyrm::ini::key_value{
+	return wivrn::ini::key_value{
 	        .section = section,
 	        .key = key,
 	        .locale = "",
@@ -54,7 +54,7 @@ static constexpr std::optional<wyrm::ini::key_value> parse_key_value(std::string
 	};
 }
 
-std::optional<std::string_view> wyrm::ini::get_optional(std::string_view section, std::string_view key) const
+std::optional<std::string_view> wivrn::ini::get_optional(std::string_view section, std::string_view key) const
 {
 	for (const auto & line: lines)
 	{
@@ -65,7 +65,7 @@ std::optional<std::string_view> wyrm::ini::get_optional(std::string_view section
 	return std::nullopt;
 }
 
-wyrm::ini::ini(std::istream & file)
+wivrn::ini::ini(std::istream & file)
 {
 	contents = {std::istreambuf_iterator<char>{file}, {}};
 

@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -20,7 +20,7 @@
 #pragma once
 
 #include "driver/duration_summary.h"
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 
 #include <condition_variable>
 #include <cstdint>
@@ -31,7 +31,7 @@
 #include "main/comp_target.h"
 #include "util/u_var.h"
 
-namespace wyrm
+namespace wivrn
 {
 
 struct clock_offset;
@@ -61,10 +61,10 @@ private:
 
 	int64_t last_wake_up_ns = 0;
 
-	// With WYRM_LOG_PREDICTION set: how far ahead the predicted display time is, logged every 5 s
-	wyrm::duration_summary display_ahead, render_ahead;
+	// With WIVRN_LOG_PREDICTION set: how far ahead the predicted display time is, logged every 5 s
+	wivrn::duration_summary display_ahead, render_ahead;
 	// From the headset's feedback: what happened to each displayed frame
-	wyrm::duration_summary present_to_encode, encode_to_decoded, decoded_to_displayed, displayed_vs_predicted;
+	wivrn::duration_summary present_to_encode, encode_to_decoded, decoded_to_displayed, displayed_vs_predicted;
 	int64_t display_log_next = 0;
 
 	u_var_draggable_f32 client_margin_ms;
@@ -101,7 +101,7 @@ public:
 	        int64_t & out_present_slop_ns,
 	        int64_t & out_predicted_display_time_ns);
 
-	void on_feedback(const wyrm::from_headset::feedback &, const clock_offset &);
+	void on_feedback(const wivrn::from_headset::feedback &, const clock_offset &);
 	// Extra time before the headset picks a frame, on top of the 99.5th percentile of present to decoded
 	void set_client_margin(float ms);
 
@@ -114,4 +114,4 @@ public:
 
 	void reset();
 };
-} // namespace wyrm
+} // namespace wivrn

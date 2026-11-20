@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -317,14 +317,14 @@ void scenes::lobby::download_environment_list()
 	downloadable_environment_list_status = "";
 	downloadable_environments.clear();
 
-	if (not try_get_download_handle(WYRM_ENVIRONMENTS_URL))
+	if (not try_get_download_handle(WIVRN_ENVIRONMENTS_URL))
 	{
-		spdlog::info("Downloading {}", WYRM_ENVIRONMENTS_URL);
-		download(WYRM_ENVIRONMENTS_URL, [this](libcurl::curl_handle & handle) {
+		spdlog::info("Downloading {}", WIVRN_ENVIRONMENTS_URL);
+		download(WIVRN_ENVIRONMENTS_URL, [this](libcurl::curl_handle & handle) {
 			try
 			{
 				// TODO cache in filesystem?
-				downloadable_environments = load_environment_json(handle.get_response(), WYRM_ENVIRONMENTS_URL);
+				downloadable_environments = load_environment_json(handle.get_response(), WIVRN_ENVIRONMENTS_URL);
 			}
 			catch (std::exception & e)
 			{
@@ -337,7 +337,7 @@ void scenes::lobby::download_environment_list()
 
 scenes::lobby::environment_item_action scenes::lobby::environment_item(environment_model & model, bool download_screenshot)
 {
-	namespace ui = wyrm::ui;
+	namespace ui = wivrn::ui;
 	environment_item_action action = environment_item_action::none;
 	const bool local = std::ranges::contains(local_environments, model.name, &environment_model::name);
 
@@ -505,7 +505,7 @@ void scenes::lobby::environment_list(std::vector<environment_model> & models, bo
 	if (environment_to_be_deleted)
 	{
 		const std::string msg = fmt::format(_cF("confirmation message", "Permanently delete {}?"), environment_to_be_deleted->name);
-		switch (wyrm::ui::confirm_modal("confirm delete model", _C("confirmation messagebox title", "Delete environment"), msg, _("Delete"), _("Cancel"), true))
+		switch (wivrn::ui::confirm_modal("confirm delete model", _C("confirmation messagebox title", "Delete environment"), msg, _("Delete"), _("Cancel"), true))
 		{
 			case 1:
 				delete_environment(*environment_to_be_deleted);
@@ -531,9 +531,9 @@ void scenes::lobby::popup_load_environment(XrTime predicted_display_time)
 		}
 
 		ImGui::SetNextWindowPos(imgui_ctx->layers()[1].vp_center(), ImGuiCond_Always, {0.5f, 0.5f});
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, wyrm::ui::metrics::window_padding);
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, wyrm::ui::metrics::window_rounding);
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, wyrm::ui::metrics::window_border_size);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, wivrn::ui::metrics::window_padding);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, wivrn::ui::metrics::window_rounding);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, wivrn::ui::metrics::window_border_size);
 		if (ImGui::BeginPopupModal("loading environment model", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize))
 		{
 			if (future_environment.valid())
@@ -600,7 +600,7 @@ void scenes::lobby::popup_load_environment(XrTime predicted_display_time)
 
 libcurl::curl_handle * scenes::lobby::parse_environment_list()
 {
-	auto index_transfer = try_get_download_handle(WYRM_ENVIRONMENTS_URL);
+	auto index_transfer = try_get_download_handle(WIVRN_ENVIRONMENTS_URL);
 	if (index_transfer)
 		switch (index_transfer->get_state())
 		{
@@ -642,7 +642,7 @@ libcurl::curl_handle * scenes::lobby::parse_environment_list()
 
 void scenes::lobby::gui_customize(XrTime predicted_display_time)
 {
-	namespace ui = wyrm::ui;
+	namespace ui = wivrn::ui;
 
 	ui::page_header(_cS("page header title", "Environment"), _cS("page header subtitle", "Choose the environment your panels float in."));
 

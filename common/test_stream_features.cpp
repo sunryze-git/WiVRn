@@ -13,7 +13,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <source_location>
-using namespace wyrm;
+using namespace wivrn;
 static void check(bool valid, std::source_location where = std::source_location::current())
 {
 	if (not valid)

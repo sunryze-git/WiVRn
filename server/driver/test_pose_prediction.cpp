@@ -7,7 +7,7 @@
 #include <source_location>
 #include <string_view>
 
-using namespace wyrm;
+using namespace wivrn;
 
 static int failures = 0;
 static void check(bool valid, std::source_location where = std::source_location::current())

@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2026  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -20,7 +20,7 @@
 #include "ui_theme.h"
 #include "utils/i18n.h"
 
-namespace wyrm::ui
+namespace wivrn::ui
 {
 
 static ImVec4 rgb(int r, int g, int b, float a = 1)
@@ -231,4 +231,4 @@ void theme::apply() const
 	c[ImGuiCol_Separator] = border;
 }
 
-} // namespace wyrm::ui
+} // namespace wivrn::ui

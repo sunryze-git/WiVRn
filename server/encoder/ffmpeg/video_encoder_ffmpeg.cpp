@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -20,7 +20,7 @@
 #include "video_encoder_ffmpeg.h"
 
 #include "util/u_logging.h"
-#include "utils/wyrm_trace.h"
+#include "utils/wivrn_trace.h"
 
 extern "C"
 {
@@ -62,12 +62,12 @@ bool set_log_level()
 
 } // namespace
 
-namespace wyrm
+namespace wivrn
 {
 
 bool video_encoder_ffmpeg::once = set_log_level();
 
-std::optional<wyrm::video_encoder::data> video_encoder_ffmpeg::encode(uint8_t slot, uint64_t frame_index)
+std::optional<wivrn::video_encoder::data> video_encoder_ffmpeg::encode(uint8_t slot, uint64_t frame_index)
 {
 	auto & idr_handler = (default_idr_handler &)*idr;
 	if (auto bitrate = pending_bitrate.exchange(0))
@@ -87,7 +87,7 @@ std::optional<wyrm::video_encoder::data> video_encoder_ffmpeg::encode(uint8_t sl
 	std::shared_ptr<AVPacket> enc_pkt(av_packet_alloc(), [](AVPacket * d) { av_packet_free(&d); });
 	int err;
 	{
-		wyrm::trace::scope trace_send_recv(wyrm::trace::cpu_track::encoder, stream_idx, frame_index, "avcodec_send+receive");
+		wivrn::trace::scope trace_send_recv(wivrn::trace::cpu_track::encoder, stream_idx, frame_index, "avcodec_send+receive");
 		push_frame(is_idr, slot);
 		err = avcodec_receive_packet(encoder_ctx.get(), enc_pkt.get());
 	}
@@ -118,4 +118,4 @@ video_encoder_ffmpeg::mute_logs::~mute_logs()
 {
 	set_log_level();
 }
-} // namespace wyrm
+} // namespace wivrn

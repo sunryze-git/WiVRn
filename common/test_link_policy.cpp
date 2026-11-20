@@ -16,7 +16,7 @@ static void check(bool value, std::source_location at = std::source_location::cu
 
 int main(int argc, char **)
 {
-	using namespace wyrm;
+	using namespace wivrn;
 	const std::array<fec_packet, 4> packets{{{1, {1, 2, 3}}, {2, {4}}, {3, {7, 8}}, {4, {9, 10, 11}}}};
 	const auto parity = fec_encode(packets);
 	bool finished = false;

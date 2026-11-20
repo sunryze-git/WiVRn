@@ -13,7 +13,7 @@ function(compile_glsl_aux shader_stage shader_name glsl_filename output target_e
 }},
 ")
 
-    if (WYRM_DEBUG_SHADERS)
+    if (WIVRN_DEBUG_SHADERS)
         set(SHADER_FLAGS -gVS)
     else()
         set(SHADER_FLAGS )
@@ -27,7 +27,7 @@ function(compile_glsl_aux shader_stage shader_name glsl_filename output target_e
         VERBATIM
     )
 
-    if (WYRM_OPTIMIZE_SHADERS)
+    if (WIVRN_OPTIMIZE_SHADERS)
         add_custom_command(
             OUTPUT "${SPV_FILE}-opt"
             COMMAND spirv-opt --target-env=${target_env} -O "${SPV_FILE}-nopt" -o "${SPV_FILE}-opt"
@@ -58,7 +58,7 @@ endfunction()
 
 
 
-function(wyrm_compile_glsl target)
+function(wivrn_compile_glsl target)
     set(options)
     set(oneValueArgs TARGET_ENV NAMESPACE)
     set(multiValueArgs SHADERS)

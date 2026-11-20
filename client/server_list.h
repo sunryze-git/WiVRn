@@ -2,7 +2,7 @@
 #pragma once
 
 #include "network.h"
-#include "wyrm_discover.h"
+#include "wivrn_discover.h"
 #include <algorithm>
 #include <cctype>
 #include <limits>
@@ -10,9 +10,9 @@
 #include <string>
 #include <vector>
 
-namespace wyrm
+namespace wivrn
 {
-inline void prefer_low_latency(std::vector<wyrm_discover::service::address> & addresses)
+inline void prefer_low_latency(std::vector<wivrn_discover::service::address> & addresses)
 {
 	std::stable_sort(addresses.begin(), addresses.end(), [](const auto & a, const auto & b) {
 		return a.latency_ms.value_or(std::numeric_limits<float>::infinity()) < b.latency_ms.value_or(std::numeric_limits<float>::infinity());
@@ -26,7 +26,7 @@ struct server_list_link
 	float latency_ms;
 };
 
-inline std::vector<server_list_link> connected_server_links(const wyrm_discover::service & service)
+inline std::vector<server_list_link> connected_server_links(const wivrn_discover::service & service)
 {
 	std::map<std::string, server_list_link> links;
 	if (service.tcp_only)
@@ -50,7 +50,7 @@ inline std::vector<server_list_link> connected_server_links(const wyrm_discover:
 	return result;
 }
 
-inline bool same_server_endpoint(const wyrm_discover::service & manual, const wyrm_discover::service & discovered)
+inline bool same_server_endpoint(const wivrn_discover::service & manual, const wivrn_discover::service & discovered)
 {
 	if (manual.port != discovered.port)
 		return false;
@@ -80,7 +80,7 @@ inline bool same_server_endpoint(const wyrm_discover::service & manual, const wy
 }
 
 template <typename Servers>
-std::string server_group_key(const Servers & servers, const wyrm_discover::service & service)
+std::string server_group_key(const Servers & servers, const wivrn_discover::service & service)
 {
 	const auto cookie = service.txt.find("cookie");
 	const std::string id = cookie == service.txt.end() ? service.hostname : cookie->second;
@@ -92,7 +92,7 @@ std::string server_group_key(const Servers & servers, const wyrm_discover::servi
 }
 
 template <typename Servers>
-std::map<std::string, std::string> server_group_keys(const Servers & servers, const std::vector<wyrm_discover::service> & services)
+std::map<std::string, std::string> server_group_keys(const Servers & servers, const std::vector<wivrn_discover::service> & services)
 {
 	std::map<std::string, std::string> groups;
 	for (const auto & service: services)
@@ -108,4 +108,4 @@ std::map<std::string, std::string> server_group_keys(const Servers & servers, co
 	}
 	return groups;
 }
-} // namespace wyrm
+} // namespace wivrn

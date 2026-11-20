@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -22,8 +22,8 @@
 #include "decoder/decoder.h"
 #include "utils/contains.h"
 #include "utils/json_string.h"
-#include "wyrm_packets.h"
-#include "wyrm_config.h"
+#include "wivrn_packets.h"
+#include "wivrn_config.h"
 
 #include <algorithm>
 #include <fstream>
@@ -263,7 +263,7 @@ configuration::configuration(xr::system & system, xr::session & session, const s
 			if (auto stream = i["stream"]; stream.is_object())
 				for (const auto & f: stream_fields())
 					f.load(stream.value(), data.stream);
-			if (data.stream.codec and not wyrm::decoder::supports_codec(*data.stream.codec))
+			if (data.stream.codec and not wivrn::decoder::supports_codec(*data.stream.codec))
 			{
 				spdlog::warn("Saved codec {} is unavailable for {}; using automatic codec selection", magic_enum::enum_name(*data.stream.codec), data.service.name);
 				data.stream.codec.reset();
@@ -283,7 +283,7 @@ configuration::configuration(xr::system & system, xr::session & session, const s
 
 		if (auto val = root["body_parts"]; val.is_object())
 		{
-			for (const auto & [b, name]: magic_enum::enum_entries<wyrm::from_headset::body_part_mask>())
+			for (const auto & [b, name]: magic_enum::enum_entries<wivrn::from_headset::body_part_mask>())
 			{
 				const auto & body_part = val[name];
 				if (!body_part.is_bool())
@@ -447,7 +447,7 @@ float configuration::get_stream_scale(const stream_config & stream) const
 
 float configuration::max_stream_scale([[maybe_unused]] const stream_config & stream) const
 {
-#if WYRM_USE_V4L2
+#if WIVRN_USE_V4L2
 	static const auto native_size = [] {
 		auto view = application::get_system().view_configuration_views(XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO)[0];
 		view = application::get_hmd_traits().override_view(view);

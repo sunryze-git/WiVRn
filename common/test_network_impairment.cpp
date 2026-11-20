@@ -5,7 +5,7 @@
 #include <iostream>
 #include <thread>
 
-using namespace wyrm;
+using namespace wivrn;
 using namespace std::chrono_literals;
 using test_clock = network_impairment::clock;
 
@@ -43,7 +43,7 @@ try
 {
 	const bool no_delay = argc == 2 and std::string_view(argv[1]) == "--negative-control-no-delay";
 	const auto base = test_clock::now() + 1s;
-	const auto folder = std::filesystem::temp_directory_path() / ("wyrm-network-impairment-test-" + std::to_string(getpid()) + "-" + std::to_string(base.time_since_epoch().count()));
+	const auto folder = std::filesystem::temp_directory_path() / ("wivrn-network-impairment-test-" + std::to_string(getpid()) + "-" + std::to_string(base.time_since_epoch().count()));
 	std::filesystem::create_directory(folder);
 	const int receiver = open_network_socket({"127.0.0.1", "lo"});
 	const int sender = open_network_socket({"127.0.0.1", "lo"});
@@ -123,7 +123,7 @@ try
 	for (const auto row: {"0,1,121,0,0,0\n", "0,1,1,120,0,0\n", "0,1,0,0,1001,0\n", "0,2,0,0,0,0\n1,2,0,0,0,0\n", "0,1,0,0,0\n", "0,1,0,0,0,0,0\n", "-1,1,0,0,0,0\n"})
 	{
 		const auto file = make_profile(folder, "invalid.csv", base.time_since_epoch().count(), row);
-		setenv("WYRM_TEST_NETWORK_PROFILE", file.c_str(), 1);
+		setenv("WIVRN_TEST_NETWORK_PROFILE", file.c_str(), 1);
 		bool rejected = false;
 		try { auto link = network_impairment::from_environment(); }
 		catch (const std::exception &) { rejected = true; }
@@ -132,11 +132,11 @@ try
 	{
 		const auto start = test_clock::now() + 300ms;
 		const auto file = make_profile(folder, "integration.csv", start.time_since_epoch().count(), "0,80,0,0,1000,0\n");
-		setenv("WYRM_TEST_NETWORK_PROFILE", file.c_str(), 1);
-		setenv("WYRM_TEST_NETWORK_LOG", folder.c_str(), 1);
+		setenv("WIVRN_TEST_NETWORK_PROFILE", file.c_str(), 1);
+		setenv("WIVRN_TEST_NETWORK_LOG", folder.c_str(), 1);
 		const auto key = multilink::random_key();
 		multilink source(true, key, {{"127.0.0.1", "lo"}}, {}, false);
-		setenv("WYRM_TEST_NETWORK_PROFILE", "/nonexistent/invalid-profile", 1);
+		setenv("WIVRN_TEST_NETWORK_PROFILE", "/nonexistent/invalid-profile", 1);
 		multilink client(false, key, {{"127.0.0.1", "lo"}}, source.endpoints(), false, false);
 		require(wait_for([&] { return not source.statistics().empty() and source.statistics().front().active; }), "Loopback transport did not establish");
 		require(wait_for([&] { return test_clock::now() >= start + 5ms; }), "Waiting for absolute profile start failed");
@@ -163,8 +163,8 @@ try
 		// The acknowledgement for the recovery reports the burst missing
 		require(wait_for([&] { return source.statistics().front().loss > 0; }), "Artificial loss bypassed normal ACK-loss accounting");
 	}
-	unsetenv("WYRM_TEST_NETWORK_PROFILE");
-	unsetenv("WYRM_TEST_NETWORK_LOG");
+	unsetenv("WIVRN_TEST_NETWORK_PROFILE");
+	unsetenv("WIVRN_TEST_NETWORK_LOG");
 	close(sender);
 	close(receiver);
 	std::cout << "Wire delay, ownership, FIFO tail, loss, queue bounds, aggregate ceiling, parsing and transport recovery passed\n";

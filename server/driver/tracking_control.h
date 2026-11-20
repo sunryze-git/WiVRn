@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,13 +18,13 @@
 
 #pragma once
 
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include <magic_enum_containers.hpp>
 #include <mutex>
 
-namespace wyrm
+namespace wivrn
 {
-class wyrm_connection;
+class wivrn_connection;
 class tracking_control
 {
 	static constexpr std::chrono::milliseconds step{1000};
@@ -39,17 +39,17 @@ class tracking_control
 	XrDuration motions_to_photons = 0;
 	to_headset::tracking_control last_control;
 
-	wyrm_connection & cnx;
+	wivrn_connection & cnx;
 	// Prediction step between the headset's samples of a device (each is a packet and a runtime query)
 	XrDuration sample_step;
 
 public:
 	std::chrono::steady_clock::time_point next;
 
-	tracking_control(wyrm_connection & cnx);
+	tracking_control(wivrn_connection & cnx);
 	bool advance(std::chrono::steady_clock::time_point now);
 	void add_request(device_id device, int64_t now, int64_t at_ns, int64_t produced_ns);
 
 	void resolve(XrDuration frame_time, XrDuration latency);
 };
-} // namespace wyrm
+} // namespace wivrn

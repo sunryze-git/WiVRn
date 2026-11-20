@@ -22,7 +22,7 @@
 #include <thread>
 #include <unistd.h>
 
-namespace wyrm
+namespace wivrn
 {
 namespace
 {
@@ -1765,4 +1765,4 @@ deserialization_packet multilink::receive_pending()
 {
 	return receive_raw();
 }
-} // namespace wyrm
+} // namespace wivrn

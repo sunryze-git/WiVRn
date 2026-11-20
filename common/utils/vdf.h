@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@
 #include <variant>
 #include <vector>
 
-namespace wyrm
+namespace wivrn
 {
 
 namespace vdf
@@ -51,4 +51,4 @@ private:
 };
 } // namespace vdf
 
-} // namespace wyrm
+} // namespace wivrn

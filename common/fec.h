@@ -1,10 +1,10 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 #pragma once
 
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -12,7 +12,7 @@
 // Forward error correction over a frame's video shards: each data shard is one block of an erasure code, and parity
 // shards sent after the frame let the headset rebuild missing shards without waiting for anything to be sent again.
 // Losses on Wi-Fi come in runs (5 to ~100 datagrams), hence a code over the whole frame.
-namespace wyrm::fec
+namespace wivrn::fec
 {
 // The data shards (padded) and parity are blocks of this size. Leopard wants a multiple of 64, and a datagram of
 // this payload must stay within an Ethernet MTU.
@@ -26,4 +26,4 @@ std::vector<std::vector<uint8_t>> encode(std::span<const std::vector<uint8_t>> d
 
 // Rebuilds the missing (empty) data blocks from the parity blocks present (non-empty); false without enough
 bool decode(std::vector<std::vector<uint8_t>> & data, std::span<const std::vector<uint8_t>> parity);
-} // namespace wyrm::fec
+} // namespace wivrn::fec

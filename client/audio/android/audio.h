@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -20,7 +20,7 @@
 #pragma once
 
 #include "utils/ring_buffer.h"
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include <atomic>
 #include <mutex>
 #include <thread>
@@ -28,14 +28,14 @@
 struct AAudioStreamStruct;
 struct AAudioStreamBuilderStruct;
 
-class wyrm_session;
+class wivrn_session;
 
 namespace xr
 {
 class instance;
 }
 
-namespace wyrm::android
+namespace wivrn::android
 {
 class audio
 {
@@ -51,17 +51,17 @@ class audio
 	void build_microphone(AAudioStreamBuilderStruct *, int32_t, int32_t);
 	void build_speaker(AAudioStreamBuilderStruct *, int32_t, int32_t);
 
-	utils::ring_buffer<wyrm::audio_data, 100> output_buffer;
+	utils::ring_buffer<wivrn::audio_data, 100> output_buffer;
 	std::atomic<size_t> buffer_size_bytes;
 
-	wyrm::audio_data speaker_tmp;
+	wivrn::audio_data speaker_tmp;
 	AAudioStreamStruct * speaker = nullptr;
 	std::atomic<bool> speaker_stop_ack = false;
 	AAudioStreamStruct * microphone = nullptr;
 	std::atomic<bool> microphone_stop_ack = false;
 	std::atomic<bool> mic_running = false;
 
-	wyrm_session & session;
+	wivrn_session & session;
 	xr::instance & instance;
 
 	std::mutex mutex;
@@ -73,13 +73,13 @@ class audio
 public:
 	audio(const audio &) = delete;
 	audio & operator=(const audio &) = delete;
-	audio(const wyrm::to_headset::audio_stream_description &, wyrm_session &, xr::instance &);
+	audio(const wivrn::to_headset::audio_stream_description &, wivrn_session &, xr::instance &);
 	~audio();
 
-	void operator()(wyrm::audio_data &&);
+	void operator()(wivrn::audio_data &&);
 
 	void set_mic_state(bool running);
 
-	static void get_audio_description(wyrm::from_headset::headset_info_packet & info);
+	static void get_audio_description(wivrn::from_headset::headset_info_packet & info);
 };
-} // namespace wyrm::android
+} // namespace wivrn::android

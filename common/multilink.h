@@ -2,13 +2,13 @@
 #pragma once
 
 #include "network.h"
-#include "wyrm_serialization.h"
+#include "wivrn_serialization.h"
 #include <array>
 #include <memory>
 #include <string_view>
 #include <vector>
 
-namespace wyrm
+namespace wivrn
 {
 struct link_statistics
 {
@@ -113,4 +113,4 @@ public:
 	deserialization_packet receive_raw();
 	deserialization_packet receive_pending();
 };
-} // namespace wyrm
+} // namespace wivrn

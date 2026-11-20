@@ -10,7 +10,7 @@
 #include <span>
 #include <utility>
 
-namespace wyrm
+namespace wivrn
 {
 template <typename Frame>
 bool stereo_frames_match(const std::array<std::shared_ptr<Frame>, 3> & frames)
@@ -75,4 +75,4 @@ std::array<std::shared_ptr<Frame>, 3> select_stereo_frame(
 		result[2].reset();
 	return result;
 }
-} // namespace wyrm
+} // namespace wivrn

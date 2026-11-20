@@ -19,7 +19,7 @@
 #include <string_view>
 #include <unistd.h>
 
-namespace wyrm
+namespace wivrn
 {
 // Test-only wire impairment. The caller still accounts accepted datagrams as sent.
 class network_impairment
@@ -193,12 +193,12 @@ public:
 	}
 	static std::unique_ptr<network_impairment> from_environment()
 	{
-		const char * file = std::getenv("WYRM_TEST_NETWORK_PROFILE");
+		const char * file = std::getenv("WIVRN_TEST_NETWORK_PROFILE");
 		if (not file)
 			return {};
 		const std::filesystem::path path(file);
 		if (not path.is_absolute())
-			throw std::runtime_error("WYRM_TEST_NETWORK_PROFILE must be an absolute CSV path");
+			throw std::runtime_error("WIVRN_TEST_NETWORK_PROFILE must be an absolute CSV path");
 		std::ifstream input(path);
 		std::string line;
 		if (not input or not std::getline(input, line))
@@ -228,9 +228,9 @@ public:
 		}
 		if (input.bad())
 			throw std::runtime_error("Reading network impairment profile failed");
-		const char * directory = std::getenv("WYRM_TEST_NETWORK_LOG");
+		const char * directory = std::getenv("WIVRN_TEST_NETWORK_LOG");
 		if (directory and not *directory)
-			throw std::runtime_error("WYRM_TEST_NETWORK_LOG must be an absolute directory");
+			throw std::runtime_error("WIVRN_TEST_NETWORK_LOG must be an absolute directory");
 		return std::make_unique<network_impairment>(time_point(std::chrono::nanoseconds(start_ns)), std::move(windows), directory ? std::filesystem::path(directory) : path.parent_path());
 	}
 	size_t queued_bytes() const { return queue_bytes; }
@@ -353,4 +353,4 @@ public:
 		log_windows(std::max(now, clock::now()));
 	}
 };
-} // namespace wyrm
+} // namespace wivrn

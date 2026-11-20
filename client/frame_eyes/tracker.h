@@ -1,10 +1,10 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 #pragma once
 
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 
 #include <atomic>
 #include <filesystem>
@@ -22,7 +22,7 @@ namespace frame_eyes
 class tracker
 {
 public:
-	using sender = std::function<void(wyrm::from_headset::frame_eyes &&)>;
+	using sender = std::function<void(wivrn::from_headset::frame_eyes &&)>;
 
 	// model_dir holds the eye kit (eye_kit_stage1_fp16.pte, eye_kit_stage2_fp16.pte); one update per `divisor` camera frames
 	tracker(std::filesystem::path model_dir, uint32_t divisor, sender send, std::function<XrTime()> now);

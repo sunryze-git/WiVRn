@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -34,8 +34,8 @@
 
 #include "layer_squasher.h"
 
-#include "driver/wyrm_hmd.h"
-#include "utils/wyrm_vk_bundle.h"
+#include "driver/wivrn_hmd.h"
+#include "utils/wivrn_vk_bundle.h"
 #include "vk/specialization_constants.h"
 
 #include "main/comp_compositor.h"
@@ -84,7 +84,7 @@ struct pose_data
 	std::array<xrt_pose, XRT_MAX_VIEWS> world_poses;
 	std::array<xrt_pose, XRT_MAX_VIEWS> eye_poses;
 	pose_data(
-	        wyrm::wyrm_hmd & hmd,
+	        wivrn::wivrn_hmd & hmd,
 	        uint64_t frame_interval_ns,
 	        const comp_frame & frame,
 	        const comp_layer_accum & layers)
@@ -179,7 +179,7 @@ buffer_allocation make_ubo(vk::raii::Device & device, int i)
 	        std::format("layer squasher UBO {}", i)};
 }
 
-vk::raii::ImageView make_view(wyrm::vk_bundle & vk, image_allocation & image, vk::ImageUsageFlagBits flag, uint32_t view)
+vk::raii::ImageView make_view(wivrn::vk_bundle & vk, image_allocation & image, vk::ImageUsageFlagBits flag, uint32_t view)
 {
 	vk::raii::ImageView res{vk.device,
 	                        vk::StructureChain{
@@ -204,7 +204,7 @@ vk::raii::ImageView make_view(wyrm::vk_bundle & vk, image_allocation & image, vk
 	return res;
 }
 
-vk::raii::DescriptorSetLayout make_ds_layout(wyrm::vk_bundle & vk, uint32_t image_array_size, bool partially_bound_desc)
+vk::raii::DescriptorSetLayout make_ds_layout(wivrn::vk_bundle & vk, uint32_t image_array_size, bool partially_bound_desc)
 {
 	std::array bindings{
 	        vk::DescriptorSetLayoutBinding{
@@ -249,7 +249,7 @@ vk::raii::DescriptorSetLayout make_ds_layout(wyrm::vk_bundle & vk, uint32_t imag
 	vk.name(*res, "layer squasher descriptor set layout");
 	return res;
 }
-vk::raii::PipelineLayout make_layout(wyrm::vk_bundle & vk, vk::DescriptorSetLayout ds_layout)
+vk::raii::PipelineLayout make_layout(wivrn::vk_bundle & vk, vk::DescriptorSetLayout ds_layout)
 {
 	vk::raii::PipelineLayout res(vk.device,
 	                             vk::PipelineLayoutCreateInfo{
@@ -260,7 +260,7 @@ vk::raii::PipelineLayout make_layout(wyrm::vk_bundle & vk, vk::DescriptorSetLayo
 	return res;
 }
 
-vk::raii::Pipeline make_pipeline(wyrm::vk_bundle & vk, uint32_t image_array_size, vk::PipelineLayout layout)
+vk::raii::Pipeline make_pipeline(wivrn::vk_bundle & vk, uint32_t image_array_size, vk::PipelineLayout layout)
 {
 	auto specialization = make_specialization_constants(
 	        int32_t(0),     // unused
@@ -283,7 +283,7 @@ vk::raii::Pipeline make_pipeline(wyrm::vk_bundle & vk, uint32_t image_array_size
 	return res;
 }
 
-vk::raii::DescriptorPool make_ds_pool(wyrm::vk_bundle & vk, uint32_t image_array_size)
+vk::raii::DescriptorPool make_ds_pool(wivrn::vk_bundle & vk, uint32_t image_array_size)
 {
 	const uint32_t view_size = 2;
 	std::array pool_sizes{
@@ -314,7 +314,7 @@ vk::raii::DescriptorPool make_ds_pool(wyrm::vk_bundle & vk, uint32_t image_array
 
 } // namespace
 
-namespace wyrm
+namespace wivrn
 {
 
 layer_squasher::layer_squasher(vk_bundle & vk, vk::Extent3D target_size) :
@@ -388,7 +388,7 @@ std::tuple<std::array<xrt_pose, 2>,
 layer_squasher::do_layers(
         vk::raii::Device & device,
         vk::raii::CommandBuffer & cmd,
-        wyrm_hmd & hmd,
+        wivrn_hmd & hmd,
         uint64_t frame_interval_ns,
         const comp_frame & frame,
         const comp_layer_accum & layers,
@@ -992,4 +992,4 @@ xrt_fov layer_squasher::do_equirect2_layer(const comp_layer & layer,
 	        .angle_down = -M_PI};
 }
 
-} // namespace wyrm
+} // namespace wivrn

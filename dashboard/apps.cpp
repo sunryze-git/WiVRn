@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -25,7 +25,7 @@
 
 Apps::Apps(QObject * parent)
 {
-	auto apps = wyrm::list_applications();
+	auto apps = wivrn::list_applications();
 
 	for (const auto & [id, app]: apps)
 	{

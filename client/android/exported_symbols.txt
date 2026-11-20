@@ -2,7 +2,7 @@ LIBAPP {
 	global:
 		ANativeActivity_onCreate;
 		android_main;
-		Java_org_wyrmvr_wyrm*;
+		Java_org_meumeu_wivrn*;
 	local:
 		*;
 };

@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -38,7 +38,7 @@
 
 DEUGLIFY(AMediaFormat)
 
-struct wyrm::android::decoder::mapped_hardware_buffer
+struct wivrn::android::decoder::mapped_hardware_buffer
 {
 	vk::raii::DeviceMemory memory = nullptr;
 	vk::raii::Image vimage = nullptr;
@@ -49,9 +49,9 @@ struct wyrm::android::decoder::mapped_hardware_buffer
 
 namespace
 {
-const char * mime(wyrm::video_codec codec)
+const char * mime(wivrn::video_codec codec)
 {
-	using c = wyrm::video_codec;
+	using c = wivrn::video_codec;
 	switch (codec)
 	{
 		case c::h264:
@@ -78,12 +78,12 @@ void check(media_status_t status, const char * msg)
 
 struct android_blit_handle : public decoder::blit_handle
 {
-	std::shared_ptr<wyrm::android::decoder::mapped_hardware_buffer> vk_data;
+	std::shared_ptr<wivrn::android::decoder::mapped_hardware_buffer> vk_data;
 	std::shared_ptr<AImageReader> image_reader;
 	AImage_ptr aimage;
 	android_blit_handle(
-	        const wyrm::from_headset::feedback & feedback,
-	        const wyrm::to_headset::video_frame_info::view_info_t & view_info,
+	        const wivrn::from_headset::feedback & feedback,
+	        const wivrn::to_headset::video_frame_info::view_info_t & view_info,
 	        vk::ImageView image_view,
 	        vk::Image image,
 	        vk::Extent2D extent,
@@ -99,13 +99,13 @@ struct android_blit_handle : public decoder::blit_handle
 
 } // namespace
 
-namespace wyrm::android
+namespace wivrn::android
 {
 
 decoder::decoder(
         vk::raii::Device & device,
         vk::raii::PhysicalDevice & physical_device,
-        const wyrm::to_headset::video_stream_description & description,
+        const wivrn::to_headset::video_stream_description & description,
         uint8_t stream_index,
         std::weak_ptr<scenes::stream> weak_scene,
         shard_accumulator * accumulator) :
@@ -251,7 +251,7 @@ void decoder::push_data(std::span<std::span<const uint8_t>> data, uint64_t frame
 	current_input_buffer = input_buffer{};
 }
 
-void decoder::frame_completed(const wyrm::from_headset::feedback & feedback, const wyrm::to_headset::video_frame_info::view_info_t & view_info)
+void decoder::frame_completed(const wivrn::from_headset::feedback & feedback, const wivrn::to_headset::video_frame_info::view_info_t & view_info)
 {
 	generation = feedback.generation;
 	if (not media_codec)
@@ -513,7 +513,7 @@ void decoder::on_media_error(AMediaCodec *, void * userdata, media_status_t erro
 		auto self = (decoder *)userdata;
 		if (auto scene = self->weak_scene.lock())
 			scene->send_feedback(
-			        wyrm::from_headset::feedback{
+			        wivrn::from_headset::feedback{
 			                .generation = self->generation.load(),
 			                .stream_index = self->stream_index});
 	}
@@ -570,16 +570,16 @@ static bool hardware_accelerated(AMediaCodec * media_codec)
 	return true;
 }
 
-void decoder::supported_codecs(std::vector<wyrm::video_codec> & result)
+void decoder::supported_codecs(std::vector<wivrn::video_codec> & result)
 {
 	// Make sure we update this code when codecs are changed
-	static_assert(magic_enum::enum_count<wyrm::video_codec>() == 4);
+	static_assert(magic_enum::enum_count<wivrn::video_codec>() == 4);
 
 	// In order or preference, from preferred to least preferred
 	for (auto codec: {
-	             wyrm::video_codec::av1,
-	             wyrm::video_codec::h265,
-	             wyrm::video_codec::h264,
+	             wivrn::video_codec::av1,
+	             wivrn::video_codec::h265,
+	             wivrn::video_codec::h264,
 	     })
 	{
 		AMediaCodec_ptr media_codec(AMediaCodec_createDecoderByType(mime(codec)));
@@ -592,4 +592,4 @@ void decoder::supported_codecs(std::vector<wyrm::video_codec> & result)
 	}
 }
 
-} // namespace wyrm::android
+} // namespace wivrn::android

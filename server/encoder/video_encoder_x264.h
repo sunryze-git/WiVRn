@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -27,7 +27,7 @@
 #include <mutex>
 #include <vulkan/vulkan_raii.hpp>
 
-namespace wyrm
+namespace wivrn
 {
 
 class video_encoder_x264 : public video_encoder
@@ -38,7 +38,7 @@ class video_encoder_x264 : public video_encoder
 
 	x264_picture_t pic_out = {};
 
-	wyrm::vk_bundle & vk;
+	wivrn::vk_bundle & vk;
 	uint64_t sem_value = 0; // current value of the semaphore
 	vk::raii::CommandPool cmd_pool;
 
@@ -66,7 +66,7 @@ class video_encoder_x264 : public video_encoder
 	std::list<pending_nal> pending_nals;
 
 public:
-	video_encoder_x264(wyrm::vk_bundle & vk, const encoder_settings & settings, uint8_t stream_idx);
+	video_encoder_x264(wivrn::vk_bundle & vk, const encoder_settings & settings, uint8_t stream_idx);
 
 	void present_image(vk::Image y_cbcr, vk::SemaphoreSubmitInfo, uint8_t slot, uint64_t frame_index) override;
 
@@ -82,4 +82,4 @@ private:
 	void InsertInPendingNal(pending_nal && nal);
 };
 
-} // namespace wyrm
+} // namespace wivrn

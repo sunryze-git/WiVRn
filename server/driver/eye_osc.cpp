@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
@@ -77,7 +77,7 @@ uint8_t to_byte(float value)
 }
 } // namespace
 
-wyrm::eye_osc::eye_osc(const std::string & target)
+wivrn::eye_osc::eye_osc(const std::string & target)
 {
 	auto colon = target.rfind(':');
 	if (colon == std::string::npos)
@@ -99,12 +99,12 @@ wyrm::eye_osc::eye_osc(const std::string & target)
 	U_LOG_I("Eye data to %s via VRChat's native eye and face tracking", target.c_str());
 }
 
-wyrm::eye_osc::~eye_osc()
+wivrn::eye_osc::~eye_osc()
 {
 	close(fd);
 }
 
-float wyrm::eye_osc::one_euro::step(float value, float dt)
+float wivrn::eye_osc::one_euro::step(float value, float dt)
 {
 	float a_d = lowpass_alpha(gaze_d_cutoff, dt);
 	dx = a_d * (value - x) / dt + (1 - a_d) * dx;
@@ -113,13 +113,13 @@ float wyrm::eye_osc::one_euro::step(float value, float dt)
 	return x;
 }
 
-void wyrm::eye_osc::send_message(const std::string & m)
+void wivrn::eye_osc::send_message(const std::string & m)
 {
 	// Nobody listening (ECONNREFUSED) is fine
 	(void)::send(fd, m.data(), m.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
 }
 
-void wyrm::eye_osc::send_floats(std::string_view address, std::span<const float> values)
+void wivrn::eye_osc::send_floats(std::string_view address, std::span<const float> values)
 {
 	std::string m = message(address, "," + std::string(values.size(), 'f'));
 	for (float value: values)
@@ -127,7 +127,7 @@ void wyrm::eye_osc::send_floats(std::string_view address, std::span<const float>
 	send_message(m);
 }
 
-void wyrm::eye_osc::send_blob(std::string_view address, std::span<const uint8_t> data)
+void wivrn::eye_osc::send_blob(std::string_view address, std::span<const uint8_t> data)
 {
 	std::string m = message(address, ",b");
 	append_be32(m, data.size());
@@ -137,7 +137,7 @@ void wyrm::eye_osc::send_blob(std::string_view address, std::span<const uint8_t>
 	send_message(m);
 }
 
-void wyrm::eye_osc::send(const from_headset::frame_eyes & eyes)
+void wivrn::eye_osc::send(const from_headset::frame_eyes & eyes)
 {
 	std::array<uint8_t, face_key_count> face{};
 

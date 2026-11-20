@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
 
-import org.wyrmvr.wyrm
+import io.github.wivrn.wivrn
 
 Kirigami.ScrollablePage {
     id: headsets
@@ -66,7 +66,7 @@ Kirigami.ScrollablePage {
         }
 
         onAccepted: {
-            WyrmServer.rename_key(rename_headset.publicKey, rename_headset.headset_name);
+            WivrnServer.rename_key(rename_headset.publicKey, rename_headset.headset_name);
             rename_headset.close();
         }
 
@@ -127,7 +127,7 @@ Kirigami.ScrollablePage {
                     Layout.rowSpan: 2
                     text: i18n("Remove")
                     icon.name: "delete-symbolic"
-                    onClicked: WyrmServer.revoke_key(headset.publicKey)
+                    onClicked: WivrnServer.revoke_key(headset.publicKey)
                 }
             }
         }
@@ -140,20 +140,20 @@ Kirigami.ScrollablePage {
             Layout.topMargin: 2 * Kirigami.Units.largeSpacing
             Layout.leftMargin: 2 * Kirigami.Units.largeSpacing
             Layout.rightMargin: 2 * Kirigami.Units.largeSpacing
-            text: i18n("Pairing enabled, PIN: %1", WyrmServer.pin)
+            text: i18n("Pairing enabled, PIN: %1", WivrnServer.pin)
             type: Kirigami.MessageType.Information
-            visible: WyrmServer.pairingEnabled && !placeholder_message.visible
+            visible: WivrnServer.pairingEnabled && !placeholder_message.visible
             actions: [
                 Kirigami.Action {
                     text: i18n("Disable pairing")
-                    onTriggered: WyrmServer.disable_pairing()
+                    onTriggered: WivrnServer.disable_pairing()
                 }
             ]
         }
     }
 
     Kirigami.CardsListView {
-        model: WyrmServer.knownKeys
+        model: WivrnServer.knownKeys
         delegate: headset_delegate
 
         Kirigami.PlaceholderMessage {
@@ -163,14 +163,14 @@ Kirigami.ScrollablePage {
 
             visible: parent.count == 0
 
-            text: WyrmServer.pairingEnabled ? i18n("Start the Wyrm app on your headset and use the PIN: %1", WyrmServer.pin) : i18n("Enable pairing to allow your headset to connect to this computer")
+            text: WivrnServer.pairingEnabled ? i18n("Start the Wyrm app on your headset and use the PIN: %1", WivrnServer.pin) : i18n("Enable pairing to allow your headset to connect to this computer")
 
             // explanation: ""
 
             helpfulAction: Kirigami.Action {
                 text: i18n("Enable pairing")
-                onTriggered: WyrmServer.enable_pairing()
-                enabled: !WyrmServer.pairingEnabled
+                onTriggered: WivrnServer.enable_pairing()
+                enabled: !WivrnServer.pairingEnabled
             }
         }
     }
@@ -190,8 +190,8 @@ Kirigami.ScrollablePage {
         Kirigami.Action {
             text: i18n("Pair a new headset")
             icon.name: "list-add-symbolic"
-            onTriggered: WyrmServer.enable_pairing()
-            enabled: !WyrmServer.pairingEnabled
+            onTriggered: WivrnServer.enable_pairing()
+            enabled: !WivrnServer.pairingEnabled
         }
     ]
 

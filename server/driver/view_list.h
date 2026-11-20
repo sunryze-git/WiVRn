@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -25,7 +25,7 @@
 #include <mutex>
 #include <openxr/openxr.h>
 
-namespace wyrm
+namespace wivrn
 {
 
 struct tracked_views
@@ -48,4 +48,4 @@ public:
 	void update_tracking(const from_headset::tracking & tracking, const clock_offset & offset);
 	std::pair<XrTime, tracked_views> get_at(XrTime at_timestamp_ns);
 };
-} // namespace wyrm
+} // namespace wivrn

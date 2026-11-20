@@ -14,7 +14,7 @@
 #include <thread>
 #include <unistd.h>
 
-using namespace wyrm;
+using namespace wivrn;
 using namespace std::chrono_literals;
 
 static std::atomic<unsigned> observed_video_drops = 0;

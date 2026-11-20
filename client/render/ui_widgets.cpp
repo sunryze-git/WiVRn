@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2026  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -35,7 +35,7 @@
 // drag-to-scroll helper, defined in imgui_impl.cpp
 void ScrollWhenDragging();
 
-namespace wyrm::ui
+namespace wivrn::ui
 {
 
 namespace
@@ -1376,7 +1376,7 @@ void top_bar(float height, ImTextureID logo, const std::vector<top_bar_item> & r
 	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4{0, 0, 0, 0});
 	ImGui::BeginChild("TopBar", {ImGui::GetWindowSize().x, height}, 0, ImGuiWindowFlags_NoScrollbar);
 	{
-		// logo: Wyrm mascot followed by the wordmark
+		// logo: WiVRn mascot followed by the wordmark
 		const float logo_size = 44;
 		ImGui::SetCursorPos({margin, (height - logo_size) * 0.5f});
 		if (logo)
@@ -1450,4 +1450,4 @@ void shell_dividers(float top_bar_h, float tab_width)
 	dl->AddLine({win_pos.x + tab_width, win_pos.y + top_bar_h}, {win_pos.x + tab_width, win_pos.y + win_size.y}, divider);
 }
 
-} // namespace wyrm::ui
+} // namespace wivrn::ui

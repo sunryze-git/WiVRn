@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include <chrono>
-namespace wyrm
+namespace wivrn
 {
 template <typename Range>
 bool acknowledge_decoded_reference(Range & references, const from_headset::feedback & feedback)
@@ -39,4 +39,4 @@ public:
 		return attempts++ < 3;
 	}
 };
-} // namespace wyrm
+} // namespace wivrn

@@ -11,7 +11,7 @@
 #include <span>
 #include <string_view>
 
-namespace wyrm
+namespace wivrn
 {
 inline float parse_sharpening_strength(std::string_view text)
 {
@@ -57,4 +57,4 @@ inline sharpening_region make_sharpening_region(
 		return {};
 	return {{int32_t(width), int32_t(height)}, {(*bx)[1], (*by)[1], (*bx)[2], (*by)[2]}, {(*bx)[0], (*by)[0], (*bx)[3], (*by)[3]}};
 }
-} // namespace wyrm
+} // namespace wivrn

@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <vector>
 
-namespace wyrm
+namespace wivrn
 {
 std::vector<std::filesystem::path> discord_ipc_paths();
 
@@ -66,4 +66,4 @@ private:
 	nlohmann::json activity() const;
 	nlohmann::json command(nlohmann::json activity);
 };
-} // namespace wyrm
+} // namespace wivrn

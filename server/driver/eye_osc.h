@@ -1,17 +1,17 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 #pragma once
 
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 
 #include <array>
 #include <span>
 #include <string>
 #include <string_view>
 
-namespace wyrm
+namespace wivrn
 {
 // Sends the Steam Frame's eye data (from_headset::frame_eyes) to VRChat's native eye and face tracking OSC endpoints
 class eye_osc
@@ -41,4 +41,4 @@ public:
 
 	void send(const from_headset::frame_eyes &);
 };
-} // namespace wyrm
+} // namespace wivrn

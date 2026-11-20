@@ -9,7 +9,7 @@
 #include <string>
 #include <string_view>
 
-namespace wyrm
+namespace wivrn
 {
 struct nvenc_options
 {
@@ -144,4 +144,4 @@ struct nvenc_options
 			throw std::runtime_error("nvenc: intra-refresh-count exceeds period");
 	}
 };
-} // namespace wyrm
+} // namespace wivrn

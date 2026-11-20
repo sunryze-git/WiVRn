@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -30,8 +30,8 @@
 #include <magic_enum.hpp>
 
 #include "smp.h"
-#include "wyrm_config.h"
-#include "wyrm_packets.h"
+#include "wivrn_config.h"
+#include "wivrn_packets.h"
 
 #if WIRESHARK_VERSION_MAJOR > 4 || (WIRESHARK_VERSION_MAJOR == 4 && WIRESHARK_VERSION_MINOR >= 4)
 static inline uint32_t get_uint32(tvbuff_t * tvb, const int offset, const unsigned encoding)
@@ -63,7 +63,7 @@ static inline uint16_t get_uint8(tvbuff_t * tvb, const int offset)
 }
 #endif
 
-using namespace wyrm;
+using namespace wivrn;
 
 namespace
 {
@@ -804,7 +804,7 @@ struct tree_traits<abbrev, crypto::bignum>
 	}
 };
 
-int dissect_wyrm(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree _U_, void * data _U_, bool tcp)
+int dissect_wivrn(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree _U_, void * data _U_, bool tcp)
 {
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "Wyrm");
 	/* Clear out stuff in the info column */
@@ -831,10 +831,10 @@ int dissect_wyrm(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree _U_, voi
 			offset += sizeof(uint32_t);
 		}
 
-		if (pinfo->destport == wyrm::default_port)
-			tree_traits<"wyrm.from_headset", from_headset::packets>::dissect(subtree, tvb, offset);
+		if (pinfo->destport == wivrn::default_port)
+			tree_traits<"wivrn.from_headset", from_headset::packets>::dissect(subtree, tvb, offset);
 		else
-			tree_traits<"wyrm.to_headset", to_headset::packets>::dissect(subtree, tvb, offset);
+			tree_traits<"wivrn.to_headset", to_headset::packets>::dissect(subtree, tvb, offset);
 
 		if (not tcp)
 			return offset;
@@ -844,26 +844,26 @@ int dissect_wyrm(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree _U_, voi
 	}
 }
 
-int dissect_wyrm_udp(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree _U_, void * data _U_)
+int dissect_wivrn_udp(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree _U_, void * data _U_)
 {
-	return dissect_wyrm(tvb, pinfo, tree, data, false);
+	return dissect_wivrn(tvb, pinfo, tree, data, false);
 }
 
-int dissect_wyrm_tcp(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree _U_, void * data _U_)
+int dissect_wivrn_tcp(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree _U_, void * data _U_)
 {
-	return dissect_wyrm(tvb, pinfo, tree, data, true);
+	return dissect_wivrn(tvb, pinfo, tree, data, true);
 }
 
-void proto_register_wyrm()
+void proto_register_wivrn()
 {
 	subtree_handles.emplace("", -1);
-	tree_traits<"wyrm.from_headset", from_headset::packets>::info();
-	tree_traits<"wyrm.to_headset", to_headset::packets>::info();
+	tree_traits<"wivrn.from_headset", from_headset::packets>::info();
+	tree_traits<"wivrn.to_headset", to_headset::packets>::info();
 
 	proto = proto_register_protocol(
 	        "Wyrm protocol",
 	        "Wyrm",
-	        "wyrm");
+	        "wivrn");
 
 	proto_register_field_array(proto, fields.data(), fields.size());
 
@@ -876,12 +876,12 @@ void proto_register_wyrm()
 	proto_register_subtree_array(tree.data(), tree.size());
 }
 
-void proto_reg_handoff_wyrm()
+void proto_reg_handoff_wivrn()
 {
-	static dissector_handle_t handle_tcp = create_dissector_handle(dissect_wyrm_tcp, proto);
-	static dissector_handle_t handle_udp = create_dissector_handle(dissect_wyrm_udp, proto);
-	dissector_add_uint("udp.port", wyrm::default_port, handle_udp);
-	dissector_add_uint("tcp.port", wyrm::default_port, handle_tcp);
+	static dissector_handle_t handle_tcp = create_dissector_handle(dissect_wivrn_tcp, proto);
+	static dissector_handle_t handle_udp = create_dissector_handle(dissect_wivrn_udp, proto);
+	dissector_add_uint("udp.port", wivrn::default_port, handle_udp);
+	dissector_add_uint("tcp.port", wivrn::default_port, handle_tcp);
 }
 
 } // namespace
@@ -893,7 +893,7 @@ extern "C" WS_DLL_PUBLIC_DEF void plugin_register(void)
 {
 	static proto_plugin plug;
 
-	plug.register_protoinfo = proto_register_wyrm;
-	plug.register_handoff = proto_reg_handoff_wyrm;
+	plug.register_protoinfo = proto_register_wivrn;
+	plug.register_handoff = proto_reg_handoff_wivrn;
 	proto_register_plugin(&plug);
 }

@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Sapphire <imsapphire0@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 #pragma once
 
 #include "utils/handle.h"
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 
 #include <openxr/openxr.h>
 
@@ -33,7 +33,7 @@ class pico_body_tracker : public utils::handle<XrBodyTrackerBD>
 	PFN_xrLocateBodyJointsBD xrLocateBodyJointsBD{};
 
 public:
-	using packet_type = wyrm::from_headset::bd_body;
+	using packet_type = wivrn::from_headset::bd_body;
 	pico_body_tracker(instance & inst, session & s);
 
 	packet_type locate_spaces(XrTime time, XrSpace reference);

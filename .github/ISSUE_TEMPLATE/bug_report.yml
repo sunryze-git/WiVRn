@@ -42,9 +42,9 @@ body:
   - type: textarea
     attributes:
       label: Server Logs
-      description: Provide the `wyrm-server` output.
+      description: Provide the `wivrn-server` output.
       placeholder: |
-        Add the output of the wyrm-server here.
+        Add the output of the wivrn-server here.
         If more than a few lines, prefer file attachment.
 
   - type: textarea

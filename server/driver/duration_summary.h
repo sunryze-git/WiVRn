@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 #pragma once
@@ -11,12 +11,12 @@
 #include <limits>
 #include <string>
 
-namespace wyrm
+namespace wivrn
 {
-// WYRM_LOG_PREDICTION: periodic summaries of display time and pose prediction
+// WIVRN_LOG_PREDICTION: periodic summaries of display time and pose prediction
 inline bool log_prediction_enabled()
 {
-	static const bool enabled = std::getenv("WYRM_LOG_PREDICTION");
+	static const bool enabled = std::getenv("WIVRN_LOG_PREDICTION");
 	return enabled;
 }
 
@@ -43,4 +43,4 @@ struct duration_summary
 		return std::format("{:.1f} ms ({:.1f} to {:.1f})", sum / 1e6 / count, min / 1e6, max / 1e6);
 	}
 };
-} // namespace wyrm
+} // namespace wivrn

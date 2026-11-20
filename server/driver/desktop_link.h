@@ -5,8 +5,8 @@
 #include "frame_host.h"
 #include "util/u_logging.h"
 #include "version.h"
-#include "wyrm_packets.h"
-#include "wyrm_uinput.h"
+#include "wivrn_packets.h"
+#include "wivrn_uinput.h"
 #include <array>
 #include <atomic>
 #include <map>
@@ -19,7 +19,7 @@
 #include <unistd.h>
 #include <vector>
 
-namespace wyrm
+namespace wivrn
 {
 // The frame shell's PC side of one headset connection: the host services' monitors and messages, and the
 // headset's input, keyframe and resend requests for them. Used by the VR session and by a desktop-only session;
@@ -28,7 +28,7 @@ template <typename Sender>
 class desktop_link
 {
 	Sender & sender;
-	std::optional<wyrm_uinput> & uinput;
+	std::optional<wivrn_uinput> & uinput;
 
 	// Streamed monitors: where each one lies in the PC's whole desktop (x, y, w, h), for pointer input
 	std::mutex mutex;
@@ -76,7 +76,7 @@ public:
 	// Parity per frame in percent of its shards, from the headset (from_headset::link_settings)
 	std::atomic<uint8_t> fec_percent = 0;
 
-	desktop_link(Sender & sender_, std::optional<wyrm_uinput> & uinput_) :
+	desktop_link(Sender & sender_, std::optional<wivrn_uinput> & uinput_) :
 	        sender(sender_), uinput(uinput_)
 	{
 		char hostname[256] = "PC";
@@ -156,4 +156,4 @@ public:
 		send_all_stream(shards);
 	}
 };
-} // namespace wyrm
+} // namespace wivrn

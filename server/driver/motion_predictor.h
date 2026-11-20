@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 #pragma once
@@ -21,7 +21,7 @@
 
 #include "openxr/openxr.h"
 
-namespace wyrm
+namespace wivrn
 {
 
 // Predicts a controller pose past its newest sample: the reported velocity carried over the delay, so a change in
@@ -72,4 +72,4 @@ private:
 	steps step(double ahead) const;
 };
 
-} // namespace wyrm
+} // namespace wivrn

@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2026  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2026  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -23,7 +23,7 @@
 #include <string>
 #include <vector>
 
-namespace wyrm::ui
+namespace wivrn::ui
 {
 
 struct theme
@@ -170,4 +170,4 @@ struct accent_swatch
 std::vector<accent_swatch> accent_swatches();
 void set_accent(const accent_swatch & swatch);
 
-} // namespace wyrm::ui
+} // namespace wivrn::ui

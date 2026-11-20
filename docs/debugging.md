@@ -38,11 +38,11 @@ When debugging, ensure the HMD client matches the server version. Perform a clea
 
 ```bash
 # Find and uninstall existing installation
-WYRM_PKG=$(adb shell pm list packages | grep wyrm | cut -d: -f2)
-adb uninstall ${WYRM_PKG}
+WIVRN_PKG=$(adb shell pm list packages | grep wivrn | cut -d: -f2)
+adb uninstall ${WIVRN_PKG}
 
 # Install the debug APK
-adb install /path/to/wyrm-standard-debug.apk
+adb install /path/to/wivrn-standard-debug.apk
 ```
 
 ---
@@ -68,19 +68,19 @@ adb logcat '*:E' | tee -a errors-$(date "+%Y-%m-%d-%H").log
 Wyrm-only logs (verbose):
 
 ```bash
-adb logcat '*:S' Wyrm:V
+adb logcat '*:S' WiVRn:V
 ```
 
 Watch Wyrm client logs:
 
 ```bash
-adb logcat | grep Wyrm
+adb logcat | grep WiVRn
 ```
 
 Watch Android system logs related to Wyrm:
 
 ```bash
-adb logcat | grep wyrm
+adb logcat | grep wivrn
 ```
 
 ### Server Logs
@@ -88,13 +88,13 @@ adb logcat | grep wyrm
 Start the server with debug logging enabled:
 
 ```bash
-XRT_LOG=debug XRT_COMPOSITOR_LOG=debug wyrm-server
+XRT_LOG=debug XRT_COMPOSITOR_LOG=debug wivrn-server
 ```
 
 To also dump video frames for analysis:
 
 ```bash
-XRT_LOG=debug XRT_COMPOSITOR_LOG=debug WYRM_DUMP_VIDEO=/tmp/video-dump wyrm-server
+XRT_LOG=debug XRT_COMPOSITOR_LOG=debug WIVRN_DUMP_VIDEO=/tmp/video-dump wivrn-server
 ```
 
 The video dump can be played back with `mpv` or other media players to verify what video was being sent to the HMD.
@@ -108,23 +108,23 @@ There will be multiple files in the directory, one for each video stream per cod
 ### HMD Client
 
 The package name varies by build variant:
-- `org.wyrmvr.wyrm` - for app store builds
-- `org.wyrmvr.wyrm.github` - for GitHub release builds
-- `org.wyrmvr.wyrm.local` - for locally built APK
-- `org.wyrmvr.wyrm.github.testing` - for CI runs
-- `org.wyrmvr.wyrm.github.nightly` - for APK repo
+- `org.meumeu.wivrn` - for app store builds
+- `org.meumeu.wivrn.github` - for GitHub release builds
+- `org.meumeu.wivrn.local` - for locally built APK
+- `org.meumeu.wivrn.github.testing` - for CI runs
+- `org.meumeu.wivrn.github.nightly` - for APK repo
 
 Find your installed package with:
 
 ```bash
-adb shell pm list packages | grep wyrm
+adb shell pm list packages | grep wivrn
 ```
 
 Start via ADB:
 
 ```bash
-WYRM_PKG=$(adb shell pm list packages | grep wyrm | cut -d: -f2)
-adb shell am start ${WYRM_PKG}/org.wyrmvr.wyrm.MainActivity
+WIVRN_PKG=$(adb shell pm list packages | grep wivrn | cut -d: -f2)
+adb shell am start ${WIVRN_PKG}/org.meumeu.wivrn.MainActivity
 ```
 
 Connect to a specific server:
@@ -132,16 +132,16 @@ Connect to a specific server:
 Replace `ADDRESS=localhost` with the address of the server you want to connect to.
 
 ```bash
-WYRM_PKG=$(adb shell pm list packages | grep wyrm | cut -d: -f2)
+WIVRN_PKG=$(adb shell pm list packages | grep wivrn | cut -d: -f2)
 ADDRESS=localhost
-adb shell am start -a android.intent.action.VIEW -d "wyrm://${ADDRESS}" ${WYRM_PKG}
+adb shell am start -a android.intent.action.VIEW -d "wivrn://${ADDRESS}" ${WIVRN_PKG}
 ```
 
 Stop the client:
 
 ```bash
-WYRM_PKG=$(adb shell pm list packages | grep wyrm | cut -d: -f2)
-adb shell am force-stop ${WYRM_PKG}
+WIVRN_PKG=$(adb shell pm list packages | grep wivrn | cut -d: -f2)
+adb shell am force-stop ${WIVRN_PKG}
 ```
 
 ### Server
@@ -149,7 +149,7 @@ adb shell am force-stop ${WYRM_PKG}
 Start the server with debug logging:
 
 ```bash
-XRT_LOG=debug XRT_COMPOSITOR_LOG=debug wyrm-server
+XRT_LOG=debug XRT_COMPOSITOR_LOG=debug wivrn-server
 ```
 
 The server will publish itself on the network via mDNS/Zeroconf for discovery by the HMD client.
@@ -224,7 +224,7 @@ This writes cores to `/tmp/` with the format `core.<executable>.<pid>.<timestamp
 Analyze a core dump with GDB:
 
 ```bash
-gdb /usr/bin/wyrm-server /tmp/core.wyrm-server.12345.1706234567
+gdb /usr/bin/wivrn-server /tmp/core.wivrn-server.12345.1706234567
 ```
 
 Inside GDB:
@@ -248,7 +248,7 @@ thread apply all bt
 Copy the traceback from the HMD logs using logcat:
 
 ```bash
-adb logcat '*:F' | grep -A 50 wyrm
+adb logcat '*:F' | grep -A 50 wivrn
 ```
 
 ---
@@ -264,7 +264,7 @@ NVENC, and VAAPI encoder paths.
 
 ## Testing two network links
 
-With `WYRM_BUILD_TEST=ON`, build `test-multilink-live` on both Linux hosts.
+With `WIVRN_BUILD_TEST=ON`, build `test-multilink-live` on both Linux hosts.
 It uses the transport directly, without an XR runtime or decoder. Start the
 server first, then the client, using the same random key from `openssl rand -hex 32`:
 
@@ -312,9 +312,9 @@ For debugging network issues or testing with a wired connection, you can tunnel 
 Set up the tunnel and connect:
 
 ```bash
-WYRM_PKG=$(adb shell pm list packages | grep wyrm | cut -d: -f2)
+WIVRN_PKG=$(adb shell pm list packages | grep wivrn | cut -d: -f2)
 adb reverse tcp:9757 tcp:9757
-adb shell am start -a android.intent.action.VIEW -d "wyrm+tcp://localhost:9757" ${WYRM_PKG}
+adb shell am start -a android.intent.action.VIEW -d "wivrn+tcp://localhost:9757" ${WIVRN_PKG}
 ```
 
 You are also able to make this connection through the dashboard.
@@ -370,11 +370,11 @@ The log is located at `$XDG_STATE_HOME/xrizer/xrizer.txt`, or `$HOME/.local/stat
 
 | Variable | Description |
 |----------|-------------|
-| `WYRM_DUMP_VIDEO` | Path to dump video frames (e.g., `/tmp/video-dump`); on the headset client it dumps complete frames as handed to the decoder. Each dump has a `.idx` file with `frame offset size` lines |
-| `WYRM_MULTILINK_INTERFACES` | Comma separated interface names that multi-link may use (e.g., `wlp9s0`); unset uses every interface |
-| `WYRM_LOGLEVEL` | Log level for the native client |
-| `WYRM_AUTOCONNECT` | Auto-connect to the first discovered server |
-| `WYRM_TRACING` | Enable Wyrm Perfetto tracing: `system` / `inprocess`. Requires `WYRM_USE_PERFETTO=ON` at build time. See [docs/profiling.md](profiling.md). |
+| `WIVRN_DUMP_VIDEO` | Path to dump video frames (e.g., `/tmp/video-dump`); on the headset client it dumps complete frames as handed to the decoder. Each dump has a `.idx` file with `frame offset size` lines |
+| `WIVRN_MULTILINK_INTERFACES` | Comma separated interface names that multi-link may use (e.g., `wlp9s0`); unset uses every interface |
+| `WIVRN_LOGLEVEL` | Log level for the native client |
+| `WIVRN_AUTOCONNECT` | Auto-connect to the first discovered server |
+| `WIVRN_TRACING` | Enable Wyrm Perfetto tracing: `system` / `inprocess`. Requires `WIVRN_USE_PERFETTO=ON` at build time. See [docs/profiling.md](profiling.md). |
 
 ### Vulkan
 
@@ -402,12 +402,12 @@ Active runtime symlink:
 ls -la $HOME/.config/openxr/1/active_runtime.json
 ```
 
-Should point to `/usr/share/openxr/1/openxr_wyrm.json` or similar.
+Should point to `/usr/share/openxr/1/openxr_wivrn.json` or similar.
 
 Check runtime configuration:
 
 ```bash
-cat /usr/share/openxr/1/openxr_wyrm.json
+cat /usr/share/openxr/1/openxr_wivrn.json
 ```
 
 Example output:
@@ -417,8 +417,8 @@ Example output:
     "file_format_version": "1.0.0",
     "runtime": {
         "name": "Monado",
-        "library_path": "../../../lib64/wyrm/libopenxr_wyrm.so",
-        "MND_libmonado_path": "../../../lib64/wyrm/libmonado_wyrm.so"
+        "library_path": "../../../lib64/wivrn/libopenxr_wivrn.so",
+        "MND_libmonado_path": "../../../lib64/wivrn/libmonado_wivrn.so"
     }
 }
 ```
@@ -427,7 +427,7 @@ Verify library dependencies:
 
 ```bash
 pushd /usr/share/openxr/1/
-ldd ../../../lib64/wyrm/libopenxr_wyrm.so
+ldd ../../../lib64/wivrn/libopenxr_wivrn.so
 popd
 ```
 
@@ -477,8 +477,8 @@ This section covers attaching a native debugger to the HMD client remotely. This
 Start the client with debugging enabled:
 
 ```bash
-WYRM_PKG=$(adb shell pm list packages | grep wyrm | cut -d: -f2)
-adb shell am start -D ${WYRM_PKG}/org.wyrmvr.wyrm.MainActivity
+WIVRN_PKG=$(adb shell pm list packages | grep wivrn | cut -d: -f2)
+adb shell am start -D ${WIVRN_PKG}/org.meumeu.wivrn.MainActivity
 ```
 
 Set up LLDB debugging:
@@ -513,7 +513,7 @@ Set up LLDB debugging:
 Resume the app (required for `-D` flag):
 
 ```bash
-adb forward tcp:12345 jdwp:$(adb shell pidof ${WYRM_PKG})
+adb forward tcp:12345 jdwp:$(adb shell pidof ${WIVRN_PKG})
 jdb -attach localhost:12345
 ```
 

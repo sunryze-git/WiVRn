@@ -9,7 +9,7 @@
 #include <avahi-common/strlst.h>
 #include <iostream>
 
-namespace wyrm
+namespace wivrn
 {
 
 const std::error_category & avahi_error_category()
@@ -176,4 +176,4 @@ void avahi_publisher::watch_free(AvahiWatch * watch)
 {
         poll_api->watch_free(watch);
 }*/
-} // namespace wyrm
+} // namespace wivrn

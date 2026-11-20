@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -23,8 +23,8 @@
 
 #include "os/os_time.h"
 #include "util/u_logging.h"
-#include "utils/wyrm_trace.h"
-#include "utils/wyrm_vk_bundle.h"
+#include "utils/wivrn_trace.h"
+#include "utils/wivrn_vk_bundle.h"
 
 bool operator==(const GUID & l, const GUID & r)
 {
@@ -73,7 +73,7 @@ bool operator==(const GUID & l, const GUID & r)
 		}                                                                                 \
 	} while (0)
 
-namespace wyrm
+namespace wivrn
 {
 
 static auto encode_guid(video_codec codec)
@@ -145,7 +145,7 @@ void video_encoder_nvenc::set_init_params_fps(float framerate)
 	init_params.frameRateDen = 1000;
 }
 
-static vk::raii::CommandPool make_cmd_pool(wyrm::vk_bundle & vk, uint8_t stream_idx)
+static vk::raii::CommandPool make_cmd_pool(wivrn::vk_bundle & vk, uint8_t stream_idx)
 {
 	auto res = vk.device.createCommandPool(vk::CommandPoolCreateInfo{
 
@@ -157,7 +157,7 @@ static vk::raii::CommandPool make_cmd_pool(wyrm::vk_bundle & vk, uint8_t stream_
 }
 
 video_encoder_nvenc::video_encoder_nvenc(
-        wyrm::vk_bundle & vk,
+        wivrn::vk_bundle & vk,
         const encoder_settings & settings,
         uint8_t stream_idx) :
         video_encoder(vk, stream_idx, vk.queue.family_index, settings, std::make_unique<default_idr_handler>(), true),
@@ -500,7 +500,7 @@ std::optional<video_encoder::data> video_encoder_nvenc::encode(uint8_t slot, uin
 
 	if (auto s = ts_pool.collect(slot))
 	{
-		wyrm::trace::gpu_slice(wyrm::trace::gpu_track::nvenc_copy,
+		wivrn::trace::gpu_slice(wivrn::trace::gpu_track::nvenc_copy,
 		                        "vk_copy_image_to_buffer",
 		                        s->begin_ns,
 		                        s->end_ns,
@@ -589,7 +589,7 @@ std::optional<video_encoder::data> video_encoder_nvenc::encode(uint8_t slot, uin
 	        .outputBitstream = outputBuffer,
 	};
 	{
-		wyrm::trace::scope trace_nvenc(wyrm::trace::cpu_track::encoder, stream_idx, frame_index, "nvEncEncodePicture+Lock");
+		wivrn::trace::scope trace_nvenc(wivrn::trace::cpu_track::encoder, stream_idx, frame_index, "nvEncEncodePicture+Lock");
 		NVENC_CHECK(shared_state->fn.nvEncEncodePicture(session_handle, &frame_params));
 		NVENC_CHECK(shared_state->fn.nvEncLockBitstream(session_handle, &buf_lock_params));
 	}
@@ -662,4 +662,4 @@ std::array<int, 2> video_encoder_nvenc::get_max_size(video_codec codec)
 	return result;
 }
 
-} // namespace wyrm
+} // namespace wivrn

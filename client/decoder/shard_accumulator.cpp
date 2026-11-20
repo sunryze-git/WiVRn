@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022-2023  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2023  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -20,15 +20,15 @@
 #include "shard_accumulator.h"
 #include "scenes/stream.h"
 #include "shard_recovery.h"
-#include "wyrm_serialization.h"
+#include "wivrn_serialization.h"
 #include "xr/instance.h"
 #include <cstdlib>
 
-namespace wyrm
+namespace wivrn
 {
 void shard_accumulator::open_dump(video_codec codec) noexcept
 {
-	const char * prefix = std::getenv("WYRM_DUMP_RECEIVED_VIDEO");
+	const char * prefix = std::getenv("WIVRN_DUMP_RECEIVED_VIDEO");
 	if (not prefix or not *prefix)
 		return;
 	try
@@ -223,4 +223,4 @@ void shard_accumulator::send_feedback(from_headset::feedback & feedback)
 	if (auto scene = weak_scene.lock())
 		scene->send_feedback(feedback);
 }
-} // namespace wyrm
+} // namespace wivrn

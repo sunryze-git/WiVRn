@@ -10,7 +10,7 @@
 #include <iostream>
 #include <string>
 
-using namespace wyrm;
+using namespace wivrn;
 
 int main(int argc, char ** argv)
 {

@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -19,16 +19,16 @@
 
 #pragma once
 
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 
 #include <map>
 #include <optional>
 #include <string>
 
-namespace wyrm
+namespace wivrn
 {
 struct vk_bundle;
-class wyrm_session;
+class wivrn_session;
 
 struct encoder_settings
 {
@@ -45,9 +45,9 @@ struct encoder_settings
 	std::optional<std::string> device;
 };
 
-std::array<encoder_settings, 3> get_encoder_settings(wyrm::vk_bundle &, wyrm_session &);
-std::array<encoder_settings, 3> get_encoder_settings(wyrm::vk_bundle &, wyrm_session &, const from_headset::headset_info_packet &);
+std::array<encoder_settings, 3> get_encoder_settings(wivrn::vk_bundle &, wivrn_session &);
+std::array<encoder_settings, 3> get_encoder_settings(wivrn::vk_bundle &, wivrn_session &, const from_headset::headset_info_packet &);
 
-void print_encoders(const std::array<wyrm::encoder_settings, 3> & encoders);
+void print_encoders(const std::array<wivrn::encoder_settings, 3> & encoders);
 
-} // namespace wyrm
+} // namespace wivrn

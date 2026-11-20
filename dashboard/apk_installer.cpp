@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 #include "apk_installer.h"
 #include "escape_sandbox.h"
 #include "version.h"
-#include "wyrm_config.h"
+#include "wivrn_config.h"
 #include <KLocalization>
 #include <QCoroNetworkReply>
 #include <QCoroProcess>
@@ -29,23 +29,23 @@ using namespace std::chrono_literals;
 
 apk_installer::apk_installer()
 {
-	m_apkFile.setFileName(QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/wyrm-" + QString::fromStdString(wyrm::git_commit) + ".apk");
+	m_apkFile.setFileName(QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/wivrn-" + QString::fromStdString(wivrn::git_commit) + ".apk");
 }
 
 bool apk_installer::isTagged() const
 {
-	return wyrm::is_tag;
+	return wivrn::is_tag;
 }
 
 QString apk_installer::repositoryUrl() const
 {
-	const QString repository = QStringLiteral(WYRM_GITHUB_REPOSITORY);
+	const QString repository = QStringLiteral(WIVRN_GITHUB_REPOSITORY);
 	return repository.isEmpty() ? QString{} : QStringLiteral("https://github.com/") + repository;
 }
 
 QString apk_installer::currentVersion() const
 {
-	return wyrm::display_version();
+	return wivrn::display_version();
 }
 
 QCoro::Task<> apk_installer::doRefreshLatestVersion()
@@ -62,7 +62,7 @@ QCoro::Task<> apk_installer::doRefreshLatestVersion()
 	busyChanged(m_busy = true);
 	latestVersionChanged(m_latestVersion = "");
 
-	const QString releases = QStringLiteral("https://api.github.com/repos/") + QStringLiteral(WYRM_GITHUB_REPOSITORY) + QStringLiteral("/releases/");
+	const QString releases = QStringLiteral("https://api.github.com/repos/") + QStringLiteral(WIVRN_GITHUB_REPOSITORY) + QStringLiteral("/releases/");
 	std::unique_ptr<QNetworkReply> reply{co_await manager.get(QNetworkRequest{QUrl{releases + "latest"}})};
 
 	if (auto error = reply->error(); error != QNetworkReply::NetworkError::NoError)
@@ -84,9 +84,9 @@ QCoro::Task<> apk_installer::doRefreshLatestVersion()
 
 	QUrl metadata_url;
 	if (isTagged())
-		metadata_url = releases + "tags/" + wyrm::git_commit;
+		metadata_url = releases + "tags/" + wivrn::git_commit;
 	else
-		metadata_url = releases + "tags/apk-" + wyrm::git_commit;
+		metadata_url = releases + "tags/apk-" + wivrn::git_commit;
 
 	reply.reset(co_await manager.get(QNetworkRequest{metadata_url}));
 

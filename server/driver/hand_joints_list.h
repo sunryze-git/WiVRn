@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -20,10 +20,10 @@
 #pragma once
 
 #include "history.h"
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include "xrt/xrt_defines.h"
 
-namespace wyrm
+namespace wivrn
 {
 struct clock_offset;
 
@@ -38,6 +38,6 @@ public:
 	xrt_hand_joint_set interpolate(const xrt_hand_joint_set & a, const xrt_hand_joint_set & b, float t);
 	xrt_hand_joint_set extrapolate(const xrt_hand_joint_set & a, const xrt_hand_joint_set & b, int64_t ta, int64_t tb, int64_t t);
 
-	void update_tracking(const wyrm::from_headset::hand_tracking & tracking, const clock_offset & offset);
+	void update_tracking(const wivrn::from_headset::hand_tracking & tracking, const clock_offset & offset);
 };
-} // namespace wyrm
+} // namespace wivrn

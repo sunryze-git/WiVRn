@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace wyrm
+namespace wivrn
 {
 std::string hostname();
 }

@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -41,7 +41,7 @@
 
 using namespace std::chrono_literals;
 
-namespace ui = wyrm::ui;
+namespace ui = wivrn::ui;
 
 namespace
 {

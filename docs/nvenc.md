@@ -35,7 +35,7 @@ To check whether your system is affected, monitor the GPU P-State using `watch n
 {
     "profiles": [
         {
-            "name": "WyrmServer",
+            "name": "WiVRnServer",
             "settings": [
                 {
                   "key"   : "0x166c5e",
@@ -45,13 +45,13 @@ To check whether your system is affected, monitor the GPU P-State using `watch n
         }
     ],
     "rules": [
-        { "pattern" : { "feature" : "procname", "matches" : "wyrm-server" }, "profile" : "WyrmServer" }
+        { "pattern" : { "feature" : "procname", "matches" : "wivrn-server" }, "profile" : "WiVRnServer" }
     ]
 }
 ```
 3. Save the file
 
-    Save the file and `restart wyrm-server`. The profile should be applied automatically by the NVIDIA driver.
+    Save the file and `restart wivrn-server`. The profile should be applied automatically by the NVIDIA driver.
 
 | Settings key | Reference name | Value | Description |
 | --- | --- | :---: | --- |

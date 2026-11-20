@@ -2,8 +2,8 @@
 
 cd $(dirname $0)/..
 
-WYRM_CLIENT_POT=$(mktemp)
-WYRM_DASHBOARD_POT=$(mktemp)
+WIVRN_CLIENT_POT=$(mktemp)
+WIVRN_DASHBOARD_POT=$(mktemp)
 
 xgettext \
 	--c++ --from-code=UTF-8              \
@@ -14,8 +14,8 @@ xgettext \
 	--keyword=_cF:1c,2,2t                \
 	--keyword=_F:1,1t                    \
 	--keyword=gettext_noop:1,1t          \
-	--output=$WYRM_CLIENT_POT           \
-	--package-name=Wyrm                 \
+	--output=$WIVRN_CLIENT_POT           \
+	--package-name=WiVRn                 \
 	$(find client/ -name "*.cpp" | sort)
 
 xgettext \
@@ -24,11 +24,11 @@ xgettext \
 	--keyword=i18nc:1c,2                 \
 	--keyword=i18np:1,2                  \
 	--keyword=i18ncp:1c,2,3              \
-	--output=$WYRM_DASHBOARD_POT        \
-	--package-name=Wyrm-dashboard       \
+	--output=$WIVRN_DASHBOARD_POT        \
+	--package-name=WiVRn-dashboard       \
 	$(find dashboard/ -name "*.qml" -o -name "*.cpp" | sort)
 
-sed -i 's/charset=CHARSET/charset=UTF-8/g' $WYRM_CLIENT_POT $WYRM_DASHBOARD_POT
+sed -i 's/charset=CHARSET/charset=UTF-8/g' $WIVRN_CLIENT_POT $WIVRN_DASHBOARD_POT
 
 if [ "$#" -ge 1 ] ; then
 	LANGS="$@"
@@ -40,19 +40,19 @@ for i in $LANGS
 do
 	mkdir -p locale/$i
 
-	if [ ! -f locale/$i/wyrm.po ]
+	if [ ! -f locale/$i/wivrn.po ]
 	then
-		cp $WYRM_CLIENT_POT locale/$i/wyrm.po
+		cp $WIVRN_CLIENT_POT locale/$i/wivrn.po
 	else
-		msgmerge --quiet --no-fuzzy-matching --update locale/$i/wyrm.po $WYRM_CLIENT_POT
+		msgmerge --quiet --no-fuzzy-matching --update locale/$i/wivrn.po $WIVRN_CLIENT_POT
 	fi
 
-	if [ ! -f locale/$i/wyrm-dashboard.po ]
+	if [ ! -f locale/$i/wivrn-dashboard.po ]
 	then
-		cp $WYRM_DASHBOARD_POT locale/$i/wyrm-dashboard.po
+		cp $WIVRN_DASHBOARD_POT locale/$i/wivrn-dashboard.po
 	else
-		msgmerge --quiet --no-fuzzy-matching --update locale/$i/wyrm-dashboard.po $WYRM_DASHBOARD_POT
+		msgmerge --quiet --no-fuzzy-matching --update locale/$i/wivrn-dashboard.po $WIVRN_DASHBOARD_POT
 	fi
 done
 
-rm $WYRM_CLIENT_POT $WYRM_DASHBOARD_POT
+rm $WIVRN_CLIENT_POT $WIVRN_DASHBOARD_POT

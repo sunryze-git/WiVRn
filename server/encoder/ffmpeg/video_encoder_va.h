@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -27,7 +27,7 @@
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
-namespace wyrm
+namespace wivrn
 {
 struct encoder_settings;
 
@@ -51,11 +51,11 @@ class video_encoder_va : public video_encoder_ffmpeg
 	gpu_timestamp_pool ts_pool;
 
 public:
-	video_encoder_va(wyrm::vk_bundle &, const wyrm::encoder_settings & settings, uint8_t stream_index);
+	video_encoder_va(wivrn::vk_bundle &, const wivrn::encoder_settings & settings, uint8_t stream_index);
 
 	void present_image(vk::Image y_cbcr, vk::SemaphoreSubmitInfo info, uint8_t slot, uint64_t frame_index) override;
 
 protected:
 	void push_frame(bool idr, uint8_t slot) override;
 };
-} // namespace wyrm
+} // namespace wivrn

@@ -8,7 +8,7 @@
 #include <span>
 #include <vector>
 
-namespace wyrm
+namespace wivrn
 {
 struct fec_packet
 {
@@ -87,4 +87,4 @@ inline std::optional<fec_packet> fec_recover(std::span<const uint8_t> parity, co
 	bytes.resize(entries[missing_index].second);
 	return fec_packet{entries[missing_index].first, std::move(bytes)};
 }
-} // namespace wyrm
+} // namespace wivrn

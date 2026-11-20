@@ -33,16 +33,13 @@
             pkgs.util-linux
           ];
 
-          # Reuse the upstream Nix dependency recipe with Wyrm names and sources.
           package = pkgs.enableDebugging (
-            pkgs.wyrm.overrideAttrs (
+            pkgs.wivrn.overrideAttrs (
               finalAttrs: oldAttrs: {
-                pname = "wyrm";
                 meta = oldAttrs.meta // {
-                  mainProgram = "wyrm-dashboard";
+                  mainProgram = "wivrn-dashboard";
                   homepage = "https://github.com/sunryze-git/Wyrm";
                 };
-                preFixup = builtins.replaceStrings [ "wyrm" ] [ "wyrm" ] (oldAttrs.preFixup or "");
                 # Filter the directories and files we don't need to keep to avoid needless rebuilds
                 src = lib.cleanSourceWith {
                   filter =
@@ -73,7 +70,7 @@
                   patches =
                     oldAttrs.monado.patches
                     ++ (map (name: ./patches/monado + "/${name}") (
-                      lib.filter (name: lib.hasPrefix "002" name) (builtins.attrNames (builtins.readDir ./patches/monado))
+                      lib.filter (name: lib.hasPrefix "002" name || lib.hasPrefix "003" name) (builtins.attrNames (builtins.readDir ./patches/monado))
                     ));
                   # Force a refetch when the monado rev changes.
                   src = pkgs.testers.invalidateFetcherByDrvHash pkgs.fetchFromGitLab {
@@ -88,14 +85,10 @@
 
                 buildInputs = oldAttrs.buildInputs ++ extraBuildInputs;
                 nativeBuildInputs = oldAttrs.nativeBuildInputs ++ extraNativeBuildInputs;
-                cmakeFlags =
-                  map (builtins.replaceStrings [ "WYRM" "wyrm" ] [ "WYRM" "wyrm" ]) (
-                    lib.filter (flag: !lib.hasInfix "GIT_" flag) oldAttrs.cmakeFlags
-                  )
-                  ++ [
-                    (lib.cmakeFeature "GIT_DESC" "nightly")
-                    (lib.cmakeFeature "GIT_COMMIT" "nightly")
-                  ];
+                cmakeFlags = (lib.filter (flag: !lib.hasInfix "GIT_" flag) oldAttrs.cmakeFlags) ++ [
+                  (lib.cmakeFeature "GIT_DESC" "nightly")
+                  (lib.cmakeFeature "GIT_COMMIT" "nightly")
+                ];
               }
             )
           );
@@ -106,13 +99,13 @@
           packages = {
             default = package;
             dissector = package.overrideAttrs (oldAttrs: {
-              pname = "wyrm-dissector";
-              cmakeFlags = (lib.filter (flag: !(lib.hasPrefix "-DWYRM_BUILD" flag)) oldAttrs.cmakeFlags) ++ [
-                (lib.cmakeBool "WYRM_BUILD_CLIENT" false)
-                (lib.cmakeBool "WYRM_BUILD_SERVER" false)
-                (lib.cmakeBool "WYRM_BUILD_DASHBOARD" false)
-                (lib.cmakeBool "WYRM_BUILD_WYRMCTL" false)
-                (lib.cmakeBool "WYRM_BUILD_DISSECTOR" true)
+              pname = "wivrn-dissector";
+              cmakeFlags = (lib.filter (flag: !(lib.hasPrefix "-DWIVRN_BUILD" flag)) oldAttrs.cmakeFlags) ++ [
+                (lib.cmakeBool "WIVRN_BUILD_CLIENT" false)
+                (lib.cmakeBool "WIVRN_BUILD_SERVER" false)
+                (lib.cmakeBool "WIVRN_BUILD_DASHBOARD" false)
+                (lib.cmakeBool "WIVRN_BUILD_WIVRNCTL" false)
+                (lib.cmakeBool "WIVRN_BUILD_DISSECTOR" true)
               ];
               buildInputs = oldAttrs.buildInputs ++ [
                 (pkgs.symlinkJoin {

@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Sapphire <imsapphire0@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 #include "fb_body_tracker.h"
 #include "spdlog/spdlog.h"
 #include "utils/overloaded.h"
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include "xr/instance.h"
 #include "xr/session.h"
 #include "xr/to_string.h"
@@ -89,9 +89,9 @@ xr::fb_body_tracker::packet_type xr::fb_body_tracker::locate_spaces(XrTime time,
 	const auto & root = joints[XR_BODY_JOINT_ROOT_FB];
 
 	if (joint_set == XR_BODY_JOINT_SET_FULL_BODY_META)
-		ret.joints.emplace<wyrm::from_headset::meta_body::meta_joints>();
+		ret.joints.emplace<wivrn::from_headset::meta_body::meta_joints>();
 	else
-		ret.joints.emplace<wyrm::from_headset::meta_body::fb_joints>();
+		ret.joints.emplace<wivrn::from_headset::meta_body::fb_joints>();
 
 	std::visit(utils::overloaded{
 	                   [](std::monostate) {},
@@ -99,7 +99,7 @@ xr::fb_body_tracker::packet_type xr::fb_body_tracker::locate_spaces(XrTime time,
 		                   o.root = {
 		                           .position = root.pose.position,
 		                           .orientation = pack(root.pose.orientation),
-		                           .flags = wyrm::from_headset::to_pose_flags(root.locationFlags),
+		                           .flags = wivrn::from_headset::to_pose_flags(root.locationFlags),
 		                   };
 		                   for (size_t joint = XR_BODY_JOINT_HIPS_FB; joint < std::size(o.joints) + 1; joint++)
 		                   {
@@ -110,7 +110,7 @@ xr::fb_body_tracker::packet_type xr::fb_body_tracker::locate_spaces(XrTime time,
 			                                   .y = int16_t((loc.pose.position.y - root.pose.position.y) * 10'000.f),
 			                                   .z = int16_t((loc.pose.position.z - root.pose.position.z) * 10'000.f)},
 			                           .orientation = pack(loc.pose.orientation),
-			                           .flags = wyrm::from_headset::to_pose_flags(loc.locationFlags),
+			                           .flags = wivrn::from_headset::to_pose_flags(loc.locationFlags),
 			                   };
 		                   }
 	                   },
@@ -123,13 +123,13 @@ bool xr::fb_body_tracker::should_send_skeleton()
 {
 	return last_sent_skeleton_generation != skeleton_generation;
 }
-wyrm::from_headset::meta_body_skeleton xr::fb_body_tracker::get_skeleton()
+wivrn::from_headset::meta_body_skeleton xr::fb_body_tracker::get_skeleton()
 {
-	wyrm::from_headset::meta_body_skeleton ret{};
+	wivrn::from_headset::meta_body_skeleton ret{};
 	if (joint_set == XR_BODY_JOINT_SET_FULL_BODY_META)
-		ret.skeleton.emplace<wyrm::from_headset::meta_body_skeleton::meta_skeleton>();
+		ret.skeleton.emplace<wivrn::from_headset::meta_body_skeleton::meta_skeleton>();
 	else
-		ret.skeleton.emplace<wyrm::from_headset::meta_body_skeleton::fb_skeleton>();
+		ret.skeleton.emplace<wivrn::from_headset::meta_body_skeleton::fb_skeleton>();
 
 	XrBodySkeletonFB skeleton{
 	        .type = XR_TYPE_BODY_SKELETON_FB,

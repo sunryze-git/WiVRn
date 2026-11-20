@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -36,7 +36,7 @@ class adb : public QAbstractListModel
 		QString serial;
 		QString app;
 		std::map<QString, QString> properties;
-		bool is_wyrm_installed = false;
+		bool is_wivrn_installed = false;
 	};
 
 	Q_PROPERTY(bool adbInstalled READ adbInstalled NOTIFY adbInstalledChanged)
@@ -51,7 +51,7 @@ public:
 	enum Roles
 	{
 		RoleSerial = Qt::UserRole + 1,
-		RoleIsWyrmInstalled,
+		RoleIsWivrnInstalled,
 		RoleManufacturer,
 		RoleModel,
 		RoleProduct,
@@ -65,7 +65,7 @@ public:
 	}
 
 	Q_INVOKABLE QCoro::QmlTask startUsbConnection(QString serial, QString pin);
-	Q_INVOKABLE QCoro::QmlTask checkIfWyrmIsInstalled(QString serial);
+	Q_INVOKABLE QCoro::QmlTask checkIfWivrnIsInstalled(QString serial);
 
 	int rowCount(const QModelIndex & parent) const override
 	{

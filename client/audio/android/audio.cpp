@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -21,13 +21,13 @@
 
 #include "application.h"
 #include "utils/named_thread.h"
-#include "wyrm_client.h"
+#include "wivrn_client.h"
 #include "xr/instance.h"
 
 #include "spdlog/spdlog.h"
 #include <aaudio/AAudio.h>
 
-void wyrm::android::audio::exit()
+void wivrn::android::audio::exit()
 {
 	exiting = true;
 	if (speaker)
@@ -42,9 +42,9 @@ void wyrm::android::audio::exit()
 	}
 }
 
-int32_t wyrm::android::audio::speaker_data_cb(AAudioStream * stream, void * userdata, void * audio_data_v, int32_t num_frames)
+int32_t wivrn::android::audio::speaker_data_cb(AAudioStream * stream, void * userdata, void * audio_data_v, int32_t num_frames)
 {
-	auto self = (wyrm::android::audio *)userdata;
+	auto self = (wivrn::android::audio *)userdata;
 	uint8_t * audio_data = (uint8_t *)audio_data_v;
 
 	if (self->exiting)
@@ -110,9 +110,9 @@ int32_t wyrm::android::audio::speaker_data_cb(AAudioStream * stream, void * user
 	return AAUDIO_CALLBACK_RESULT_CONTINUE;
 }
 
-int32_t wyrm::android::audio::microphone_data_cb(AAudioStream * stream, void * userdata, void * audio_data_v, int32_t num_frames)
+int32_t wivrn::android::audio::microphone_data_cb(AAudioStream * stream, void * userdata, void * audio_data_v, int32_t num_frames)
 {
-	auto self = (wyrm::android::audio *)userdata;
+	auto self = (wivrn::android::audio *)userdata;
 	uint8_t * audio_data = (uint8_t *)audio_data_v;
 
 	if (self->exiting)
@@ -130,7 +130,7 @@ int32_t wyrm::android::audio::microphone_data_cb(AAudioStream * stream, void * u
 	data_copy.assign(audio_data, audio_data + frame_size * num_frames);
 	try
 	{
-		self->session.send_control(wyrm::audio_data{
+		self->session.send_control(wivrn::audio_data{
 		        .timestamp = self->instance.now(),
 		        .payload = std::span(data_copy),
 		});
@@ -146,7 +146,7 @@ int32_t wyrm::android::audio::microphone_data_cb(AAudioStream * stream, void * u
 	return AAUDIO_CALLBACK_RESULT_CONTINUE;
 }
 
-void wyrm::android::audio::build_microphone(AAudioStreamBuilder * builder, int32_t sample_rate, int32_t num_channels)
+void wivrn::android::audio::build_microphone(AAudioStreamBuilder * builder, int32_t sample_rate, int32_t num_channels)
 {
 	AAudioStreamBuilder_setDirection(builder, AAUDIO_DIRECTION_INPUT);
 	AAudioStreamBuilder_setSampleRate(builder, sample_rate);
@@ -169,7 +169,7 @@ void wyrm::android::audio::build_microphone(AAudioStreamBuilder * builder, int32
 	// Microphone is started manually by a tracking_control packet
 }
 
-void wyrm::android::audio::build_speaker(AAudioStreamBuilder * builder, int32_t sample_rate, int32_t num_channels)
+void wivrn::android::audio::build_speaker(AAudioStreamBuilder * builder, int32_t sample_rate, int32_t num_channels)
 {
 	AAudioStreamBuilder_setDirection(builder, AAUDIO_DIRECTION_OUTPUT);
 	AAudioStreamBuilder_setSampleRate(builder, sample_rate);
@@ -195,7 +195,7 @@ void wyrm::android::audio::build_speaker(AAudioStreamBuilder * builder, int32_t 
 	}
 }
 
-void wyrm::android::audio::recreate_stream(AAudioStreamStruct * stream)
+void wivrn::android::audio::recreate_stream(AAudioStreamStruct * stream)
 {
 	if (exiting)
 		return;
@@ -231,23 +231,23 @@ void wyrm::android::audio::recreate_stream(AAudioStreamStruct * stream)
 	});
 }
 
-void wyrm::android::audio::speaker_error_cb(AAudioStream * stream, void * userdata, aaudio_result_t error)
+void wivrn::android::audio::speaker_error_cb(AAudioStream * stream, void * userdata, aaudio_result_t error)
 {
-	auto self = (wyrm::android::audio *)userdata;
+	auto self = (wivrn::android::audio *)userdata;
 	spdlog::warn("Speaker stream interrupted: {}", AAudio_convertResultToText(error));
 	if (error == AAUDIO_ERROR_DISCONNECTED)
 		self->recreate_stream(stream);
 }
 
-void wyrm::android::audio::microphone_error_cb(AAudioStream * stream, void * userdata, aaudio_result_t error)
+void wivrn::android::audio::microphone_error_cb(AAudioStream * stream, void * userdata, aaudio_result_t error)
 {
-	auto self = (wyrm::android::audio *)userdata;
+	auto self = (wivrn::android::audio *)userdata;
 	spdlog::warn("Microphone stream interrupted: {}", AAudio_convertResultToText(error));
 	if (error == AAUDIO_ERROR_DISCONNECTED)
 		self->recreate_stream(stream);
 }
 
-wyrm::android::audio::audio(const wyrm::to_headset::audio_stream_description & desc, wyrm_session & session, xr::instance & instance) :
+wivrn::android::audio::audio(const wivrn::to_headset::audio_stream_description & desc, wivrn_session & session, xr::instance & instance) :
         session(session), instance(instance)
 {
 	std::unique_lock lock(mutex);
@@ -265,7 +265,7 @@ wyrm::android::audio::audio(const wyrm::to_headset::audio_stream_description & d
 	AAudioStreamBuilder_delete(builder);
 }
 
-wyrm::android::audio::~audio()
+wivrn::android::audio::~audio()
 {
 	exit();
 
@@ -280,14 +280,14 @@ wyrm::android::audio::~audio()
 		recreate_thread.join();
 }
 
-void wyrm::android::audio::operator()(wyrm::audio_data && data)
+void wivrn::android::audio::operator()(wivrn::audio_data && data)
 {
 	auto size = data.payload.size_bytes();
 	if (output_buffer.write(std::move(data)))
 		buffer_size_bytes.fetch_add(size);
 }
 
-void wyrm::android::audio::set_mic_state(bool running)
+void wivrn::android::audio::set_mic_state(bool running)
 {
 	if (not microphone)
 		return;
@@ -301,7 +301,7 @@ void wyrm::android::audio::set_mic_state(bool running)
 		AAudioStream_requestStop(microphone);
 }
 
-void wyrm::android::audio::get_audio_description(wyrm::from_headset::headset_info_packet & info)
+void wivrn::android::audio::get_audio_description(wivrn::from_headset::headset_info_packet & info)
 {
 	AAudioStreamBuilder * builder;
 

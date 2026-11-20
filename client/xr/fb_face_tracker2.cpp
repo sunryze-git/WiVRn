@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  galister <galister@librevr.org>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -17,7 +17,7 @@
  */
 
 #include "fb_face_tracker2.h"
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include "xr/instance.h"
 #include "xr/session.h"
 #include <cstdint>
@@ -44,7 +44,7 @@ xr::fb_face_tracker2::fb_face_tracker2(instance & inst, session & s) :
 	CHECK_XR(xrCreateFaceTracker2FB(s, &create_info, &id));
 }
 
-void xr::fb_face_tracker2::get_weights(XrTime time, wyrm::from_headset::tracking::fb_face2 & out_expressions)
+void xr::fb_face_tracker2::get_weights(XrTime time, wivrn::from_headset::tracking::fb_face2 & out_expressions)
 {
 	if (!id || !xrGetFaceExpressionWeights2FB)
 		return;

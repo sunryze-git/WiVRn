@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -19,14 +19,14 @@
 
 #pragma once
 
-#cmakedefine01 WYRM_CHECK_CAPSYSNICE
+#cmakedefine01 WIVRN_CHECK_CAPSYSNICE
 
-#cmakedefine01 WYRM_FEATURE_DEBUG_GUI
-#cmakedefine01 WYRM_FEATURE_STEAMVR_LIGHTHOUSE
+#cmakedefine01 WIVRN_FEATURE_DEBUG_GUI
+#cmakedefine01 WIVRN_FEATURE_STEAMVR_LIGHTHOUSE
 
-#cmakedefine01 WYRM_USE_NVENC
-#cmakedefine01 WYRM_USE_VAAPI
-#cmakedefine01 WYRM_USE_VULKAN_ENCODE
-#cmakedefine01 WYRM_USE_X264
+#cmakedefine01 WIVRN_USE_NVENC
+#cmakedefine01 WIVRN_USE_VAAPI
+#cmakedefine01 WIVRN_USE_VULKAN_ENCODE
+#cmakedefine01 WIVRN_USE_X264
 
 #define OVR_COMPAT_SEARCH_PATH "@OVR_COMPAT_SEARCH_PATH@"

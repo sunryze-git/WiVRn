@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -17,11 +17,11 @@
  */
 
 #include "ipc_server_cb.h"
-#include "driver/wyrm_session.h"
-#include "target_instance_wyrm.h"
+#include "driver/wivrn_session.h"
+#include "target_instance_wivrn.h"
 #include "utils/method.h"
 
-namespace wyrm
+namespace wivrn
 {
 void ipc_server_cb::init_failed(xrt_result res)
 {
@@ -29,13 +29,13 @@ void ipc_server_cb::init_failed(xrt_result res)
 
 void ipc_server_cb::mainloop_entering(ipc_server * server, xrt_instance * xrt_inst)
 {
-	auto inst = static_cast<wyrm::instance *>(xrt_inst);
+	auto inst = static_cast<wivrn::instance *>(xrt_inst);
 	inst->set_ipc_server(server);
 }
 
 void ipc_server_cb::mainloop_leaving(ipc_server * server, xrt_instance * xrt_inst)
 {
-	auto inst = static_cast<wyrm::instance *>(xrt_inst);
+	auto inst = static_cast<wivrn::instance *>(xrt_inst);
 	inst->set_ipc_server(nullptr);
 }
 
@@ -57,4 +57,4 @@ ipc_server_cb::ipc_server_cb() :
                 .client_disconnected = method_pointer2<&ipc_server_cb::client_disconnected>,
         }
 {}
-} // namespace wyrm
+} // namespace wivrn

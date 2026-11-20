@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -20,21 +20,21 @@
 #include "audio_setup.h"
 
 #include "util/u_logging.h"
-#include "wyrm_config.h"
+#include "wivrn_config.h"
 
-#if WYRM_USE_PIPEWIRE
+#if WIVRN_USE_PIPEWIRE
 #include "audio_pipewire.h"
 #endif
 
-std::unique_ptr<wyrm::audio_device> wyrm::audio_device::create(
+std::unique_ptr<wivrn::audio_device> wivrn::audio_device::create(
         const std::string & source_name,
         const std::string & source_description,
         const std::string & sink_name,
         const std::string & sink_description,
-        const wyrm::from_headset::headset_info_packet & info,
-        wyrm::wyrm_session & session)
+        const wivrn::from_headset::headset_info_packet & info,
+        wivrn::wivrn_session & session)
 {
-#if WYRM_USE_PIPEWIRE
+#if WIVRN_USE_PIPEWIRE
 	if (auto res = create_pipewire_handle(source_name, source_description, sink_name, sink_description, info, session))
 		return res;
 #endif

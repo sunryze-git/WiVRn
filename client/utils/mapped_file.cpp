@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2023-2025 Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -41,11 +41,11 @@ std::filesystem::path get_exe_path()
 std::filesystem::path asset_root()
 {
 	static std::filesystem::path root = []() -> std::filesystem::path {
-		const char * path = std::getenv("WYRM_ASSET_ROOT");
+		const char * path = std::getenv("WIVRN_ASSET_ROOT");
 		if (path && strcmp(path, ""))
 			return path;
 
-		return get_exe_path().parent_path().parent_path() / "share" / "wyrm" / "assets";
+		return get_exe_path().parent_path().parent_path() / "share" / "wivrn" / "assets";
 	}();
 
 	return root;
@@ -54,7 +54,7 @@ std::filesystem::path asset_root()
 std::filesystem::path locale_root()
 {
 	static std::filesystem::path root = []() -> std::filesystem::path {
-		const char * path = std::getenv("WYRM_LOCALE_ROOT");
+		const char * path = std::getenv("WIVRN_LOCALE_ROOT");
 		if (path && strcmp(path, ""))
 			return path;
 

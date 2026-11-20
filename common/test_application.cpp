@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@
 
 int main()
 {
-	auto apps = wyrm::list_applications();
+	auto apps = wivrn::list_applications();
 
 	std::cout << "Parsed " << apps.size() << " applications" << std::endl;
 	for (const auto & [k, app]: apps)

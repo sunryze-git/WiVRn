@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -22,14 +22,14 @@
 #include "motion_predictor.h"
 #include "polynomial_interpolator.h"
 #include "utils/csv_logger.h"
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include "xrt/xrt_defines.h"
 
 #include <atomic>
 #include <mutex>
 #include <optional>
 
-namespace wyrm
+namespace wivrn
 {
 struct clock_offset;
 
@@ -63,16 +63,16 @@ class pose_list
 	void predict(XrTime at, polynomial_interpolator<3>::sample & position, polynomial_interpolator<4, true>::sample & orientation);
 
 public:
-	const wyrm::device_id device;
+	const wivrn::device_id device;
 
 	static xrt_space_relation interpolate(const xrt_space_relation & a, const xrt_space_relation & b, float t);
 	static xrt_space_relation extrapolate(const xrt_space_relation & a, const xrt_space_relation & b, int64_t ta, int64_t tb, int64_t t);
 
-	pose_list(wyrm::device_id id);
+	pose_list(wivrn::device_id id);
 
 	std::pair<XrTime, XrTime> get_bounds() const;
 
-	void update_tracking(const wyrm::from_headset::tracking &, const clock_offset & offset);
+	void update_tracking(const wivrn::from_headset::tracking &, const clock_offset & offset);
 	void set_derived(pose_list * source, xrt_pose offset, bool force = false);
 	void predict_motion()
 	{
@@ -87,4 +87,4 @@ public:
 private:
 	void add_sample(XrTime production_timestamp, XrTime timestamp, const from_headset::tracking::pose & pose, const clock_offset & offset);
 };
-} // namespace wyrm
+} // namespace wivrn

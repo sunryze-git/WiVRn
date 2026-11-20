@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -25,7 +25,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace wyrm
+namespace wivrn
 {
 class ini
 {
@@ -79,4 +79,4 @@ public:
 		}
 	}
 };
-} // namespace wyrm
+} // namespace wivrn

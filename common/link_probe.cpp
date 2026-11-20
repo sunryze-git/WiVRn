@@ -9,7 +9,7 @@
 #include <thread>
 #include <unistd.h>
 
-namespace wyrm
+namespace wivrn
 {
 namespace
 {
@@ -179,4 +179,4 @@ struct link_probe_responder::implementation
 };
 link_probe_responder::link_probe_responder(uint16_t port) : impl(std::make_unique<implementation>(port)) {}
 link_probe_responder::~link_probe_responder() = default;
-} // namespace wyrm
+} // namespace wivrn

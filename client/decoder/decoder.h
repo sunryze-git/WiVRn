@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,9 +18,9 @@
 
 #pragma once
 
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 
-#include "wyrm_config.h"
+#include "wivrn_config.h"
 
 #include <cstdint>
 #include <memory>
@@ -32,7 +32,7 @@ namespace scenes
 class stream;
 }
 
-namespace wyrm
+namespace wivrn
 {
 class shard_accumulator;
 class decoder
@@ -40,15 +40,15 @@ class decoder
 public:
 	struct blit_handle
 	{
-		wyrm::from_headset::feedback feedback;
-		wyrm::to_headset::video_frame_info::view_info_t view_info;
+		wivrn::from_headset::feedback feedback;
+		wivrn::to_headset::video_frame_info::view_info_t view_info;
 		vk::ImageView image_view = nullptr;
 		vk::Image image = nullptr;
 		vk::Extent2D extent{};
 		vk::ImageLayout & current_layout;
 		vk::Semaphore semaphore = nullptr;
 		uint64_t * semaphore_val = nullptr;
-#if WYRM_USE_V4L2
+#if WIVRN_USE_V4L2
 		// DMA-buf images from V4L2 require queue-family ownership
 		// transfers between Vulkan and external engine
 		uint32_t foreign_queue_family = vk::QueueFamilyIgnored;
@@ -67,7 +67,7 @@ public:
 	        vk::raii::Device &,
 	        vk::raii::PhysicalDevice &,
 	        uint32_t vk_queue_family_index,
-	        const wyrm::to_headset::video_stream_description & description,
+	        const wivrn::to_headset::video_stream_description & description,
 	        uint8_t stream_index,
 	        std::weak_ptr<scenes::stream>,
 	        shard_accumulator *);
@@ -82,8 +82,8 @@ public:
 
 	virtual vk::Sampler sampler() = 0;
 
-	static const std::vector<wyrm::video_codec_capability> & supported_codecs();
-	static bool supports_codec(wyrm::video_codec codec);
-	static bool supports_10bit(wyrm::video_codec codec);
+	static const std::vector<wivrn::video_codec_capability> & supported_codecs();
+	static bool supports_codec(wivrn::video_codec codec);
+	static bool supports_10bit(wivrn::video_codec codec);
 };
-} // namespace wyrm
+} // namespace wivrn

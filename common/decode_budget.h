@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace wyrm
+namespace wivrn
 {
 class decode_budget
 {
@@ -39,4 +39,4 @@ public:
 		return std::clamp<int64_t>(values[percentile] + 1'000'000, 2'000'000, 20'000'000);
 	}
 };
-} // namespace wyrm
+} // namespace wivrn

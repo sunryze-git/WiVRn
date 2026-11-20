@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -23,21 +23,21 @@
 #include "utils/overloaded.h"
 
 #include "driver/configuration.h"
-#include "driver/wyrm_session.h"
-#include "wyrm_ipc.h"
-#include "wyrm_sockets.h"
+#include "driver/wivrn_session.h"
+#include "wivrn_ipc.h"
+#include "wivrn_sockets.h"
 
 #include <sys/poll.h>
 
-std::unique_ptr<wyrm::TCP> wyrm::accept_connection(wyrm_session & cnx, std::stop_token stop, std::function<void(wyrm_session &)> tick)
+std::unique_ptr<wivrn::TCP> wivrn::accept_connection(wivrn_session & cnx, std::stop_token stop, std::function<void(wivrn_session &)> tick)
 {
-	wyrm_ipc_socket_monado->send(from_monado::headset_disconnected{});
+	wivrn_ipc_socket_monado->send(from_monado::headset_disconnected{});
 
-	wyrm::TCPListener listener(configuration().port);
+	wivrn::TCPListener listener(configuration().port);
 
 	pollfd fds[2]{
 	        {.fd = listener.get_fd(), .events = POLLIN},
-	        {.fd = wyrm_ipc_socket_monado->get_fd(), .events = POLLIN},
+	        {.fd = wivrn_ipc_socket_monado->get_fd(), .events = POLLIN},
 	};
 
 	while (not stop.stop_requested())
@@ -50,8 +50,8 @@ std::unique_ptr<wyrm::TCP> wyrm::accept_connection(wyrm_session & cnx, std::stop
 
 		if (fds[0].revents & POLLIN)
 		{
-			wyrm_ipc_socket_monado->send(from_monado::headset_connected{});
-			return std::make_unique<wyrm::TCP>(listener.accept().first);
+			wivrn_ipc_socket_monado->send(from_monado::headset_connected{});
+			return std::make_unique<wivrn::TCP>(listener.accept().first);
 		}
 
 		if (fds[1].revents & POLLIN)
@@ -60,7 +60,7 @@ std::unique_ptr<wyrm::TCP> wyrm::accept_connection(wyrm_session & cnx, std::stop
 			if (packet)
 				std::visit(utils::overloaded{
 				                   [&cnx](to_monado::stop) {
-					                   // gets handled in wyrm_session::reconnect since we return nullptr
+					                   // gets handled in wivrn_session::reconnect since we return nullptr
 					                   U_LOG_I("Received stop packet during reconnect, stopping");
 					                   cnx.request_stop();
 				                   },

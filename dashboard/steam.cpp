@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -29,7 +29,7 @@
 
 bool steam::snap() const
 {
-	if (wyrm::is_flatpak())
+	if (wivrn::is_flatpak())
 	{
 		auto test = escape_sandbox("test", "-f", "/snap/bin/steam");
 		test->setProcessChannelMode(QProcess::MergedChannels);
@@ -65,14 +65,14 @@ static std::filesystem::path find_dir(const std::filesystem::path & d, const std
 	return d;
 }
 
-static std::optional<std::string> wyrm_app_path()
+static std::optional<std::string> wivrn_app_path()
 {
-	if (auto app_path = wyrm::flatpak_key(wyrm::flatpak::section::instance, "app-path"))
+	if (auto app_path = wivrn::flatpak_key(wivrn::flatpak::section::instance, "app-path"))
 	{
 		if (app_path->starts_with("/var"))
-			return find_dir(*app_path, "org.wyrmvr.wyrm");
+			return find_dir(*app_path, "io.github.wivrn.wivrn");
 		// assume it's in home
-		return "xdg-data/flatpak/app/org.wyrmvr.wyrm";
+		return "xdg-data/flatpak/app/io.github.wivrn.wivrn";
 	}
 	return {};
 }
@@ -96,18 +96,18 @@ bool steam::flatpakNeedPerm() const
 		return false;
 	}
 	std::stringstream overrides(proc->readAllStandardOutput().toStdString());
-	wyrm::ini ini(overrides);
+	wivrn::ini ini(overrides);
 	if (auto filesystems = ini.get_optional("Context", "filesystems"))
 	{
 		auto items = utils::split(*filesystems, ";");
 		for (auto & item: items)
 			item = item.substr(0, item.find_last_of(':'));
-		for (const auto & path: {"xdg-run/wyrm", "xdg-config/openxr", "xdg-config/openvr"})
+		for (const auto & path: {"xdg-run/wivrn", "xdg-config/openxr", "xdg-config/openvr"})
 		{
 			if (not std::ranges::contains(items, path))
 				return true;
 		}
-		if (auto path = wyrm_app_path())
+		if (auto path = wivrn_app_path())
 		{
 			if (not std::ranges::contains(items, path))
 				return true;
@@ -129,20 +129,20 @@ void steam::fixFlatpakPerm()
 		        "flatpak",
 		        "--system",
 		        "override",
-		        "--filesystem=xdg-run/wyrm:ro",
+		        "--filesystem=xdg-run/wivrn:ro",
 		        "--filesystem=xdg-config/openxr:ro",
 		        "--filesystem=xdg-config/openvr:ro",
-		        "--filesystem=" + wyrm_app_path().value_or("xdg-run/wyrm") + ":ro",
+		        "--filesystem=" + wivrn_app_path().value_or("xdg-run/wivrn") + ":ro",
 		        "com.valvesoftware.Steam");
 	else
 		proc = escape_sandbox(
 		        "flatpak",
 		        scope,
 		        "override",
-		        "--filesystem=xdg-run/wyrm:ro",
+		        "--filesystem=xdg-run/wivrn:ro",
 		        "--filesystem=xdg-config/openxr:ro",
 		        "--filesystem=xdg-config/openvr:ro",
-		        "--filesystem=" + wyrm_app_path().value_or("xdg-run/wyrm") + ":ro",
+		        "--filesystem=" + wivrn_app_path().value_or("xdg-run/wivrn") + ":ro",
 		        "com.valvesoftware.Steam");
 	proc->setProcessChannelMode(QProcess::SeparateChannels);
 	proc->start();

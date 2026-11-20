@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -22,8 +22,8 @@
 #include "inplace_vector.hpp"
 #include "os/os_time.h"
 #include "util/u_logging.h"
-#include "utils/wyrm_trace.h"
-#include "utils/wyrm_vk_bundle.h"
+#include "utils/wivrn_trace.h"
+#include "utils/wivrn_vk_bundle.h"
 
 #include "stream_recovery.h"
 #include <iostream>
@@ -32,7 +32,7 @@
 
 namespace
 {
-class dpb_state : public wyrm::idr_handler
+class dpb_state : public wivrn::idr_handler
 {
 public:
 	struct dpb_item
@@ -50,12 +50,12 @@ public:
 	std::chrono::steady_clock::time_point last_idr;
 	std::mutex mutex;
 
-	void on_feedback(const wyrm::from_headset::feedback & feedback) override
+	void on_feedback(const wivrn::from_headset::feedback & feedback) override
 	{
 		if (not feedback.received_from_decoder)
 			return;
 		std::unique_lock lock(mutex);
-		wyrm::acknowledge_decoded_reference(items, feedback);
+		wivrn::acknowledge_decoded_reference(items, feedback);
 	}
 
 	void reset() override
@@ -98,7 +98,7 @@ public:
 			}
 			return false;
 		}
-		if (pending and wyrm::keyframe_retry_due(std::chrono::steady_clock::now(), last_idr))
+		if (pending and wivrn::keyframe_retry_due(std::chrono::steady_clock::now(), last_idr))
 		{
 			// A lost keyframe (or its ACK) must not stop this stream forever.
 			for (auto & item: items)
@@ -172,7 +172,7 @@ static vk::VideoEncodeCapabilitiesKHR patch_capabilities(vk::VideoEncodeCapabili
 	return caps;
 }
 
-vk::VideoFormatPropertiesKHR wyrm::video_encoder_vulkan::select_video_format(
+vk::VideoFormatPropertiesKHR wivrn::video_encoder_vulkan::select_video_format(
         vk::raii::PhysicalDevice & physical_device,
         const vk::PhysicalDeviceVideoFormatInfoKHR & format_info)
 {
@@ -184,8 +184,8 @@ vk::VideoFormatPropertiesKHR wyrm::video_encoder_vulkan::select_video_format(
 	throw std::runtime_error("No suitable image format found");
 }
 
-wyrm::video_encoder_vulkan::video_encoder_vulkan(
-        wyrm::vk_bundle & vk,
+wivrn::video_encoder_vulkan::video_encoder_vulkan(
+        wivrn::vk_bundle & vk,
         const vk::VideoCapabilitiesKHR & video_caps,
         const vk::VideoEncodeCapabilitiesKHR & in_encode_caps,
         uint8_t stream_idx,
@@ -266,7 +266,7 @@ wyrm::video_encoder_vulkan::video_encoder_vulkan(
 	};
 }
 
-void wyrm::video_encoder_vulkan::init(const vk::VideoCapabilitiesKHR & video_caps,
+void wivrn::video_encoder_vulkan::init(const vk::VideoCapabilitiesKHR & video_caps,
 #ifdef VK_KHR_video_encode_intra_refresh
                                       vk::VideoEncodeIntraRefreshCapabilitiesKHR intra_caps,
 #endif
@@ -413,7 +413,7 @@ void wyrm::video_encoder_vulkan::init(const vk::VideoCapabilitiesKHR & video_cap
 		        },
 		        std::format("vulkan encode {} output buffer {}", stream_idx, i));
 
-		if (not(item.output_buffer.properties() & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) or std::getenv("WYRM_ASSUME_DGPU"))
+		if (not(item.output_buffer.properties() & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) or std::getenv("WIVRN_ASSUME_DGPU"))
 		{
 			U_LOG_D("Using staging buffer for vulkan encode output");
 			item.host_buffer = buffer_allocation(
@@ -656,11 +656,11 @@ void wyrm::video_encoder_vulkan::init(const vk::VideoCapabilitiesKHR & video_cap
 	}
 }
 
-wyrm::video_encoder_vulkan::~video_encoder_vulkan()
+wivrn::video_encoder_vulkan::~video_encoder_vulkan()
 {
 }
 
-std::vector<uint8_t> wyrm::video_encoder_vulkan::get_encoded_parameters(void * next)
+std::vector<uint8_t> wivrn::video_encoder_vulkan::get_encoded_parameters(void * next)
 {
 	auto [feedback, encoded] = vk.device.getEncodedVideoSessionParametersKHR({
 	        .pNext = next,
@@ -669,7 +669,7 @@ std::vector<uint8_t> wyrm::video_encoder_vulkan::get_encoded_parameters(void * n
 	return encoded;
 }
 
-void wyrm::video_encoder_vulkan::present_image(vk::Image y_cbcr, vk::SemaphoreSubmitInfo compositor_sem, uint8_t encode_slot, uint64_t frame_index)
+void wivrn::video_encoder_vulkan::present_image(vk::Image y_cbcr, vk::SemaphoreSubmitInfo compositor_sem, uint8_t encode_slot, uint64_t frame_index)
 {
 	auto & slot_item = slot_data[encode_slot];
 
@@ -1079,7 +1079,7 @@ void wyrm::video_encoder_vulkan::present_image(vk::Image y_cbcr, vk::SemaphoreSu
 	}
 }
 
-std::optional<wyrm::video_encoder::data> wyrm::video_encoder_vulkan::encode(uint8_t encode_slot, uint64_t frame_index)
+std::optional<wivrn::video_encoder::data> wivrn::video_encoder_vulkan::encode(uint8_t encode_slot, uint64_t frame_index)
 {
 	auto & slot_item = slot_data[encode_slot];
 	if (slot_item.idr)
@@ -1099,7 +1099,7 @@ std::optional<wyrm::video_encoder::data> wyrm::video_encoder_vulkan::encode(uint
 
 	if (auto s = ts_pool.collect(encode_slot))
 	{
-		wyrm::trace::gpu_slice(wyrm::trace::gpu_track::vulkan_encode,
+		wivrn::trace::gpu_slice(wivrn::trace::gpu_track::vulkan_encode,
 		                       "encodeVideoKHR",
 		                       s->begin_ns,
 		                       s->end_ns,
@@ -1108,7 +1108,7 @@ std::optional<wyrm::video_encoder::data> wyrm::video_encoder_vulkan::encode(uint
 	}
 	if (auto s = ts_pool_image_copy.collect(encode_slot))
 	{
-		wyrm::trace::gpu_slice(wyrm::trace::gpu_track::vulkan_image_copy,
+		wivrn::trace::gpu_slice(wivrn::trace::gpu_track::vulkan_image_copy,
 		                       "vk_copy_image_tmp",
 		                       s->begin_ns,
 		                       s->end_ns,
@@ -1117,7 +1117,7 @@ std::optional<wyrm::video_encoder::data> wyrm::video_encoder_vulkan::encode(uint
 	}
 	if (auto s = ts_pool_host_copy.collect(encode_slot))
 	{
-		wyrm::trace::gpu_slice(wyrm::trace::gpu_track::vulkan_host_copy,
+		wivrn::trace::gpu_slice(wivrn::trace::gpu_track::vulkan_host_copy,
 		                       "vk_copy_to_host",
 		                       s->begin_ns,
 		                       s->end_ns,
@@ -1173,7 +1173,7 @@ std::optional<wyrm::video_encoder::data> wyrm::video_encoder_vulkan::encode(uint
 
 		if (auto s = ts_pool_host_copy_overflow.collect(encode_slot))
 		{
-			wyrm::trace::gpu_slice(wyrm::trace::gpu_track::vulkan_host_copy_overflow,
+			wivrn::trace::gpu_slice(wivrn::trace::gpu_track::vulkan_host_copy_overflow,
 			                       "vk_copy_to_host_overflow",
 			                       s->begin_ns,
 			                       s->end_ns,

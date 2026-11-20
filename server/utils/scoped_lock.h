@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022-2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -21,7 +21,7 @@
 
 #include "os/os_threading.h"
 
-namespace wyrm
+namespace wivrn
 {
 
 class scoped_lock
@@ -39,4 +39,4 @@ public:
 		os_mutex_unlock(&mutex);
 	}
 };
-} // namespace wyrm
+} // namespace wivrn

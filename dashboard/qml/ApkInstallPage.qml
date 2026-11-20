@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
 
-import org.wyrmvr.wyrm
+import io.github.wivrn.wivrn
 
 Kirigami.ScrollablePage {
     id: apk_install
@@ -22,11 +22,11 @@ Kirigami.ScrollablePage {
             required property string serial
             required property string model
             required property string manufacturer
-            required property bool isWyrmInstalled
+            required property bool isWivrnInstalled
 
             name: device_card.manufacturer + " " + device_card.model
             serial_number: device_card.serial
-            is_wyrm_installed: device_card.isWyrmInstalled
+            is_wivrn_installed: device_card.isWivrnInstalled
         }
 
         Kirigami.PlaceholderMessage {

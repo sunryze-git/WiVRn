@@ -4,7 +4,7 @@
 #include <memory>
 #include <optional>
 
-namespace wyrm
+namespace wivrn
 {
 class link_probe
 {
@@ -26,4 +26,4 @@ public:
 	explicit link_probe_responder(uint16_t port);
 	~link_probe_responder();
 };
-} // namespace wyrm
+} // namespace wivrn

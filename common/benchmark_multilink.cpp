@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#ifdef WYRM_BENCH_BASELINE
-#include WYRM_BENCH_BASELINE_HEADER
+#ifdef WIVRN_BENCH_BASELINE
+#include WIVRN_BENCH_BASELINE_HEADER
 #else
 #include "multilink.h"
 #endif
@@ -20,7 +20,7 @@
 #include <thread>
 #include <unistd.h>
 
-using namespace wyrm;
+using namespace wivrn;
 using namespace std::chrono_literals;
 using bench_clock = std::chrono::steady_clock;
 static void check(bool value, std::source_location at = std::source_location::current())
@@ -79,7 +79,7 @@ int main(int argc, char ** argv)
 	if (not single)
 		peers.push_back(second.endpoint);
 	multilink sender(false, key, {{"127.0.0.22", "client"}}, peers, false);
-#ifndef WYRM_BENCH_BASELINE
+#ifndef WIVRN_BENCH_BASELINE
 	sender.set_options({.arrival_scheduling = mode != "arrival-off", .fec_group_size = uint8_t(fec ? 4 : 0), .shared_bottleneck = mode == "coupled", .loss_threshold = mode == "loss-relaxed" ? 0.15 : 0.02});
 #endif
 	wait_for([&] { return std::ranges::count_if(sender.statistics(), [](const auto & p) { return p.active; }) == (single ? 1 : 2); });
@@ -130,7 +130,7 @@ int main(int argc, char ** argv)
 			{
 				try
 				{
-#ifdef WYRM_BENCH_BASELINE
+#ifdef WIVRN_BENCH_BASELINE
 					sender.send_reliable_raw(packet(bytes));
 #else
 					if (scenario == "bulk-burst")
@@ -177,7 +177,7 @@ int main(int argc, char ** argv)
 			std::memcpy(bytes.data() + 10, &frame_parts, 2);
 			expected[frame_index].push_back(bytes);
 			auto reserve = 2ms;
-#ifndef WYRM_BENCH_BASELINE
+#ifndef WIVRN_BENCH_BASELINE
 			if (scenario == "decode" and mode != "fixed-decode")
 				reserve = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::nanoseconds(decode_timing.estimate()));
 #endif

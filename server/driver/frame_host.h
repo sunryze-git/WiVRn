@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <string_view>
 
-namespace wyrm
+namespace wivrn
 {
 // The frame shell's PC host services (desktop/, linked in) for one headset connection: monitor video and
 // surfaces, and opaque messages for the shell. Callbacks run on the host's threads until destruction.
@@ -83,4 +83,4 @@ public:
 		frame_host_request_keyframe(host, surface);
 	}
 };
-} // namespace wyrm
+} // namespace wivrn

@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -35,7 +35,7 @@
 #include "util/u_logging.h"
 
 #include "utils/xdg_base_directory.h"
-#include "wyrm_config.h"
+#include "wivrn_config.h"
 
 static auto resolve_path(std::filesystem::path path)
 {
@@ -54,12 +54,12 @@ static std::filesystem::path identity_dir()
 {
 	if (const char * path = std::getenv("FRAME_SHELL_IDENTITY_DIR"))
 		return path;
-	return xdg_config_home() / "wyrm";
+	return xdg_config_home() / "wivrn";
 }
 static std::filesystem::path known_keys_file = resolve_path(identity_dir() / "known_keys.json");
 static std::filesystem::path cookie_file = resolve_path(identity_dir() / "cookie");
 
-namespace wyrm
+namespace wivrn
 {
 NLOHMANN_JSON_SERIALIZE_ENUM(
         video_codec,
@@ -90,7 +90,7 @@ void configuration::set_config_file(const std::filesystem::path & path)
 std::filesystem::path configuration::get_config_file()
 {
 	if (config_file.empty())
-		return resolve_path(xdg_config_home() / "wyrm" / "config.json");
+		return resolve_path(xdg_config_home() / "wivrn" / "config.json");
 	return config_file;
 }
 
@@ -100,12 +100,12 @@ nlohmann::json configuration::read_configuration()
 	{
 		nlohmann::json merged;
 		for (std::filesystem::path prefix: {
-		             std::filesystem::path(WYRM_INSTALL_PREFIX "/share"),
+		             std::filesystem::path(WIVRN_INSTALL_PREFIX "/share"),
 		             std::filesystem::path("/etc"),
 		             xdg_config_home(),
 		     })
 		{
-			auto path = resolve_path(prefix / "wyrm" / "config.json");
+			auto path = resolve_path(prefix / "wivrn" / "config.json");
 			if (std::filesystem::exists(path))
 			{
 				try
@@ -148,7 +148,7 @@ configuration::encoder parse_encoder(const nlohmann::json & item)
 		e.property = item[#property];
 
 	SET_IF(codec);
-	if (e.codec == wyrm::video_codec(-1))
+	if (e.codec == wivrn::video_codec(-1))
 		throw std::runtime_error("invalid codec value " + item["codec"].get<std::string>());
 	SET_IF(options);
 	SET_IF(device);
@@ -457,4 +457,4 @@ void update_last_connection_timestamp(const std::string & key)
 	}
 }
 
-} // namespace wyrm
+} // namespace wivrn

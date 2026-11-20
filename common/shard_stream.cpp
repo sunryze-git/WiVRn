@@ -6,7 +6,7 @@
 #include <limits>
 #include <stdexcept>
 
-namespace wyrm::shards
+namespace wivrn::shards
 {
 std::vector<to_headset::video_shard> sender::frame(uint32_t stream, uint32_t generation, uint64_t frame, std::span<const uint8_t> data, uint8_t fec_percent)
 {
@@ -154,4 +154,4 @@ std::vector<uint16_t> receiver::missing(frame & f, uint8_t max_requests)
 		f.last_request = clock::now();
 	return missing;
 }
-} // namespace wyrm::shards
+} // namespace wivrn::shards

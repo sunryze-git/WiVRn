@@ -1,6 +1,6 @@
 #include "frame_timing.h"
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -19,7 +19,7 @@
  */
 
 #include "pacer.h"
-#include "wyrm_config.h"
+#include "wivrn_config.h"
 
 #include "driver/clock_offset.h"
 
@@ -31,9 +31,9 @@
 #include "util/u_debug.h"
 #include "util/u_logging.h"
 
-DEBUG_GET_ONCE_FLOAT_OPTION(client_margin_ms, "WYRM_CLIENT_MARGIN_MS", 1.f)
+DEBUG_GET_ONCE_FLOAT_OPTION(client_margin_ms, "WIVRN_CLIENT_MARGIN_MS", 1.f)
 
-namespace wyrm
+namespace wivrn
 {
 
 static const int64_t margin_ns = 3'000'000;
@@ -132,7 +132,7 @@ void pacer::predict(
 	        frame_duration_ns);
 
 	out_predicted_display_time_ns = predicted_client_render + mean_render_to_display_ns;
-	if (wyrm::log_prediction_enabled())
+	if (wivrn::log_prediction_enabled())
 	{
 		display_ahead.add(out_predicted_display_time_ns - now);
 		render_ahead.add(predicted_client_render - now);
@@ -188,7 +188,7 @@ void pacer::set_client_margin(float ms)
 	client_margin_ms.val = ms;
 }
 
-void pacer::on_feedback(const wyrm::from_headset::feedback & feedback, const clock_offset & offset)
+void pacer::on_feedback(const wivrn::from_headset::feedback & feedback, const clock_offset & offset)
 {
 	// Frames completed by a resend are late by a round trip: counting them would delay every frame
 	if (feedback.times_displayed > 1 or not feedback.blitted or feedback.resent)
@@ -207,7 +207,7 @@ void pacer::on_feedback(const wyrm::from_headset::feedback & feedback, const clo
 		times.decoded = 0;
 	}
 	times.decoded = std::max(times.decoded, offset.from_headset(feedback.received_from_decoder));
-	if (wyrm::log_prediction_enabled() and feedback.stream_index == 0 and feedback.displayed)
+	if (wivrn::log_prediction_enabled() and feedback.stream_index == 0 and feedback.displayed)
 	{
 		const auto encode_begin = offset.from_headset(feedback.encode_begin);
 		const auto decoded = offset.from_headset(feedback.received_from_decoder);
@@ -297,4 +297,4 @@ void pacer::reset_locked()
 	std::ranges::fill(frame_times_compute, frame_time{});
 	safe_present_to_decoded_ns = 0;
 }
-} // namespace wyrm
+} // namespace wivrn

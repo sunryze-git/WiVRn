@@ -1,6 +1,6 @@
 import QtQuick
 import org.kde.kirigami as Kirigami
-import org.wyrmvr.wyrm
+import io.github.wivrn.wivrn
 
 Kirigami.MenuDialog {
     id: select_usb_device
@@ -34,7 +34,7 @@ Kirigami.MenuDialog {
             property string label
 
             text: label
-            onTriggered: Adb.startUsbConnection(serial, WyrmServer.pin)
+            onTriggered: Adb.startUsbConnection(serial, WivrnServer.pin)
         }
     }
 
@@ -44,7 +44,7 @@ Kirigami.MenuDialog {
 
     function connect() {
         if (select_usb_device.connected_headset_count == 1) {
-            Adb.startUsbConnection(select_usb_device.connected_headset_serial, WyrmServer.pin);
+            Adb.startUsbConnection(select_usb_device.connected_headset_serial, WivrnServer.pin);
         } else {
             select_usb_device.open();
         }
@@ -58,11 +58,11 @@ Kirigami.MenuDialog {
 
         for (var i = 0; i < n; i++) {
             var serial = Adb.data(Adb.index(i, 0), 257);
-            var isWyrmInstalled = Adb.data(Adb.index(i, 0), 258);
+            var isWivrnInstalled = Adb.data(Adb.index(i, 0), 258);
             var manufacturer = Adb.data(Adb.index(i, 0), 259);
             var model = Adb.data(Adb.index(i, 0), 260);
 
-            if (isWyrmInstalled) {
+            if (isWivrnInstalled) {
                 nb_found++;
                 select_usb_device.connected_headset_serial = serial;
 
@@ -77,8 +77,8 @@ Kirigami.MenuDialog {
         if (nb_found != 1)
             select_usb_device.connected_headset_serial = "";
 
-        if (DashboardSettings.auto_connect_usb && nb_found == 1 && !WyrmServer.headsetConnected) {
-            Adb.startUsbConnection(select_usb_device.connected_headset_serial, WyrmServer.pin);
+        if (DashboardSettings.auto_connect_usb && nb_found == 1 && !WivrnServer.headsetConnected) {
+            Adb.startUsbConnection(select_usb_device.connected_headset_serial, WivrnServer.pin);
         }
     }
 }

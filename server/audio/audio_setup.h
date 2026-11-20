@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -22,18 +22,18 @@
 #include <memory>
 #include <string>
 
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 
-namespace wyrm
+namespace wivrn
 {
-class wyrm_session;
+class wivrn_session;
 
 struct audio_device
 {
 	// unpublishes the device
 	virtual ~audio_device() = default;
 
-	virtual void process_mic_data(wyrm::audio_data &&) = 0;
+	virtual void process_mic_data(wivrn::audio_data &&) = 0;
 
 	virtual void pause() = 0;
 	virtual void resume() = 0;
@@ -43,7 +43,7 @@ struct audio_device
 	        const std::string & source_description,
 	        const std::string & sink_name,
 	        const std::string & sink_description,
-	        const wyrm::from_headset::headset_info_packet & info,
-	        wyrm::wyrm_session & session);
+	        const wivrn::from_headset::headset_info_packet & info,
+	        wivrn::wivrn_session & session);
 };
-} // namespace wyrm
+} // namespace wivrn

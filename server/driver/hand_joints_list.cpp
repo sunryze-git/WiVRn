@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  * Copyright (C) 2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
@@ -20,12 +20,12 @@
 #include "hand_joints_list.h"
 #include "math/m_space.h"
 #include "pose_list.h"
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 #include "xrt_cast.h"
 
 static_assert(XRT_HAND_JOINT_COUNT == XR_HAND_JOINT_COUNT_EXT);
 
-namespace wyrm
+namespace wivrn
 {
 
 static xrt_hand_joint_value interpolate(const xrt_hand_joint_value & a, const xrt_hand_joint_value & b, float t)
@@ -44,7 +44,7 @@ xrt_hand_joint_set hand_joints_list::interpolate(const xrt_hand_joint_set & a, c
 	};
 	for (int i = 0; i < XRT_HAND_JOINT_COUNT; i++)
 	{
-		j.values.hand_joint_set_default[i] = ::wyrm::interpolate(a.values.hand_joint_set_default[i], b.values.hand_joint_set_default[i], t);
+		j.values.hand_joint_set_default[i] = ::wivrn::interpolate(a.values.hand_joint_set_default[i], b.values.hand_joint_set_default[i], t);
 	}
 	return j;
 }
@@ -107,4 +107,4 @@ void hand_joints_list::update_tracking(const from_headset::hand_tracking & track
 		        convert_joints(tracking.joints),
 		        offset);
 }
-} // namespace wyrm
+} // namespace wivrn

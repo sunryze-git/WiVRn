@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -39,7 +39,7 @@ std::unique_ptr<QProcess> escape_sandbox(U && executable, Args &&... args_orig)
 			return QString::fromStdString(s);
 	};
 
-	if (wyrm::flatpak_key(wyrm::flatpak::section::session_bus_policy, "org.freedesktop.Flatpak") == "talk")
+	if (wivrn::flatpak_key(wivrn::flatpak::section::session_bus_policy, "org.freedesktop.Flatpak") == "talk")
 	{
 		process->setProgram("flatpak-spawn");
 		args.push_back("--host");

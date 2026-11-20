@@ -1,6 +1,6 @@
 #include <vulkan/vulkan.h>
-namespace wyrm
+namespace wivrn
 {
 void renderdoc_begin(VkInstance);
 void renderdoc_end(VkInstance);
-} // namespace wyrm
+} // namespace wivrn

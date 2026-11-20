@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
@@ -441,7 +441,7 @@ void frame_eyes::tracker::run()
 		std::array<XrVector3f, 2> gaze{};
 		const bool gaze_valid = d->gaze.read(gaze);
 		// Ring 1 is the wearer's left eye
-		wyrm::from_headset::frame_eyes packet{
+		wivrn::from_headset::frame_eyes packet{
 		        .timestamp = d->now() - XrTime(babble::mono_ns() - capture_ns),
 		        .gaze = gaze,
 		        .gaze_valid = gaze_valid,

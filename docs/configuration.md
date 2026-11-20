@@ -2,13 +2,13 @@
 
 Configuration is split between headset and server. Headset contains most configuration, while server has system specific items such as encoders and paths.
 Files are read from
-- `/usr/share/wyrm/config.json` (where `/usr` is selected at configure time with `CMAKE_INSTALL_PREFIX`)
-- `/etc/wyrm/config.json`
-- `$XDG_CONFIG_HOME/wyrm/config.json` or if `$XDG_CONFIG_HOME` is not set, `$HOME/.config/wyrm/config.json`.
+- `/usr/share/wivrn/config.json` (where `/usr` is selected at configure time with `CMAKE_INSTALL_PREFIX`)
+- `/etc/wivrn/config.json`
+- `$XDG_CONFIG_HOME/wivrn/config.json` or if `$XDG_CONFIG_HOME` is not set, `$HOME/.config/wivrn/config.json`.
 
 Files later in the list replace top-level values from previous ones.
 
-If you installed Wyrm from a flatpack, the config is in `$HOME/.var/app/org.wyrmvr.wyrm/config/wyrm/config.json`.
+If you installed Wyrm from a flatpack, the config is in `$HOME/.var/app/io.github.wivrn.wivrn/config/wivrn/config.json`.
 
 All elements are optional and have default values.
 
@@ -58,14 +58,14 @@ Changing a mode no longer makes a reconnect incompatible. The server keeps its
 OpenXR enumeration stable, resets pacing history on rate changes, and applies the
 half-rate switch against the observed physical rate.
 
-SteamVR stores per-application display settings under a different profile for
-Wyrm (`system.generated.openxr.wyrm.wyrm`) than for Wyrm. Existing refresh-rate
-overrides do not carry over. If Frame starts at 72 Hz despite a higher saved
-Wyrm preference, select the desired rate in Frame's SteamVR settings for Wyrm.
+SteamVR stores per-application display settings under the profile
+`system.generated.openxr.wivrn.wivrn`. If Frame
+starts at 72 Hz despite a higher saved Wyrm preference, select the desired rate
+in Frame's SteamVR settings for Wyrm.
 The physical mode takes precedence over Wyrm's saved preference on this device.
 
 These changes address Wyrm's stale mode and pacing paths. They do not establish
-that all jitter reported in [#1173](https://github.com/Wyrm/Wyrm/issues/1173)
+that all jitter reported in [#1173](https://github.com/WiVRn/WiVRn/issues/1173)
 is fixed; that still requires measurement on a Frame and its runtime.
 
 ## Discord Rich Presence
@@ -94,7 +94,7 @@ For a command-line server, set these fields in `config.json`:
 `discord-rich-presence` defaults to `true`, but presence stays inactive until a
 valid application ID is supplied. Set it to `false` to opt out. The dashboard
 applies changes immediately; manually editing the file requires a server restart.
-`WYRM_DISCORD_APPLICATION_ID` overrides the configured ID. `WYRM_DISCORD_IPC_PATH`
+`WIVRN_DISCORD_APPLICATION_ID` overrides the configured ID. `WIVRN_DISCORD_IPC_PATH`
 can select a specific Discord-compatible IPC socket. Native Discord and the
 Discord/Vesktop Flatpak socket locations are searched automatically. Discord
 being absent or restarting never prevents Wyrm from streaming.
@@ -323,28 +323,28 @@ adaptive triggers or the touchpad are not available.
 ## `debug-gui`
 Default value: `false`
 
-Only available when built with `WYRM_FEATURE_DEBUG_GUI`.
+Only available when built with `WIVRN_FEATURE_DEBUG_GUI`.
 
 Enables the Monado debug gui.
 
 ## `use-steamvr-lh`
 Default value: `false`
 
-Only available when built with `WYRM_FEATURE_STEAMVR_LIGHTHOUSE`.
+Only available when built with `WIVRN_FEATURE_STEAMVR_LIGHTHOUSE`.
 
 Enables the driver to load SteamVR Lighthouse devices.
 
 ## `lh-max-extrapolation`
 Default value: unset
 
-Only available when built with `WYRM_FEATURE_STEAMVR_LIGHTHOUSE`.
+Only available when built with `WIVRN_FEATURE_STEAMVR_LIGHTHOUSE`.
 
 Maximum time in milliseconds that poses may be extrapolated ahead for SteamVR Lighthouse devices.
 
 ## `lh-stick-deadzone`
 Default value: `0`
 
-Only available when built with `WYRM_FEATURE_STEAMVR_LIGHTHOUSE`
+Only available when built with `WIVRN_FEATURE_STEAMVR_LIGHTHOUSE`
 
 Applies a deadzone to joysticks on SteamVR controllers (e.g. Index).
 

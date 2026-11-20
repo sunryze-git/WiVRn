@@ -11,7 +11,7 @@
 #include <string_view>
 #include <thread>
 
-using namespace wyrm;
+using namespace wivrn;
 using namespace std::chrono_literals;
 using bench_clock = std::chrono::steady_clock;
 

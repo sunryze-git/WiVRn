@@ -1,5 +1,5 @@
 /*
- * Wyrm VR streaming
+ * WiVRn VR streaming
  * Copyright (C) 2025  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,14 +18,14 @@
 
 #pragma once
 
-#include "wyrm_packets.h"
+#include "wivrn_packets.h"
 
 #include <chrono>
 #include <cstdint>
 #include <mutex>
 #include <variant>
 
-namespace wyrm
+namespace wivrn
 {
 
 class idr_handler
@@ -71,4 +71,4 @@ public:
 	bool is_non_ref_frame(uint64_t frame_index);
 	frame_type get_type(uint64_t frame_index, uint8_t stream_idx);
 };
-} // namespace wyrm
+} // namespace wivrn
