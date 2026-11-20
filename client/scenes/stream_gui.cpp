@@ -29,14 +29,18 @@
 #include "implot.h"
 #ifndef __ANDROID__
 #include "linux/frame_shell.h"
+#include "network_interface.h"
 #endif
 #include "render/ui_theme.h"
 #include "render/ui_widgets.h"
 #include "utils/i18n.h"
 #include "utils/ranges.h"
 #include <IconsFontAwesome7.h>
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
+#include <functional>
 #include <glm/ext.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/matrix_access.hpp>
@@ -166,7 +170,6 @@ void scenes::stream::accumulate_metrics(XrTime predicted_display_time, const std
 	}
 
 #ifndef __ANDROID__
-	if (frame_shell::enabled())
 	{
 		auto & window = shell_stats_acc;
 		const auto & latest = global_metrics[metrics_offset];
@@ -255,31 +258,55 @@ void scenes::stream::accumulate_metrics(XrTime predicted_display_time, const std
 		else if (predicted_display_time - window.start >= 1'000'000'000)
 		{
 			const double seconds = (predicted_display_time - window.start) * 1e-9;
-			const auto average = [](double sum, int count) { return count ? sum / count : 0.0; };
-			std::string latency = "null";
+			const auto average = [](double sum, int count) { return float(count ? sum / count : 0.0); };
+			live_stats stats{
+			        .time = std::chrono::steady_clock::now(),
+			        .fps = float(window.frames / seconds),
+			        .cpu_ms = average(window.cpu, window.frames) * 1e3f,
+			        .gpu_ms = average(window.gpu, window.frames) * 1e3f,
+			        .rx_mbit = latest.bandwidth_rx * 1e-6f,
+			        .tx_mbit = latest.bandwidth_tx * 1e-6f,
+			        .partial = window.partial,
+			        .fec_recovered = window.fec_recovered,
+			        .resent = window.resent,
+			};
 			if (window.timed)
-				latency = fmt::format(R"({{"encode":{:.1f},"send":{:.1f},"network":{:.1f},"decode":{:.1f},"wait":{:.1f},"display":{:.1f}}})",
-				                      average(window.encode, window.timed),
-				                      average(window.send, window.timed),
-				                      average(window.network, window.timed),
-				                      average(window.decode, window.timed),
-				                      average(window.wait, window.timed),
-				                      average(window.display, window.timed));
-			auto json = fmt::format(R"({{"fps":{:.1f},"cpu_ms":{:.1f},"gpu_ms":{:.1f},"rx_mbit":{:.1f},"tx_mbit":{:.1f},"latency_ms":{},"partial":{},"fec_recovered":{},"resent":{}}})",
-			                        window.frames / seconds,
-			                        average(window.cpu, window.frames) * 1e3,
-			                        average(window.gpu, window.frames) * 1e3,
-			                        latest.bandwidth_rx * 1e-6,
-			                        latest.bandwidth_tx * 1e-6,
-			                        latency,
-			                        window.partial,
-			                        window.fec_recovered,
-			                        window.resent);
+				stats.latency_ms = std::array{
+				        average(window.encode, window.timed),
+				        average(window.send, window.timed),
+				        average(window.network, window.timed),
+				        average(window.decode, window.timed),
+				        average(window.wait, window.timed),
+				        average(window.display, window.timed),
+				};
 			window = {};
 			window.start = predicted_display_time;
-			std::scoped_lock lock(shell_stats_mutex);
-			shell_stats = std::move(json);
-			shell_stats_time = std::chrono::steady_clock::now();
+			if (frame_shell::enabled())
+			{
+				std::string latency = "null";
+				if (const auto & l = stats.latency_ms)
+					latency = fmt::format(R"({{"encode":{:.1f},"send":{:.1f},"network":{:.1f},"decode":{:.1f},"wait":{:.1f},"display":{:.1f}}})",
+					                      (*l)[0],
+					                      (*l)[1],
+					                      (*l)[2],
+					                      (*l)[3],
+					                      (*l)[4],
+					                      (*l)[5]);
+				auto json = fmt::format(R"({{"fps":{:.1f},"cpu_ms":{:.1f},"gpu_ms":{:.1f},"rx_mbit":{:.1f},"tx_mbit":{:.1f},"latency_ms":{},"partial":{},"fec_recovered":{},"resent":{}}})",
+				                        stats.fps,
+				                        stats.cpu_ms,
+				                        stats.gpu_ms,
+				                        stats.rx_mbit,
+				                        stats.tx_mbit,
+				                        latency,
+				                        stats.partial,
+				                        stats.fec_recovered,
+				                        stats.resent);
+				std::scoped_lock lock(shell_stats_mutex);
+				shell_stats = std::move(json);
+				shell_stats_time = stats.time;
+			}
+			last_live_stats = stats;
 		}
 	}
 #endif
@@ -482,6 +509,136 @@ void scenes::stream::gui_performance_metrics()
 			ImGui::Text("%s", _S("Press both thumbsticks to display the Wyrm window"));
 	}
 }
+
+#ifndef __ANDROID__
+// The second's numbers, where a frame's latency goes, and the network links
+void scenes::stream::gui_live_stats()
+{
+	const wivrn::ui::theme & t = wivrn::ui::current();
+	const auto muted_text = [&](const std::string & text) {
+		ImGui::PushStyleColor(ImGuiCol_Text, t.text_muted);
+		ImGui::TextWrapped("%s", text.c_str());
+		ImGui::PopStyleColor();
+	};
+
+	wivrn::ui::begin_card("##live_stats");
+	if (not last_live_stats or std::chrono::steady_clock::now() - last_live_stats->time > std::chrono::seconds(3))
+	{
+		muted_text(_("Waiting for statistics."));
+		wivrn::ui::end_card();
+		return;
+	}
+	const auto & stats = *last_live_stats;
+	const float latency = stats.latency_ms ? std::ranges::fold_left(*stats.latency_ms, 0.f, std::plus{}) : 0;
+
+	if (ImGui::BeginTable("##numbers", 3, ImGuiTableFlags_SizingStretchSame))
+	{
+		const auto number = [&](const std::string & value, const std::string & caption) {
+			ImGui::TableNextColumn();
+			ImGui::PushFont(nullptr, ImGui::GetStyle().FontSizeBase * 2);
+			ImGui::TextUnformatted(value.c_str());
+			ImGui::PopFont();
+			muted_text(caption);
+		};
+		number(fmt::format("{:.0f}", stats.fps), _("frames per second"));
+		number(latency > 0 ? fmt::format("{:.0f} ms", latency) : "--", _("latency"));
+		number(fmt::format("{:.0f} Mbit/s", stats.rx_mbit), _("video from the PC"));
+		ImGui::EndTable();
+	}
+
+	if (latency > 0)
+	{
+		// A frame's stages in order: send includes waiting for the pacer, decode waiting for the decoder, wait the time
+		// until a headset frame takes the picture, display the time from that frame to the predicted display time
+		const std::array names{_("encode"), _("send"), _("network"), _("decode"), _("wait"), _("display")};
+		ImVec4 network_color;
+		{
+			float h, s, v;
+			ImGui::ColorConvertRGBtoHSV(t.accent.x, t.accent.y, t.accent.z, h, s, v);
+			ImGui::ColorConvertHSVtoRGB(std::fmod(h + 1.f / 3, 1.f), s, v, network_color.x, network_color.y, network_color.z);
+			network_color.w = t.accent.w;
+		}
+		const std::array colors{t.col(t.accent), t.col(t.warning), t.col(network_color), t.col(t.success), t.col(t.text_muted), t.col(t.border)};
+
+		// Every segment keeps a sliver, so the bar always shows each color of its legend
+		std::array<float, 6> shares;
+		for (auto && [share, ms]: std::views::zip(shares, *stats.latency_ms))
+			share = std::max(ms / latency, 0.02f);
+		const float share_sum = std::ranges::fold_left(shares, 0.f, std::plus{});
+
+		const float gap = 2;
+		const float height = ImGui::GetFontSize() * 0.5f;
+		const float width = ImGui::GetContentRegionAvail().x;
+		ImVec2 pos = ImGui::GetCursorScreenPos();
+		ImDrawList * draw = ImGui::GetWindowDrawList();
+		for (auto && [share, color]: std::views::zip(shares, colors))
+		{
+			const float w = share / share_sum * (width - gap * (shares.size() - 1));
+			draw->AddRectFilled(pos, {pos.x + w, pos.y + height}, color, 3);
+			pos.x += w + gap;
+		}
+		ImGui::Dummy({width, height});
+
+		const float swatch = ImGui::GetFontSize() * 0.6f;
+		const float spacing = ImGui::GetStyle().ItemSpacing.x * 2;
+		const float right = ImGui::GetCursorScreenPos().x + width;
+		for (size_t i = 0; i < names.size(); ++i)
+		{
+			const std::string label = fmt::format("{} {:.0f} ms", names[i], (*stats.latency_ms)[i]);
+			const float item_width = swatch + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize(label.c_str()).x;
+			if (i > 0 and ImGui::GetItemRectMax().x + spacing + item_width < right)
+				ImGui::SameLine(0, spacing);
+			ImGui::AlignTextToFramePadding();
+			const ImVec2 at = ImGui::GetCursorScreenPos();
+			const float y = at.y + (ImGui::GetFrameHeight() - swatch) / 2;
+			draw->AddRectFilled({at.x, y}, {at.x + swatch, y + swatch}, colors[i], 3);
+			ImGui::Dummy({swatch, ImGui::GetFrameHeight()});
+			ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
+			ImGui::PushStyleColor(ImGuiCol_Text, t.text_muted);
+			ImGui::TextUnformatted(label.c_str());
+			ImGui::PopStyleColor();
+		}
+	}
+
+	muted_text(fmt::format(_F("CPU {:.1f} ms and GPU {:.1f} ms per frame · upload {:.1f} Mbit/s · damaged frames {}, repaired {}, resent {}"),
+	                       stats.cpu_ms,
+	                       stats.gpu_ms,
+	                       stats.tx_mbit,
+	                       stats.partial,
+	                       stats.fec_recovered,
+	                       stats.resent));
+	wivrn::ui::end_card();
+
+	const auto links = interface_links(network_session->links());
+	if (links.empty())
+		return;
+	// A link's jitter or loss above these makes it unsteady for streaming
+	const double unsteady_jitter_ms = 5;
+	const double unsteady_loss = 0.01;
+	wivrn::ui::begin_card("##links");
+	ImGui::PushFont(nullptr, ImGui::GetStyle().FontSizeBase * 1.2f);
+	ImGui::TextUnformatted(_S("Network links"));
+	ImGui::PopFont();
+	for (const auto & link: links)
+	{
+		const bool unsteady = link.jitter_ms >= unsteady_jitter_ms or link.loss >= unsteady_loss;
+		const std::string state = std::string(link.active ? _("in use") : _("standby")) + (unsteady ? std::string(" · ") + _("unsteady") : "");
+		const float row_right = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
+		ImGui::TextUnformatted(wivrn::interface_display_name(link.name).c_str());
+		ImGui::SameLine();
+		ImGui::SetCursorPosX(row_right - ImGui::CalcTextSize(state.c_str()).x);
+		ImGui::PushStyleColor(ImGuiCol_Text, unsteady ? t.warning : t.text_muted);
+		ImGui::TextUnformatted(state.c_str());
+		ImGui::PopStyleColor();
+		muted_text(fmt::format(_F("{:.0f} ms delay · {:.1f} ms jitter · {:.1f}% loss · {:.0f} Mbit/s"),
+		                       link.rtt_ms,
+		                       link.jitter_ms,
+		                       link.loss * 100,
+		                       link.received_bps * 1e-6));
+	}
+	wivrn::ui::end_card();
+}
+#endif
 
 void scenes::stream::gui_compact_view()
 {
@@ -987,7 +1144,12 @@ void scenes::stream::draw_gui(XrTime predicted_display_time, XrDuration predicte
 		case stream_tab::overlay_only:
 			ImGui::SetCursorPos({20, 20});
 			ImGui::BeginChild("Main", ImVec2(ImGui::GetWindowSize().x - ImGui::GetCursorPosX(), 0));
+#ifndef __ANDROID__
+			gui_live_stats();
+#endif
+			ImGui::BeginChild("plots", {0, 0});
 			gui_performance_metrics();
+			ImGui::EndChild();
 			ImGui::EndChild();
 			break;
 
@@ -1001,9 +1163,16 @@ void scenes::stream::draw_gui(XrTime predicted_display_time, XrDuration predicte
 			ImGui::BeginChild("Main", ImVec2(ImGui::GetWindowSize().x - ImGui::GetCursorPosX() - content_margin, 0));
 			ImGui::SetCursorPosY(20);
 			wivrn::ui::page_header(_S("Statistics"), _S("Live streaming performance."));
-			ImGui::BeginChild("plots", {0, 0});
-			gui_performance_metrics();
-			ImGui::EndChild();
+#ifndef __ANDROID__
+			gui_live_stats();
+			// The graphs size themselves to their child, which must not be taller than the page
+			if (ImGui::CollapsingHeader(_S("Timeline graphs")))
+#endif
+			{
+				ImGui::BeginChild("plots", {0, ImGui::GetWindowHeight() - 2 * ImGui::GetStyle().WindowPadding.y});
+				gui_performance_metrics();
+				ImGui::EndChild();
+			}
 			ImGui::EndChild();
 			ImGui::PopStyleVar();
 			break;

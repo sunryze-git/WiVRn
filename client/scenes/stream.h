@@ -43,6 +43,7 @@
 #if WIVRN_FRAME_EYES
 #include "frame_eyes/tracker.h"
 #endif
+#include <array>
 #include <atomic>
 #include <fstream>
 #include <chrono>
@@ -399,6 +400,36 @@ public:
 		int resent = 0;
 	} shell_stats_acc;
 	std::vector<uint64_t> shell_stats_last_frame;
+	// The last complete second of shell_stats_acc, for the statistics page (render thread)
+	struct live_stats
+	{
+		std::chrono::steady_clock::time_point time;
+		float fps = 0;
+		float cpu_ms = 0;
+		float gpu_ms = 0;
+		float rx_mbit = 0;
+		float tx_mbit = 0;
+		// Encode, send, network, decode, wait and display, in milliseconds; unset while no frame was timed
+		std::optional<std::array<float, 6>> latency_ms;
+		int partial = 0;
+		int fec_recovered = 0;
+		int resent = 0;
+	};
+	std::optional<live_stats> last_live_stats;
+	// One row per network interface; the multi-link paths are its address pairs
+	struct interface_link
+	{
+		std::string name;
+		double rtt_ms = 0;
+		double jitter_ms = 0;
+		double loss = 0;
+		double capacity_bps = 0;
+		double received_bps = 0;
+		double sent_bps = 0;
+		bool active = false;
+	};
+	static std::vector<interface_link> interface_links(const std::vector<link_statistics> & paths);
+	void gui_live_stats();
 	// Diagnostics, off by default: a request file starts a capture of every frame's timings (see poll_shell)
 	std::mutex shell_capture_mutex;
 	std::ofstream shell_capture;

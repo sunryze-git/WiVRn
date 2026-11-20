@@ -468,6 +468,32 @@ static bool is_stream_command(std::string_view command)
 	return command == "disconnect" or command.starts_with("present ") or command.starts_with("start_app ") or command.starts_with("set_active_app ") or command.starts_with("stop_app ") or command.starts_with("eye_calibrate ");
 }
 
+std::vector<scenes::stream::interface_link> scenes::stream::interface_links(const std::vector<link_statistics> & paths)
+{
+	// Paths never validated have no measurements
+	std::vector<interface_link> interfaces;
+	for (const auto & link: paths)
+	{
+		if (not link.active and not link.ever_active and link.rtt_ms <= 0)
+			continue;
+		auto it = std::ranges::find(interfaces, link.local.interface, &interface_link::name);
+		if (it == interfaces.end())
+			it = interfaces.insert(interfaces.end(), interface_link{.name = link.local.interface});
+		if (link.rtt_ms > 0 and (it->rtt_ms <= 0 or link.rtt_ms < it->rtt_ms))
+		{
+			it->rtt_ms = link.rtt_ms;
+			it->jitter_ms = link.jitter_ms;
+			it->loss = link.loss;
+		}
+		it->capacity_bps = std::max(it->capacity_bps, double(link.capacity_bps));
+		it->received_bps += double(link.received_bps);
+		it->sent_bps += double(link.sent_bps);
+		it->active |= link.active;
+	}
+	std::ranges::stable_sort(interfaces, std::greater<>{}, &interface_link::active);
+	return interfaces;
+}
+
 bool scenes::stream::resolution_locked()
 {
 	// A running app keeps the render size it started with
@@ -682,39 +708,7 @@ void scenes::stream::poll_shell()
 			}
 		}
 
-		// One entry per interface: the paths are its address pairs (IPv4 and IPv6, each PC address), and
-		// the ones never validated have no measurements
-		struct interface_link
-		{
-			std::string name;
-			double rtt_ms = 0;
-			double jitter_ms = 0;
-			double loss = 0;
-			double capacity_bps = 0;
-			double received_bps = 0;
-			double sent_bps = 0;
-			bool active = false;
-		};
-		std::vector<interface_link> interfaces;
-		for (const auto & link: paths)
-		{
-			if (not link.active and not link.ever_active and link.rtt_ms <= 0)
-				continue;
-			auto it = std::ranges::find(interfaces, link.local.interface, &interface_link::name);
-			if (it == interfaces.end())
-				it = interfaces.insert(interfaces.end(), interface_link{.name = link.local.interface});
-			if (link.rtt_ms > 0 and (it->rtt_ms <= 0 or link.rtt_ms < it->rtt_ms))
-			{
-				it->rtt_ms = link.rtt_ms;
-				it->jitter_ms = link.jitter_ms;
-				it->loss = link.loss;
-			}
-			it->capacity_bps = std::max(it->capacity_bps, double(link.capacity_bps));
-			it->received_bps += double(link.received_bps);
-			it->sent_bps += double(link.sent_bps);
-			it->active |= link.active;
-		}
-		std::ranges::stable_sort(interfaces, std::greater<>{}, &interface_link::active);
+		const auto interfaces = interface_links(paths);
 		std::string links = "[";
 		for (const auto & link: interfaces)
 		{
